@@ -15,6 +15,7 @@
 <style>
 :root{--bg:#0b1020;--panel:#121a30;--panel2:#18223d;--line:#26335a;--txt:#e6ebf7;--mut:#8f9bbd;--acc:#f5a623;--urg:#ff5d5d;--imp:#ffb347;--eco:#4fd18b;--inf:#5aa9ff;--lf:#c38bff;--def:#ff8fb1}
 *{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 html{background:var(--bg)}body{margin:0;min-height:100vh;background-repeat:no-repeat;background:radial-gradient(1200px 600px at 70% -10%,#1b2b5a 0,transparent 60%),var(--bg);color:var(--txt);font:15px/1.5 Inter,system-ui,sans-serif}
 .wrap{max-width:1100px;margin:0 auto;padding:20px 16px 60px}
 h1,h2,h3{font-family:Rajdhani,Inter,sans-serif;letter-spacing:.02em;margin:0}
@@ -77,6 +78,11 @@ table.t td,table.t th{padding:5px 6px;border-bottom:1px solid var(--line);text-a
 table.t td:first-child,table.t th:first-child{text-align:left}
 table.t th{color:var(--mut);font-weight:500}
 .hidden{display:none}
+.tgc{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:10px;font-size:13px}
+.tgc .hd{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+.tgc .hd b{font-size:15px}.tgc .grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:8px 0}
+.tgc .grid3 div{background:#0e1529;border-radius:6px;padding:5px 7px}.tgc .grid3 span{display:block;color:var(--mut);font-size:11px}
+.tgc .fl{margin:6px 0}.tgc .btns{display:flex;gap:6px;justify-content:flex-end}
 .pstat b.red{color:var(--urg)}.pstat{display:flex;flex-wrap:wrap;gap:4px 14px;padding:8px 14px;font-size:12px;color:var(--mut);border-bottom:1px solid var(--line)}.pstat b{color:var(--txt)}
 .lv3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;padding:10px 14px;font-size:12px}
 .lvh{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--acc);margin-bottom:4px;font-weight:600}
@@ -1038,7 +1044,7 @@ if (typeof module !== 'undefined') module.exports = CB;
 
 </script>
 <script>
-const APP_VERSION="202611160714";
+const APP_VERSION="202611160717";
 async function checkVersion(){
   if (location.protocol === 'file:') return;
   try { const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' }); if (!r.ok) return; const j = await r.json();
@@ -1480,6 +1486,18 @@ function renderTargets(){
   rows.sort((a, b) => ((b.e.ok ? 2 : b.e.unknown ? 1 : 0) - (a.e.ok ? 2 : a.e.unknown ? 1 : 0)) || (b.e.perH || 0) - (a.e.perH || 0));
   const f = OG.fmt, now = Date.now();
   const age = at => { const m = Math.round((now - at) / 60000); return m < 60 ? m + ' min' : m < 2880 ? Math.round(m / 60) + ' h' : Math.round(m / 1440) + ' j'; };
+  if (window.innerWidth < 760) {
+    $('tgOut').innerHTML = rows.map(({ tg, e }, i) => {
+      const old = now - tg.at > 3600000; const act = e.r.activity != null ? ` · activité ${e.r.activity} min` : '';
+      const head = `<div class="hd"><div><b>${esc(e.r.player || '?')}</b> <span class="note">[${esc(e.r.coords)}]${e.r.isMoon ? ' lune' : ''}</span><br><span class="${old ? 'warnc' : 'note'}" style="font-size:11px">rapport il y a ${age(tg.at)}${act}</span></div>
+        <div class="btns">${e.unknown ? '' : `<button class="ghost" style="padding:4px 8px;font-size:12px" data-sim="${i}">Simuler</button>`}<button class="ghost" style="padding:4px 8px;font-size:12px" data-del="${esc(tg.key)}" aria-label="Supprimer">✕</button></div></div>`;
+      if (e.unknown) return `<div class="tgc">${head}<div class="grid3"><div><span>Butin</span>${f(e.lootWant)}</div><div><span>Défense</span><b class="warnc">${e.r.defKnown ? (e.defVal ? f(e.defVal) : 'aucune') : 'non visible'}</b></div><div><span>Résumé</span>${e.r.summary && e.r.summary.def ? '≈ ' + f(e.r.summary.def) : '–'}</div></div><div class="warnc" style="font-size:12.5px"><b>À resonder.</b> ${esc(e.warn)}</div></div>`;
+      return `<div class="tgc">${head}
+        <div class="fl">${e.ok ? '' : '<span class="red">Trop défendue pour ta flotte. Meilleur essai : </span>'}<b>${esc(fleetTxt(e.ch.units))}</b>${e.ok && e.lcShort ? `<br><span class="warnc" style="font-size:12px">manque ${e.lcShort} GT pour tout le butin</span>` : ''}</div>
+        <div class="grid3"><div><span>Butin</span>${f(e.lootWant)}</div><div><span>Défense</span>${e.defVal ? f(e.defVal) : '<span class="ok">aucune</span>'}</div><div><span>Vol A/R</span>${fmtDur(e.round)} · ${f(e.fuel)} D</div>
+        <div><span>Victoire</span><b class="${e.ok ? 'ok' : 'red'}">${Math.round(e.ch.win * 100)} %</b>${e.ch.loss > 0 ? ` · pertes ${f(e.ch.loss)}` : ''}</div><div><span>Gain net</span><b class="${e.gain >= 0 ? 'ok' : 'red'}">${e.gain >= 0 ? '+' : ''}${f(e.gain)}</b></div><div><span>Gain / h</span>${e.ok ? f(e.perH) : '–'}</div></div></div>`;
+    }).join('');
+  } else
   $('tgOut').innerHTML = `<div class="panel" style="padding:0;overflow-x:auto"><table class="mx" style="font-size:12.5px"><thead><tr><th style="text-align:left">Cible</th><th>Butin</th><th>Défense</th><th style="text-align:left">Flotte à envoyer</th><th>Vol A/R</th><th>Victoire</th><th>Gain net</th><th>Gain / h</th><th></th></tr></thead><tbody>${rows.map(({ tg, e }, i) => {
     const old = now - tg.at > 3600000; const act = e.r.activity != null ? `activité ${e.r.activity} min` : '';
     if (e.unknown) return `<tr><td style="text-align:left;color:var(--txt)"><b>${esc(e.r.player || '?')}</b> <span class="note">[${esc(e.r.coords)}]${e.r.isMoon ? ' lune' : ''}</span><br><span class="${old ? 'warnc' : 'note'}" style="font-size:11px">rapport il y a ${age(tg.at)}${act ? ' · ' + act : ''}</span></td>
@@ -1711,6 +1729,7 @@ function init(){
   $('tgPaste').onclick = async () => { try { const s = await navigator.clipboard.readText(); tgAdd(s); } catch(e){ $('tgIn').focus(); $('tgMsg').textContent = 'Collage automatique refusé : colle dans la case puis « Ajouter ».'; } };
   $('tgClear').onclick = () => { TG.list = []; tgSave(); renderTargets(); };
   ['tgFrom','tgMinWin','tgDebris'].forEach(id => $(id).addEventListener('change', renderTargets));
+  let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { if (location.hash === '#cibles') renderTargets(); }, 300); });
   ['exTop1','exFrom','exMult','exSlots'].forEach(id => $(id).addEventListener('change', () => { store.set('og_exp', JSON.stringify({ top1: $('exTop1').value, mult: $('exMult').value, slots: $('exSlots').value })); renderExpe(); }));
   try { const ex = JSON.parse(store.get('og_exp') || 'null'); if (ex) { $('exTop1').value = ex.top1 || ''; $('exMult').value = ex.mult || 1; $('exSlots').value = ex.slots || ''; } } catch(e){}
   hiLoad();
