@@ -29,6 +29,15 @@ grands transporteurs disponibles, durée du vol (vitesse des flottes
 pacifiques du serveur) et deutérium. Le transport n'est proposé que s'il
 est plus rapide que d'attendre la production.
 
+## Onglet Plan
+
+Simulation sur 1, 3 ou 7 jours, planète par planète : attente des
+ressources, construction (durée selon l'usine de robots, les nanites et la
+vitesse de l'univers), puis recalcul de la production. Mêmes règles de
+choix que l'onglet Planètes (énergie, hangars, mine la plus rentable).
+Affiche l'heure de lancement de chaque construction, regroupée par jour,
+et la production attendue en fin de période.
+
 ## Onglet Combat
 
 On colle un rapport d'espionnage (texte copié depuis OGame). Le lecteur

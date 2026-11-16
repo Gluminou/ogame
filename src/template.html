@@ -105,7 +105,7 @@ details.howto ol{margin:6px 0 6px;padding-left:22px}details.howto li{margin:4px 
   <h1>OGame <span>·</span> Conseiller de construction</h1>
   <p class="sub">Colle ton export de planètes : l'outil calcule production, énergie, stockage et rentabilité, et te dit quoi construire ensuite sur chaque planète.</p>
 
-  <nav class="tabs" style="flex-wrap:wrap"><a href="#vue" id="tab-vue">Vue générale</a><a href="#planetes" id="tab-planetes">Planètes</a><a href="#combat" id="tab-combat">Combat</a><a href="#export" id="tab-export">Export auto</a></nav>
+  <nav class="tabs" style="flex-wrap:wrap"><a href="#vue" id="tab-vue">Vue générale</a><a href="#planetes" id="tab-planetes">Planètes</a><a href="#plan" id="tab-plan">Plan</a><a href="#combat" id="tab-combat">Combat</a><a href="#export" id="tab-export">Export auto</a></nav>
   <section id="view-planetes">
   <details class="panel" id="inputPanel">
     <summary>Mes données (export texte)</summary>
@@ -148,6 +148,16 @@ details.howto ol{margin:6px 0 6px;padding-left:22px}details.howto li{margin:4px 
   <div class="grid" id="planets"></div>
 
   <p class="note" style="margin-top:24px" id="plannerNote">Calculs basés sur les formules standard d'OGame (mines, centrales, hangars, plasma, bonus de position et de classe). Parmi les recherches de formes de vie, seuls les Extracteurs à haute performance sont comptés dans la production (et, pour les bâtiments, Fusion à haute énergie, Extraction par fusion, Fusion magmatique, Raffinerie de cristaux et Synthétiseur de deutérium Rock'tal) ; les objets, officiers non cochés et événements ne le sont pas. « Amorti en » = temps pour que le gain de production rembourse le coût, au taux d'échange choisi. Les temps de remplissage partent de hangars vides.</p>
+  </section>
+
+  <section id="view-plan" class="hidden">
+    <div class="panel" style="display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between">
+      <div><h2>Plan de construction</h2><p class="note" style="margin:4px 0 0">Simulation planète par planète : l'application attend d'avoir les ressources, lance la meilleure construction, tient compte de sa durée, puis recalcule la production.</p></div>
+      <label class="note">Horizon <select id="planDays"><option value="1">1 jour</option><option value="3" selected>3 jours</option><option value="7">7 jours</option></select></label>
+    </div>
+    <div id="planSummary"></div>
+    <div class="grid" id="planOut"></div>
+    <p class="note">Hypothèses : une construction à la fois par planète, avec le stock de l'export comme point de départ. Les transports, recherches, bâtiments de formes de vie, défenses et vaisseaux ne sont pas pris en compte : ils décalent le plan, qui se recale à chaque nouvel export. Les choix suivent ton taux d'échange (onglet Planètes, « Mes données »).</p>
   </section>
 
   <section id="view-vue" class="hidden">
@@ -330,7 +340,7 @@ const store = { get(k){ try { return localStorage.getItem(k); } catch(e){ return
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const TAGS = { urgent:'Urgent', important:'Important', eco:'Production', infra:'Infrastructure', lf:'Formes de vie', def:'Défense', res:'Recherche' };
 
-function settings(){ return { speed:+$("speed").value||8, fillHours:+$('fill').value||24, ratioC:+$('rc').value||1.5, ratioD:+$('rd').value||3, collector:$('col').checked, geologist:$('geo').checked, engineer:$('eng').checked }; }
+function settings(){ return { speed:+$("speed").value||8, fillHours:+$('fill').value||24, ratioC:+$('rc').value||1.5, ratioD:+$('rd').value||3, collector:$('col').checked, geologist:$('geo').checked, engineer:$('eng').checked, planDays:+$('planDays').value||3 }; }
 
 function recLi(r, tag){
   return `<li><span class="tag ${tag||r.type}">${TAGS[tag||r.type]}</span><span class="t">${esc(r.title)}</span>
@@ -368,6 +378,7 @@ function run(){
   showStamp(res.exportedAt);
   $('planets').innerHTML = res.planets.map(x => planetCard(x, S)).join('');
   renderVue(res);
+  renderPlan(res);
   $('inputPanel').open = false;
 }
 
@@ -444,6 +455,30 @@ function renderVue(res){
   rows += grp('Formes de vie') + LFS.map(([label, idx]) => line(label, P.map(x => { const rock = isRock(x.p.b); const arr = rock ? LF_ROCK : LF_HUM; const i = Array.isArray(idx) ? idx[rock ? 1 : 0] : idx; const [, full, k] = arr[i]; return cell(x, full, k); }))).join('');
   rows += grp('Installations') + INST_ROWS.filter(([, , k]) => P.some(x => (x.p.b[k] || 0) > 0) || ['robots','shipyard','lab'].includes(k)).map(([, full, k]) => line(full, P.map(x => cell(x, full, k)))).join('');
   $('vueTable').innerHTML = head + `<tbody>${rows}</tbody>`;
+}
+
+function renderPlan(res){
+  const f = OG.fmt, now = Date.now(), PL = res.plan || [];
+  const dayKey = d => d.toDateString();
+  const today = new Date(now), tomorrow = new Date(now + 86400000);
+  const dayLabel = d => dayKey(d) === dayKey(today) ? "Aujourd'hui" : dayKey(d) === dayKey(tomorrow) ? 'Demain' : d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'short' });
+  const hm = d => d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  const pct = (a, b) => a > 0 ? Math.round((b / a - 1) * 100) : 0;
+  let t0 = [0, 0, 0], t1 = [0, 0, 0];
+  PL.forEach(x => { ['m','c','d'].forEach((k, i) => { t0[i] += x.before[k]; t1[i] += x.after[k]; }); });
+  const days = settings().planDays;
+  $('planSummary').innerHTML = PL.length ? `<div class="kpis" style="margin-bottom:16px">${['Métal','Cristal','Deutérium'].map((n, i) => `<div class="kpi"><small>${n} dans ${days} j</small><b>${f(t1[i])}/h</b><small>aujourd'hui ${f(t0[i])}/h · <span class="${t1[i] >= t0[i] ? 'ok' : 'red'}">${pct(t0[i], t1[i]) >= 0 ? '+' : ''}${pct(t0[i], t1[i])} %</span></small></div>`).join('')}</div>` + (PL.some(x => !x.hasStock) ? '<div class="warn" style="margin-bottom:16px">Ton export ne contient pas ton stock : le plan part de hangars vides, donc les premières constructions arrivent plus tard qu\'en réalité. Utilise le nouveau favori Export OGame.</div>' : '') : '';
+  $('planOut').innerHTML = PL.map(x => {
+    const groups = {}; const order = [];
+    x.steps.forEach(s => { if (s.blocked) return; const d = new Date(now + s.start * 3600000); const k = dayKey(d); if (!groups[k]) { groups[k] = { label: dayLabel(d), items: [] }; order.push(k); } groups[k].items.push({ s, d }); });
+    const block = x.steps.find(s => s.blocked);
+    const body = order.map((k, gi) => `<details class="howto" ${gi === 0 ? 'open' : ''} style="margin:8px 0"><summary>${esc(groups[k].label)} <span class="note">· ${groups[k].items.length} construction${groups[k].items.length > 1 ? 's' : ''}</span></summary>
+      <ol class="top3" style="padding:4px 0 0">${groups[k].items.map(({ s, d }) => `<li style="display:flex;gap:10px;align-items:baseline;padding:6px 0;border-top:1px solid var(--line)"><span class="cc" style="width:44px;flex:none">${hm(d)}</span><span class="tt">${esc(s.name)}</span><span class="note" style="white-space:nowrap">${esc(OG.fmtCost(s.cost))} · ${fmtDur(s.end - s.start)}</span></li>`).join('')}</ol></details>`).join('')
+      || '<p class="note" style="padding:0 14px">Rien de faisable sur cette période.</p>';
+    return `<article class="card"><header><h3>${esc(x.planet.name)}</h3><small>${x.steps.filter(s => !s.blocked).length} constructions</small></header>
+      <div class="pstat"><span>Production/h aujourd'hui <b>${f(x.before.m)}</b> M · <b>${f(x.before.c)}</b> C · <b>${f(x.before.d)}</b> D</span><span>dans ${days} j <b class="ok">${f(x.after.m)}</b> M · <b>${f(x.after.c)}</b> C · <b>${f(x.after.d)}</b> D</span></div>
+      <div style="padding:0 14px 10px">${body}${block ? `<p class="warnc" style="font-size:12px">Ensuite : ${esc(block.name)} est bloqué (ressource non produite ou hangar insuffisant).</p>` : ''}</div></article>`;
+  }).join('');
 }
 
 // ---------- Combat tab ----------
@@ -543,8 +578,8 @@ function renderSim(st, att, def, opts){
   </div>`;
 }
 function route(){
-  const v = { '#combat': 'combat', '#export': 'export', '#vue': 'vue' }[location.hash] || 'planetes';
-  ['planetes','vue','combat','export'].forEach(n => { $('view-' + n).classList.toggle('hidden', v !== n); $('tab-' + n).classList.toggle('on', v === n); });
+  const v = { '#combat': 'combat', '#export': 'export', '#vue': 'vue', '#plan': 'plan' }[location.hash] || 'planetes';
+  ['planetes','plan','vue','combat','export'].forEach(n => { $('view-' + n).classList.toggle('hidden', v !== n); $('tab-' + n).classList.toggle('on', v === n); });
 }
 
 const BOOKMARKLET = /*BOOKMARKLET*/;
@@ -564,9 +599,9 @@ function init(){
   $('bmLink').onclick = e => { e.preventDefault(); $('bmMsg').textContent = 'Fais glisser le bouton dans ta barre de favoris (un clic ici ne fait rien).'; };
   $('bmCopy').onclick = async () => { try { await navigator.clipboard.writeText(BOOKMARKLET); $('bmMsg').textContent = 'Code copié.'; } catch(e){ $('bmMsg').textContent = 'Copie refusée par le navigateur.'; } };
   const saved = store.get('og_data_v4'); $('data').value = saved || DEFAULT_DATA; if (!$('data').value.trim()) { $('inputPanel').open = true; }
-  try { const s = JSON.parse(store.get('og_settings_v2')||'null'); if (s){ $('speed').value=s.speed; $('fill').value=s.fillHours; $('rc').value=s.ratioC; $('rd').value=s.ratioD; $('col').checked=s.collector; $('geo').checked=s.geologist; $('eng').checked=s.engineer; } } catch(e){}
+  try { const s = JSON.parse(store.get('og_settings_v2')||'null'); if (s){ $('speed').value=s.speed; $('fill').value=s.fillHours; $('rc').value=s.ratioC; $('rd').value=s.ratioD; $('col').checked=s.collector; $('geo').checked=s.geologist; $('eng').checked=s.engineer; if (s.planDays) $('planDays').value=s.planDays; } } catch(e){}
   $('go').onclick = run;
-  ['speed','fill','rc','rd','col','geo','eng'].forEach(id => $(id).addEventListener('change', run));
+  ['speed','fill','rc','rd','col','geo','eng','planDays'].forEach(id => $(id).addEventListener('change', run));
   $('copyTpl').onclick = async () => { try { await navigator.clipboard.writeText(TEMPLATE); $('copyMsg').textContent = 'Modèle copié.'; } catch(e){ $('data').value = TEMPLATE; $('copyMsg').textContent = 'Copie refusée : le modèle a été placé dans la zone de texte.'; $('inputPanel').open = true; } };
   $('aPlanet').addEventListener('change', fillAttFleet);
   $('aClear').onclick = () => CB.ATTACK_SHIPS.forEach(k => $('aU_'+k).value = 0);

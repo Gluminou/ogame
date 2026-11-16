@@ -154,6 +154,60 @@ const OG = (() => {
   const fmtH = h => !isFinite(h) ? '∞' : h < 48 ? Math.round(h) + ' h' : (h / 24).toFixed(1).replace('.', ',') + ' j';
 
 
+
+  // ---------- multi-day build plan (per planet, buildings queue) ----------
+  function simulatePlan(p0, R, S, startStock, hours, firstKey) {
+    const msu = c => c[0] + c[1] * S.ratioC + c[2] * S.ratioD;
+    const p = { name: p0.name, pos: p0.pos, coords: p0.coords, b: Object.assign({}, p0.b), lfr: p0.lfr };
+    let stock = { m: startStock.m || 0, c: startStock.c || 0, d: startStock.d || 0 };
+    const K = ['m', 'c', 'd']; const steps = []; let t = 0; let guard = 0;
+    const NAMES = { metal: 'Mine de métal', crystal: 'Mine de cristal', deut: 'Synthétiseur de deutérium', solar: 'Centrale solaire', fusion: 'Centrale de fusion', stM: 'Hangar de métal', stC: 'Hangar de cristal', stD: 'Réservoir de deutérium', robots: 'Usine de robots' };
+    const buildH = (cst, b) => (cst[0] + cst[1]) / (2500 * (1 + (b.robots || 0)) * Math.pow(2, b.nanite || 0) * S.speed);
+    while (t < hours && guard++ < 200) {
+      const c = planetCalc(p, R, S); const b = p.b;
+      const eSurplus = c.eProd - c.eUse;
+      // energy options (no satellites: they are not in the building queue)
+      const eTech = R.rEnergy || 0;
+      const solarGain = (c.solarE((b.solar || 0) + 1) - c.solarE(b.solar || 0)) * c.plantBonus;
+      const fusE = l => 30 * l * (1.05 + 0.01 * eTech) ** l; const fl = b.fusion || 0;
+      const fusGain = (fusE(fl + 1) - fusE(fl)) * c.plantBonus; const fusBurn = (10 * (fl + 1) * 1.1 ** (fl + 1) - 10 * fl * 1.1 ** fl) * S.speed;
+      const eOpts = [{ key: 'solar', price: msu(cost.solar((b.solar || 0) + 1)) / solarGain }];
+      if (eTech >= 3 && (b.deut || 0) >= 5) eOpts.push({ key: 'fusion', price: (msu(cost.fusion(fl + 1)) + fusBurn * S.ratioD * 720) / fusGain });
+      eOpts.sort((a, b2) => a.price - b2.price); const ePrice = eOpts[0].price;
+      let pick;
+      if (guard === 1 && firstKey) pick = firstKey;
+      else if (c.factor < 0.999) pick = eOpts[0].key;
+      else if ((b.robots || 0) < 4 && (b.metal || 0) >= 8) pick = 'robots';
+      else {
+        const gainOf = k => { const l = b[k] || 0; const g0 = k === 'metal' ? (mineBase.metal(l + 1) - mineBase.metal(l)) * c.bonM : k === 'crystal' ? (mineBase.crystal(l + 1) - mineBase.crystal(l)) * c.bonC * S.ratioC : (mineBase.deut(l + 1, c.t) - mineBase.deut(l, c.t)) * c.bonD * S.ratioD; return g0 * S.speed; };
+        const cands = ['metal', 'crystal', 'deut'].map(k => { const l = b[k] || 0; const cc = cost[k](l + 1); const dE = mineEnergy[k](l + 1) - mineEnergy[k](l); const short = Math.max(0, dE - Math.max(0, eSurplus)); return { k, cc, pay: (msu(cc) + short * ePrice) / gainOf(k) }; }).sort((a, b2) => a.pay - b2.pay);
+        pick = cands[0].k;
+        // storage: too small for the build, or it would overflow while waiting
+        const cc = cands[0].cc; const ST = { m: 'stM', c: 'stC', d: 'stD' };
+        let waitH = 0; K.forEach((r, j) => { if (cc[j] > stock[r]) waitH = Math.max(waitH, c.prod[r] > 0 ? (cc[j] - stock[r]) / c.prod[r] : Infinity); });
+        for (const [j, r] of K.entries()) {
+          if (cc[j] > c.cap[r] * 0.98) { pick = ST[r]; break; }
+          if (c.prod[r] > 0 && (c.cap[r] - stock[r]) / c.prod[r] < Math.min(waitH, 12)) { pick = ST[r]; break; }
+        }
+      }
+      { const STK = { m: 'stM', c: 'stC', d: 'stD' }; const c0 = cost[pick]((b[pick] || 0) + 1);
+        for (const [j, r] of K.entries()) if (!['stM', 'stC', 'stD'].includes(pick) && c0[j] > c.cap[r] * 0.98) { pick = STK[r]; break; } }
+      const lvl = (b[pick] || 0) + 1; const cc = cost[pick](lvl);
+      // wait until affordable
+      let wait = 0, blocked = false;
+      K.forEach((r, j) => { const miss = cc[j] - stock[r]; if (miss > 0) { if (c.prod[r] <= 0 || cc[j] > c.cap[r]) blocked = true; else wait = Math.max(wait, miss / c.prod[r]); } });
+      if (blocked) { steps.push({ t, name: `${NAMES[pick]} ${lvl}`, blocked: true }); break; }
+      const grow = h => K.forEach(r => { stock[r] = Math.min(Math.max(stock[r], c.cap[r]), stock[r] + c.prod[r] * h); if (stock[r] < 0) stock[r] = 0; });
+      grow(wait); const start = t + wait; if (start > hours) break;
+      K.forEach((r, j) => { stock[r] -= cc[j]; });
+      const bt = buildH(cc, b); grow(bt);
+      steps.push({ start, end: start + bt, key: pick, name: `${NAMES[pick]} ${lvl}`, cost: cc });
+      p.b[pick] = lvl; t = start + bt;
+    }
+    const before = planetCalc(p0, R, S), after = planetCalc(p, R, S);
+    return { steps, before: before.prod, after: after.prod, levels: p.b };
+  }
+
   // ---------- transports between planets ----------
   function flight(a, b, shipSpeed, fleetSpeed) {
     let d;
@@ -377,6 +431,10 @@ const OG = (() => {
       out.research.push(pr);
     }
     planTransports(out, R, S);
+    const H = (S.planDays || 3) * 24;
+    const KEYOF = { 'Hangar de métal': 'stM', 'Hangar de cristal': 'stC', 'Réservoir de deutérium': 'stD', 'Centrale solaire': 'solar', 'Centrale de fusion': 'fusion', 'Usine de robots': 'robots' };
+    out.plan = planets.map((p, i) => { const r0 = out.planets[i].recs[0]; const fk = r0 && ['urgent', 'important'].includes(r0.type) ? KEYOF[r0.title.replace(/\s+\d+$/, '')] : null;
+      return { planet: p, hasStock: !!calcs[i].stockNow, ...simulatePlan(p, R, S, calcs[i].stockNow || {}, H, fk) }; });
     // warnings
     if (tot.d < tot.m * 0.15) out.warnings.push(`Le deutérium est ton goulot d'étranglement (${fmt(tot.d)}/h contre ${fmt(tot.m)} métal/h). Monte les synthétiseurs et échange ton surplus au Marchand.`);
     return out;
