@@ -159,7 +159,7 @@ const CB = (() => {
     const f = opts.dfShips ?? 0.3, fd = opts.dfDef ?? 0;
     stat.debris = [0, 1, 2].map(i => (i === 2 && !opts.dfDeut) ? 0 : (shipsLost[0][i] + shipsLost[1][i]) * f + defLost[i] * fd);
     const cargoMult = 1 + 0.05 * (opts.hyperA || 0);
-    let cap = 0; for (const k in stat.survA) { let c = U[k][6] * cargoMult; if (opts.attackerCollector && (k === 'SC' || k === 'LC')) c *= 1.25; cap += stat.survA[k] * c; }
+    let cap = 0; for (const k in stat.survA) { let c = U[k][6] * (cargoMult + (opts.attackerCollector && (k === 'SC' || k === 'LC') ? 0.25 : 0)); cap += stat.survA[k] * c; }
     stat.cargo = cap;
     const res = def.res || {}; const lp = opts.lootPct ?? 0.5;
     const avail = [(res.m || 0) * lp, (res.c || 0) * lp, (res.d || 0) * lp];

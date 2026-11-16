@@ -242,12 +242,12 @@ const OG = (() => {
     else if (a.sys !== b.sys) d = 2700 + 95 * Math.abs(a.sys - b.sys);
     else if (a.pos !== b.pos) d = 1000 + 5 * Math.abs(a.pos - b.pos);
     else d = 5;
-    const sec = (10 + 350 * Math.sqrt(10 * d / shipSpeed)) / fleetSpeed;
+    const sec = (10 + 3500 * Math.sqrt(10 * d / shipSpeed)) / fleetSpeed; // at 100 % speed; checked in game: 3840 u, 21112, x4 = 19:43
     return { d, h: sec / 3600 };
   }
   function planTransports(out, R, S) {
-    const P = out.planets; const hyper = 1 + 0.05 * (R.rHyper || 0); const col = S.collector ? 1.25 : 1;
-    const capLC = 25000 * hyper * col, capSC = 5000 * hyper * col;
+    const P = out.planets; const cm = 1 + 0.05 * (R.rHyper || 0) + (S.collector ? 0.25 : 0); // bonuses add up (checked in game: hyper 4 + collector = 36 250 per GT)
+    const capLC = 25000 * cm, capSC = 5000 * cm;
     const speedLC = 7500 * (1 + 0.1 * (R.rComb || 0) + (S.collector ? 1 : 0));
     const fleetSpeed = (out.server && out.server.speedPeace) || S.fleetSpeed || 1;
     const K = ['m', 'c', 'd'];

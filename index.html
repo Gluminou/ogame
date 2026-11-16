@@ -571,12 +571,12 @@ const OG = (() => {
     else if (a.sys !== b.sys) d = 2700 + 95 * Math.abs(a.sys - b.sys);
     else if (a.pos !== b.pos) d = 1000 + 5 * Math.abs(a.pos - b.pos);
     else d = 5;
-    const sec = (10 + 350 * Math.sqrt(10 * d / shipSpeed)) / fleetSpeed;
+    const sec = (10 + 3500 * Math.sqrt(10 * d / shipSpeed)) / fleetSpeed; // at 100 % speed; checked in game: 3840 u, 21112, x4 = 19:43
     return { d, h: sec / 3600 };
   }
   function planTransports(out, R, S) {
-    const P = out.planets; const hyper = 1 + 0.05 * (R.rHyper || 0); const col = S.collector ? 1.25 : 1;
-    const capLC = 25000 * hyper * col, capSC = 5000 * hyper * col;
+    const P = out.planets; const cm = 1 + 0.05 * (R.rHyper || 0) + (S.collector ? 0.25 : 0); // bonuses add up (checked in game: hyper 4 + collector = 36 250 per GT)
+    const capLC = 25000 * cm, capSC = 5000 * cm;
     const speedLC = 7500 * (1 + 0.1 * (R.rComb || 0) + (S.collector ? 1 : 0));
     const fleetSpeed = (out.server && out.server.speedPeace) || S.fleetSpeed || 1;
     const K = ['m', 'c', 'd'];
@@ -962,7 +962,7 @@ const CB = (() => {
     const f = opts.dfShips ?? 0.3, fd = opts.dfDef ?? 0;
     stat.debris = [0, 1, 2].map(i => (i === 2 && !opts.dfDeut) ? 0 : (shipsLost[0][i] + shipsLost[1][i]) * f + defLost[i] * fd);
     const cargoMult = 1 + 0.05 * (opts.hyperA || 0);
-    let cap = 0; for (const k in stat.survA) { let c = U[k][6] * cargoMult; if (opts.attackerCollector && (k === 'SC' || k === 'LC')) c *= 1.25; cap += stat.survA[k] * c; }
+    let cap = 0; for (const k in stat.survA) { let c = U[k][6] * (cargoMult + (opts.attackerCollector && (k === 'SC' || k === 'LC') ? 0.25 : 0)); cap += stat.survA[k] * c; }
     stat.cargo = cap;
     const res = def.res || {}; const lp = opts.lootPct ?? 0.5;
     const avail = [(res.m || 0) * lp, (res.c || 0) * lp, (res.d || 0) * lp];
@@ -1046,7 +1046,7 @@ if (typeof module !== 'undefined') module.exports = CB;
 
 </script>
 <script>
-const APP_VERSION="202611160723";
+const APP_VERSION="202611160735";
 async function checkVersion(){
   if (location.protocol === 'file:') return;
   try { const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' }); if (!r.ok) return; const j = await r.json();
@@ -1350,7 +1350,7 @@ function tripCost(units, srcP, coords, R, S, server){
   return { fuel, h: 2 * f.h, msu: fuel * S.ratioD };
 }
 function bestFleet(avail, def, srcP, coords, R, S, server, minWin, runs, maxEvals){
-  const hyper = 1 + 0.05 * (R.rHyper || 0), capLC = 25000 * hyper * (S.collector ? 1.25 : 1);
+  const hyper = 1 + 0.05 * (R.rHyper || 0), cm = hyper + (S.collector ? 0.25 : 0), capLC = 25000 * cm;
   const lootPct = def.lootPct ?? 0.5;
   const lootWant = ((def.res.m || 0) + (def.res.c || 0) + (def.res.d || 0)) * lootPct;
   const lc = Math.min(avail.LC || 0, Math.ceil(lootWant / capLC));
@@ -1406,7 +1406,7 @@ function renderSim(st, att, def, opts){
   const S = settings(); const msu = c => c[0] + c[1]*S.ratioC + c[2]*S.ratioD;
   const verdict = pa >= 95 ? ['Victoire quasi certaine', 'ok'] : pa >= 60 ? ['Victoire probable, mais risquée', ''] : pd >= 50 ? ['Défaite probable', 'red'] : ['Issue incertaine (souvent match nul)', ''];
   const rows = (loss, units) => Object.keys(units).filter(k => units[k]).map(k => `<tr><td>${esc(CB.U[k][0])}</td><td>${units[k]}</td><td>${(loss[k]||0).toFixed(1).replace('.',',')}</td></tr>`).join('');
-  const hyper = 1 + 0.05*opts.hyperA; const recCap = 20000*hyper; const lcCap = 25000*hyper*(opts.attackerCollector?1.25:1);
+  const hyper = 1 + 0.05*opts.hyperA; const recCap = 20000*hyper; const lcCap = 25000*(hyper+(opts.attackerCollector?0.25:0));
   const debrisTot = st.debris[0]+st.debris[1]+st.debris[2];
   const lootWant = st.lootAvail[0]+st.lootAvail[1]+st.lootAvail[2];
   const lootGot = st.lootIfWin[0]+st.lootIfWin[1]+st.lootIfWin[2];
@@ -1546,14 +1546,14 @@ function renderExpe(){
   const maxM = cap * 200 * mult, maxC = maxM / 2, maxD = maxM / 3;
   const autoSlots = Math.max(1, Math.floor(Math.sqrt(R.rAstro || 0)));
   const slots = +$('exSlots').value || autoSlots;
-  const hyper = 1 + 0.05 * (R.rHyper || 0), capLC = 25000 * hyper * (S.collector ? 1.25 : 1);
+  const hyper = 1 + 0.05 * (R.rHyper || 0), cm = hyper + (S.collector ? 0.25 : 0), capLC = 25000 * cm;
   const avail = {}; CB.ATTACK_SHIPS.forEach(k => avail[k] = src.p.b[SHIPKEY[k]] || 0);
   const per = {}; Object.keys(avail).forEach(k => per[k] = Math.floor(avail[k] / slots));
   // one expedition: cargo for the biggest metal find, then combat ships (strongest first) up to the cap
   const needLC = Math.ceil(maxM / capLC);
   const fleet = {}; let ep = 0, cargo = 0;
   const lc = Math.min(needLC, per.LC); if (lc) { fleet.LC = lc; ep += lc * expPts('LC'); cargo += lc * capLC; }
-  if (cargo < maxM && per.SC) { const sc = Math.min(per.SC, Math.ceil((maxM - cargo) / (5000 * hyper * (S.collector ? 1.25 : 1)))); if (sc) { fleet.SC = sc; ep += sc * expPts('SC'); cargo += sc * 5000 * hyper * (S.collector ? 1.25 : 1); } }
+  if (cargo < maxM && per.SC) { const sc = Math.min(per.SC, Math.ceil((maxM - cargo) / (5000 * cm))); if (sc) { fleet.SC = sc; ep += sc * expPts('SC'); cargo += sc * 5000 * cm; } }
   for (const k of ['De', 'BS', 'BC', 'Cr', 'HF', 'LF']) {
     if (ep >= cap || !per[k]) continue;
     const n = Math.min(per[k], Math.ceil((cap - ep) / expPts(k))); if (n > 0) { fleet[k] = n; ep += n * expPts(k); cargo += n * CB.U[k][6] * hyper; }
