@@ -162,6 +162,7 @@ table.t th{color:var(--mut);font-weight:500}
     <div id="simOut"></div>
     <p class="note">Règles OGame : 6 rounds, boucliers rechargés à chaque round, tirs sans effet sous 1 % du bouclier, explosion possible sous 70 % de coque, rapidfire. Les bonus de formes de vie, de classe et d'alliance sur les vaisseaux ne sont pas comptés : vérifie avec une marge si le défenseur est Rock'tal.</p>
   </section>
+  <p class="note" style="margin-top:28px;text-align:center">Version <span id="appVer"></span> · <button class="ghost" id="refreshBtn" style="padding:4px 10px;font-size:12px">Mettre à jour</button></p>
 </div>
 
 <script>
@@ -169,6 +170,14 @@ table.t th{color:var(--mut);font-weight:500}
 /*COMBAT*/
 </script>
 <script>
+const APP_VERSION="/*VERSION*/";
+async function checkVersion(){
+  if (location.protocol === 'file:') return;
+  try { const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' }); if (!r.ok) return; const j = await r.json();
+    if (j.v && j.v !== APP_VERSION) location.replace(location.pathname + '?v=' + encodeURIComponent(j.v) + location.hash); } catch(e){}
+}
+checkVersion();
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkVersion(); });
 const DEFAULT_DATA = /*DATA*/;
 const TEMPLATE = `Planete: NomDeLaPlanete
 Coordonnees: 1:100:8
@@ -396,6 +405,8 @@ function init(){
   let rt; $('report').addEventListener('input', () => { clearTimeout(rt); rt = setTimeout(() => { if ($('report').value.trim().length > 30 && readReport()) runSim(); }, 400); });
   $('simulate').onclick = runSim;
   window.addEventListener('hashchange', route); route();
+  $('appVer').textContent = APP_VERSION.replace(/^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})$/, '$3/$2/$1 $4:$5 UTC');
+  $('refreshBtn').onclick = () => location.replace(location.pathname + '?r=' + Date.now() + location.hash);
   run();
 }
 init();

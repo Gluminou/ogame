@@ -49,4 +49,12 @@ dépôt.
 
 Le code source est découpé en trois parties dans `src/` :
 `engine.js` (planètes), `combat.js` (simulateur) et `template.html`
-(interface). `node tools/build.js` les assemble dans `index.html`.
+(interface). `node tools/build.js` les assemble dans `index.html` et
+inscrit une nouvelle version dans `version.json`.
+
+## Mises à jour
+
+À chaque ouverture, et à chaque retour sur l'application, la page compare
+sa version avec `version.json`. Si une nouvelle version a été publiée,
+elle se recharge toute seule. Le bouton « Mettre à jour » en bas de page
+force le rechargement.
