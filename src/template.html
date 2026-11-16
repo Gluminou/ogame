@@ -105,7 +105,7 @@ details.howto ol{margin:6px 0 6px;padding-left:22px}details.howto li{margin:4px 
   <h1>OGame <span>·</span> Conseiller de construction</h1>
   <p class="sub">Colle ton export de planètes : l'outil calcule production, énergie, stockage et rentabilité, et te dit quoi construire ensuite sur chaque planète.</p>
 
-  <nav class="tabs" style="flex-wrap:wrap"><a href="#vue" id="tab-vue">Vue générale</a><a href="#planetes" id="tab-planetes">Planètes</a><a href="#plan" id="tab-plan">Plan</a><a href="#combat" id="tab-combat">Combat</a><a href="#cibles" id="tab-cibles">Cibles</a><a href="#expe" id="tab-expe">Expéditions</a><a href="#export" id="tab-export">Export auto</a></nav>
+  <nav class="tabs" style="flex-wrap:wrap"><a href="#vue" id="tab-vue">Vue générale</a><a href="#planetes" id="tab-planetes">Planètes</a><a href="#plan" id="tab-plan">Plan</a><a href="#combat" id="tab-combat">Combat</a><a href="#cibles" id="tab-cibles">Cibles</a><a href="#expe" id="tab-expe">Expéditions</a><a href="#histo" id="tab-histo">Historique</a><a href="#export" id="tab-export">Export auto</a></nav>
   <section id="view-planetes">
   <details class="panel" id="inputPanel">
     <summary>Mes données (export texte)</summary>
@@ -201,6 +201,24 @@ details.howto ol{margin:6px 0 6px;padding-left:22px}details.howto li{margin:4px 
     </div>
     <div id="exOut"></div>
     <p class="note">Formules des guides officiels du forum OGame : points d'expédition d'un vaisseau = structure × 5 / 1 000 ; plafond selon les points du top 1 ; découverte maximale = 200 × plafond en métal (la moitié en cristal, le tiers en deutérium). Si tes vraies découvertes sont plus grosses (vitesse de l'univers, événements), augmente le multiplicateur. Nombre d'expéditions = racine carrée de l'astrophysique.</p>
+  </section>
+
+  <section id="view-histo" class="hidden">
+    <div class="panel">
+      <h2>Historique des raids et des expéditions</h2>
+      <p class="note" style="margin:4px 0 8px">Colle tes messages de combat et d'expédition (un ou plusieurs à la fois). Chaque message n'est compté qu'une fois.</p>
+      <textarea id="hiIn" style="min-height:90px" placeholder="Colle ici tes messages de combat ou d'expédition"></textarea>
+      <div class="row"><button id="hiPaste">Coller les messages</button><button class="ghost" id="hiAdd">Ajouter</button><label class="note">Période <select id="hiPeriod"><option value="7">7 jours</option><option value="30">30 jours</option><option value="0">Tout</option></select></label><span class="note" id="hiMsg"></span></div>
+      <details class="howto"><summary>Ajouter à la main</summary>
+        <div class="settings">
+          <label>Type<select id="hmType"><option value="raid">Raid</option><option value="res">Expédition : ressources</option><option value="ships">Expédition : vaisseaux</option><option value="dm">Expédition : antimatière</option><option value="none">Expédition : rien</option><option value="pirates">Expédition : pirates / aliens</option><option value="hole">Expédition : trou noir</option></select></label>
+          <label>Métal<input type="number" id="hmM" value="0"></label><label>Cristal<input type="number" id="hmC" value="0"></label><label>Deutérium<input type="number" id="hmD" value="0"></label>
+          <label>Antimatière<input type="number" id="hmDM" value="0"></label><label>Pertes (équiv. métal)<input type="number" id="hmLoss" value="0"></label>
+        </div>
+        <div class="row"><button class="ghost" id="hmAdd">Enregistrer</button></div>
+      </details>
+    </div>
+    <div id="hiOut"></div>
   </section>
 
   <section id="view-export" class="hidden">
@@ -419,6 +437,7 @@ function run(){
   renderPlan(res);
   if (location.hash === '#cibles') renderTargets();
   if (location.hash === '#expe') renderExpe();
+  if (location.hash === '#histo') renderHisto();
   $('inputPanel').open = false;
 }
 
@@ -803,9 +822,111 @@ function renderExpe(){
       <p class="note">Les vaisseaux de combat servent aussi contre les pirates. Envoie de préférence une durée d'1 heure : plus d'expéditions par jour, et une zone moins visitée donne de meilleurs résultats.</p></div>`;
 }
 
+// ---------- History tab ----------
+const HI = { list: [] };
+function hiLoad(){ try { HI.list = JSON.parse(store.get('og_hist') || '[]'); } catch(e){ HI.list = []; } }
+function hiSave(){ store.set('og_hist', JSON.stringify(HI.list)); }
+const hiNorm = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+function hiHash(s){ let h = 5381; for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return String(h >>> 0); }
+function hiNum(s){ return CB.num(String(s)); }
+// split a paste into messages: each message starts on a line holding a date dd.mm.yyyy hh:mm:ss
+function hiSplit(text){
+  const lines = text.split(/\r?\n/); const out = []; let cur = [];
+  const isDate = l => /\d{2}\.\d{2}\.\d{4}\s+\d{2}:\d{2}:\d{2}/.test(l);
+  lines.forEach((l, i) => { if (isDate(l) && cur.some(x => isDate(x))) { // new message: keep the title line just above the date
+      const title = cur.length && !isDate(cur[cur.length - 1]) ? cur.pop() : null; out.push(cur.join('\n')); cur = title ? [title] : []; }
+    cur.push(l); });
+  if (cur.length) out.push(cur.join('\n'));
+  return out.map(s => s.trim()).filter(s => s.length > 20);
+}
+function hiParse(msg){
+  const n = hiNorm(msg); const dm = msg.match(/(\d{2})\.(\d{2})\.(\d{4})\s+(\d{2}):(\d{2}):(\d{2})/);
+  const at = dm ? parisToUtc({ y: +dm[3], mo: +dm[2], d: +dm[1], h: +dm[4], mi: +dm[5], s: +dm[6] }) : Date.now();
+  const NUMRE = '([0-9][0-9.,]*\\s*(?:mrd|m|k)?)(?![a-z])';
+  const resOf = (txt) => { const o = { m: 0, c: 0, d: 0 }; const t2 = hiNorm(txt);
+    for (const [k, w] of [['m', 'metal'], ['c', 'cristal'], ['d', 'deuterium']]) {
+      let m = t2.match(new RegExp('(?:^|[^a-z])' + w + '\\s*:?\\s*' + NUMRE)) || t2.match(new RegExp(NUMRE + '\\s*(?:de\\s+|d.)?' + w));
+      if (m) o[k] = hiNum(m[1]); }
+    return o; };
+  const coords = (msg.match(/\[(\d+:\d+:\d+)\]/) || [])[1] || '';
+  if (/expedition/.test(n)) {
+    let type = 'none';
+    if (/trou noir/.test(n)) type = 'hole';
+    else if (/pirate|alien|extraterrestre/.test(n)) type = 'pirates';
+    else if (/antimatiere|matiere noire/.test(n)) type = 'dm';
+    else if (/vaisseaux? (?:ont ete|a ete)? ?(?:trouve|rejoint|ajoute)|se sont joints|flotte abandonnee|epaves/.test(n)) type = 'ships';
+    else if (/metal|cristal|deuterium/.test(n) && /\d/.test(n)) type = 'res';
+    else if (/retard|plus tot|en avance/.test(n)) type = 'delay';
+    else if (/marchand/.test(n)) type = 'trader';
+    else if (/objet|artefact/.test(n)) type = 'item';
+    const r = type === 'res' ? resOf(msg) : { m: 0, c: 0, d: 0 };
+    const dmAmt = type === 'dm' ? hiNum((n.match(/([0-9][0-9.,]*)\s*(?:unites?\s+d.)?(?:antimatiere|matiere noire)/) || n.match(/(?:antimatiere|matiere noire)\s*:?\s*([0-9][0-9.,]*)/) || [])[1] || 0) : 0;
+    const ships = {}; if (type === 'ships') CB.SHIPS.forEach(k => { for (const a of CB.U[k][8]) { const m = n.match(new RegExp(a.replace(/ /g, '\\s+') + '\\s*:?\\s*([0-9][0-9.,]*)')); if (m) { ships[k] = hiNum(m[1]); break; } } });
+    return { kind: 'exp', type, at, coords, res: r, dm: dmAmt, ships };
+  }
+  if (/combat|butin|pille/.test(n)) {
+    const lootPart = (msg.match(/butin[\s\S]{0,200}/i) || [''])[0];
+    const loot = resOf(lootPart);
+    const debPart = (msg.match(/(?:champ de debris|champ de débris|debris)[\s\S]{0,160}/i) || [''])[0];
+    const debris = resOf(debPart);
+    const lossM = n.match(/pertes?\s+(?:de\s+l.)?attaquant\s*:?\s*([0-9][0-9.,]*\s*(?:mrd|m|k)?)/) || n.match(/attaquant[\s\S]{0,120}?pertes?\s*:?\s*([0-9][0-9.,]*\s*(?:mrd|m|k)?)/);
+    const lossD = n.match(/defenseur[\s\S]{0,120}?pertes?\s*:?\s*([0-9][0-9.,]*\s*(?:mrd|m|k)?)/);
+    return { kind: 'raid', at, coords, loot, debris, loss: lossM ? hiNum(lossM[1]) : 0, lossDef: lossD ? hiNum(lossD[1]) : 0, won: !/defaite|perdu le combat/.test(n) };
+  }
+  return null;
+}
+function hiAddText(text){
+  let n = 0, skip = 0, bad = 0;
+  hiSplit(text).forEach(msg => { const id = hiHash(msg.replace(/\s+/g, ' ')); if (HI.list.some(x => x.id === id)) { skip++; return; }
+    const e = hiParse(msg); if (!e) { bad++; return; } e.id = id; HI.list.push(e); n++; });
+  hiSave(); $('hiMsg').textContent = `${n} message${n > 1 ? 's' : ''} ajouté${n > 1 ? 's' : ''}` + (skip ? `, ${skip} déjà connu${skip > 1 ? 's' : ''}` : '') + (bad ? `, ${bad} non reconnu${bad > 1 ? 's' : ''}` : '') + '.';
+  renderHisto();
+}
+function renderHisto(){
+  if (!$('hiOut')) return;
+  const S = settings(), f = OG.fmt; const days = +$('hiPeriod').value;
+  const since = days ? Date.now() - days * 86400000 : 0;
+  const L = HI.list.filter(e => e.at >= since);
+  const msu = r => (r.m || 0) + (r.c || 0) * S.ratioC + (r.d || 0) * S.ratioD;
+  const raids = L.filter(e => e.kind === 'raid'), exps = L.filter(e => e.kind === 'exp');
+  const sum = (arr, fn) => arr.reduce((a, x) => a + fn(x), 0);
+  const lootT = { m: sum(raids, e => e.loot.m), c: sum(raids, e => e.loot.c), d: sum(raids, e => e.loot.d) };
+  const debT = { m: sum(raids, e => e.debris.m), c: sum(raids, e => e.debris.c), d: sum(raids, e => e.debris.d) };
+  const lossT = sum(raids, e => e.loss || 0);
+  const expRes = { m: sum(exps, e => e.res.m), c: sum(exps, e => e.res.c), d: sum(exps, e => e.res.d) };
+  const shipVal = sum(exps, e => sum(Object.entries(e.ships || {}), ([k, n]) => n * (CB.U[k][1] + CB.U[k][2] * S.ratioC + CB.U[k][3] * S.ratioD)));
+  const TYPES = { res: 'Ressources', ships: 'Vaisseaux', dm: 'Antimatière', none: 'Rien', pirates: 'Pirates / aliens', hole: 'Trou noir', delay: 'Retard / avance', trader: 'Marchand', item: 'Objet' };
+  const counts = {}; exps.forEach(e => counts[e.type] = (counts[e.type] || 0) + 1);
+  // multiplier suggestion: biggest resource find vs the model maximum
+  const res = CS.parsed; const top1 = +$('exTop1').value || (res && res.server && res.server.top1) || 0;
+  let sugg = '';
+  if (top1) { const cap = EXP_TIERS.find(([lim]) => top1 < lim)[1]; const modelMax = cap * 200;
+    const best = Math.max(0, ...exps.filter(e => e.type === 'res').map(e => (e.res.m || 0) + (e.res.c || 0) * 2 + (e.res.d || 0) * 3));
+    if (best > 0) { const ratio = best / modelMax; const cur = +$('exMult').value || 1;
+      if (ratio > cur * 1.05) sugg = `<div class="warn">Ta plus grosse découverte (${f(best)} en équivalent métal) dépasse le maximum calculé (${f(modelMax * cur)}). Multiplicateur conseillé : <b>${ratio.toFixed(1).replace('.', ',')}</b> <button class="ghost" id="hiApply" style="padding:4px 10px;font-size:12px">Appliquer</button></div>`;
+      else sugg = `<p class="note">Plus grosse découverte : ${f(best)} en équivalent métal, soit ${Math.round(ratio * 100)} % du maximum calculé avec le multiplicateur 1.</p>`; } }
+  const period = days ? `sur ${days} jours` : 'depuis le début';
+  $('hiOut').innerHTML = !L.length ? '<div class="panel note">Aucun message sur cette période.</div>' : `
+    <div class="panel"><h2>Raids ${period}</h2><div class="kpis" style="margin-top:10px">
+      <div class="kpi"><small>Raids</small><b>${raids.length}</b><small>${raids.filter(e => !e.won).length} défaite(s)</small></div>
+      <div class="kpi"><small>Butin</small><b>${f(lootT.m + lootT.c + lootT.d)}</b><small>${esc(OG.fmtCost([lootT.m, lootT.c, lootT.d]) || '0')}</small></div>
+      <div class="kpi"><small>Débris créés</small><b>${f(debT.m + debT.c + debT.d)}</b><small>${esc(OG.fmtCost([debT.m, debT.c, debT.d]) || '0')}</small></div>
+      <div class="kpi"><small>Gain net</small><b class="${msu(lootT) - lossT >= 0 ? 'ok' : 'red'}">${f(msu(lootT) - lossT)}</b><small>butin − pertes (${f(lossT)}), équiv. métal</small></div></div></div>
+    <div class="panel"><h2>Expéditions ${period}</h2><div class="kpis" style="margin-top:10px">
+      <div class="kpi"><small>Expéditions</small><b>${exps.length}</b><small>${exps.length ? Math.round((counts.res || 0) / exps.length * 100) : 0} % avec des ressources</small></div>
+      <div class="kpi"><small>Ressources trouvées</small><b>${f(expRes.m + expRes.c + expRes.d)}</b><small>${esc(OG.fmtCost([expRes.m, expRes.c, expRes.d]) || '0')}</small></div>
+      <div class="kpi"><small>Antimatière</small><b>${f(sum(exps, e => e.dm || 0))}</b><small>vaisseaux trouvés : ${f(shipVal)} équiv. métal</small></div>
+      <div class="kpi"><small>Moyenne par expédition</small><b>${f(exps.length ? (msu(expRes) + shipVal) / exps.length : 0)}</b><small>équivalent métal</small></div></div>
+      <table class="mx" style="margin-top:12px"><tbody>${Object.entries(TYPES).filter(([k]) => counts[k]).map(([k, lab]) => `<tr><td>${lab}</td><td>${counts[k]}</td><td>${Math.round(counts[k] / exps.length * 100)} %</td></tr>`).join('')}</tbody></table>
+      ${sugg}</div>
+    <div class="panel"><h2>Derniers messages</h2><table class="mx"><tbody>${L.slice().sort((a, b) => b.at - a.at).slice(0, 15).map(e => `<tr><td style="color:var(--txt)">${new Date(e.at).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</td><td style="text-align:left">${e.kind === 'raid' ? 'Raid' : 'Expédition : ' + (TYPES[e.type] || e.type)} <span class="note">${esc(e.coords ? '[' + e.coords + ']' : '')}</span></td><td>${e.kind === 'raid' ? esc(OG.fmtCost([e.loot.m, e.loot.c, e.loot.d]) || '0') : e.type === 'res' ? esc(OG.fmtCost([e.res.m, e.res.c, e.res.d])) : e.dm ? f(e.dm) + ' AM' : ''}</td><td><button class="ghost" style="padding:2px 8px;font-size:12px" data-hdel="${e.id}" aria-label="Supprimer">✕</button></td></tr>`).join('')}</tbody></table></div>`;
+  $('hiOut').querySelectorAll('[data-hdel]').forEach(b => b.onclick = () => { HI.list = HI.list.filter(x => x.id !== b.dataset.hdel); hiSave(); renderHisto(); });
+  const ap = $('hiApply'); if (ap) ap.onclick = () => { const m = ap.parentElement.querySelector('b').textContent.replace(',', '.'); $('exMult').value = m; $('exMult').dispatchEvent(new Event('change')); $('hiMsg').textContent = 'Multiplicateur appliqué dans l\'onglet Expéditions.'; renderHisto(); };
+}
+
 function route(){
-  const v = { '#combat': 'combat', '#export': 'export', '#vue': 'vue', '#plan': 'plan', '#cibles': 'cibles', '#expe': 'expe' }[location.hash] || 'planetes';
-  ['planetes','plan','vue','combat','cibles','expe','export'].forEach(n => { $('view-' + n).classList.toggle('hidden', v !== n); $('tab-' + n).classList.toggle('on', v === n); });
+  const v = { '#combat': 'combat', '#export': 'export', '#vue': 'vue', '#plan': 'plan', '#cibles': 'cibles', '#expe': 'expe', '#histo': 'histo' }[location.hash] || 'planetes';
+  ['planetes','plan','vue','combat','cibles','expe','histo','export'].forEach(n => { $('view-' + n).classList.toggle('hidden', v !== n); $('tab-' + n).classList.toggle('on', v === n); });
 }
 
 const BOOKMARKLET = /*BOOKMARKLET*/;
@@ -856,7 +977,13 @@ function init(){
   ['tgFrom','tgMinWin','tgDebris'].forEach(id => $(id).addEventListener('change', renderTargets));
   ['exTop1','exFrom','exMult','exSlots'].forEach(id => $(id).addEventListener('change', () => { store.set('og_exp', JSON.stringify({ top1: $('exTop1').value, mult: $('exMult').value, slots: $('exSlots').value })); renderExpe(); }));
   try { const ex = JSON.parse(store.get('og_exp') || 'null'); if (ex) { $('exTop1').value = ex.top1 || ''; $('exMult').value = ex.mult || 1; $('exSlots').value = ex.slots || ''; } } catch(e){}
-  window.addEventListener('hashchange', () => { route(); if (location.hash === '#cibles') renderTargets(); if (location.hash === '#expe') renderExpe(); }); route();
+  hiLoad();
+  $('hiAdd').onclick = () => { hiAddText($('hiIn').value); $('hiIn').value = ''; };
+  $('hiPaste').onclick = async () => { try { hiAddText(await navigator.clipboard.readText()); } catch(e){ $('hiIn').focus(); $('hiMsg').textContent = 'Collage automatique refusé : colle dans la case puis « Ajouter ».'; } };
+  $('hiPeriod').addEventListener('change', renderHisto);
+  $('hmAdd').onclick = () => { const ty = $('hmType').value; const e = ty === 'raid' ? { kind: 'raid', loot: { m: val('hmM'), c: val('hmC'), d: val('hmD') }, debris: { m: 0, c: 0, d: 0 }, loss: val('hmLoss'), won: true } : { kind: 'exp', type: ty, res: { m: val('hmM'), c: val('hmC'), d: val('hmD') }, dm: val('hmDM'), ships: {} };
+    e.at = Date.now(); e.coords = ''; e.id = 'm' + Date.now(); HI.list.push(e); hiSave(); $('hiMsg').textContent = 'Enregistré.'; renderHisto(); };
+  window.addEventListener('hashchange', () => { route(); if (location.hash === '#cibles') renderTargets(); if (location.hash === '#expe') renderExpe(); if (location.hash === '#histo') renderHisto(); }); route();
   $('appVer').textContent = APP_VERSION.replace(/^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})$/, '$3/$2/$1 $4:$5 UTC');
   $('refreshBtn').onclick = () => location.replace(location.pathname + '?r=' + Date.now() + location.hash);
   run();

@@ -86,6 +86,15 @@ pour ramener la plus grosse découverte, puis vaisseaux de combat jusqu'au
 plafond de points d'expédition. Multiplicateur réglable pour caler sur les
 découvertes réelles.
 
+## Onglet Historique
+
+On colle ses messages de combat et d'expédition ; chaque message est
+identifié par une empreinte et n'est compté qu'une fois. Bilan sur 7 jours,
+30 jours ou tout l'historique : raids (butin, débris, pertes, gain net) et
+expéditions (répartition des résultats, ressources, antimatière, vaisseaux,
+moyenne). La plus grosse découverte sert à proposer le multiplicateur de
+l'onglet Expéditions. Saisie manuelle possible.
+
 ## Onglet Export auto
 
 Un favori (bookmarklet) à glisser dans la barre de favoris. Cliqué sur
