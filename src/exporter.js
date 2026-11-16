@@ -69,6 +69,18 @@
         out[id] = { v: parseInt(String(v).replace(/[^\d]/g, ''), 10) || 0, label: label.trim() };
       });
       if (!Object.keys(out).length) diag.push(component + (cp ? '@' + cp : '') + ' : rien lu');
+      if (component === 'supplies') {
+        const st = {}; const html = doc.documentElement.innerHTML;
+        for (const [k, ids] of Object.entries({ m: ['metal'], c: ['crystal'], d: ['deuterium'], e: ['energy'], pop: ['population'], food: ['food'] })) {
+          const el = doc.getElementById('resources_' + ids[0]);
+          let v = el ? el.getAttribute('data-raw') : null;
+          if (v == null && el) { const tx = el.textContent.trim(); const mm = tx.match(/^(-?[\d.,]+)\s*([kKmM]?)/); if (mm) v = mm[2] ? parseFloat(mm[1].replace(',', '.')) * (/m/i.test(mm[2]) ? 1e6 : 1e3) : mm[1].replace(/[.,]/g, ''); }
+          if (v == null) { const rm = html.match(new RegExp('"' + ids[0] + '"\\s*:\\s*\\{[^}]*?"amount"\\s*:\\s*(-?[\\d.]+)')); if (rm) v = rm[1]; }
+          if (v != null && v !== '') st[k] = Math.floor(parseFloat(v));
+        }
+        out.__stock = st;
+        if (!Object.keys(st).length) diag.push('stock@' + cp + ' : rien lu');
+      }
       done++; msg(`Lecture… ${done} pages`);
       await sleep(350);
       return out;
@@ -83,9 +95,12 @@
       const sup = await read('supplies', p.id), fac = await read('facilities', p.id);
       const lfb = await read('lfbuildings', p.id), lfr = await read('lfresearch', p.id);
       const shp = await read('shipyard', p.id), def = await read('defenses', p.id);
+      const stock = sup.__stock || {}; delete sup.__stock;
       const all = Object.assign({}, sup, shp);
       const s = [`Planete: ${p.name}`, `Coordonnees: ${p.coords}`];
       if (p.tmax != null) s.push(`Temperature max: ${p.tmax}`);
+      const SL = { m: 'Metal', c: 'Cristal', d: 'Deuterium', e: 'Energie', pop: 'Population', food: 'Nourriture' };
+      if (Object.keys(stock).length) s.push('', 'Stock:', Object.keys(SL).filter(k => stock[k] != null).map(k => `${SL[k]}: ${stock[k]}`).join('\n'));
       s.push('', 'Ressources', block(all, [...RES, 212, 217]), '', 'Forme de vie', others(lfb, []), '', 'Recherche Forme de vie:', others(lfr, []),
         '', 'Installations', others(fac, []), '', 'Defense:', others(def, []), '', 'Flotte:', others(shp, [212, 217]), '');
       parts.push(s.join('\n'));
@@ -108,7 +123,7 @@
       parts.push(sv.join('\n'));
     } catch (e) { diag.push('serverData : ' + e.message); }
 
-    const text = parts.join('\n');
+    const text = 'Date export: ' + Date.now() + '\n\n' + parts.join('\n');
     q('[data-out]').value = text;
     msg(`Export prêt : ${planets.length} planètes, ${done} pages lues.` + (diag.length ? ' À vérifier : ' + diag.join(' ; ') : ''));
     const cb = q('[data-copy]'), ob = q('[data-open]'); cb.disabled = ob.disabled = false;

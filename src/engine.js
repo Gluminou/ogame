@@ -51,7 +51,7 @@ const OG = (() => {
   };
 
   function parse(text) {
-    const planets = []; const research = {}; const server = {}; let cur = null; let sec = '';
+    const planets = []; const research = {}; const server = {}; let cur = null; let sec = ''; let exportedAt = null;
     for (const raw of text.split(/\r?\n/)) {
       const line = raw.trim(); if (!line) continue;
       const m = line.match(/^([^:]+?)\s*:\s*(.*)$/);
@@ -60,6 +60,7 @@ const OG = (() => {
         else if (nl.startsWith('flotte dans le champ de debris') && pc != null) server.dfShips = +pc;
         else if (nl.startsWith('installations de defense dans le champ de debris') && pc != null) server.dfDef = +pc; } continue; } // header line without colon
       const label = norm(m[1]); const val = m[2].trim();
+      if (label === 'date export') { exportedAt = +val || Date.parse(val) || null; continue; }
       if (label === 'planete') { cur = { name: val, coords: null, pos: 8, b: {}, lfr: {} }; planets.push(cur); sec = ''; continue; }
       if (label === 'coordonnees') { if (cur) { cur.coords = val; const p = val.split(':').map(Number); cur.pos = p[2] || 8; cur.gal = p[0]; cur.sys = p[1]; } continue; }
       if (label === 'recherche' && !val) { sec = 'research'; continue; }
@@ -77,12 +78,13 @@ const OG = (() => {
       if (!val) { sec = label; continue; } // "Defense:", "Flotte:" headers
       const num = parseInt(val.replace(/[^\d-]/g, ''), 10); if (isNaN(num)) continue;
       if (sec === 'lfr') { if (cur) cur.lfr[label] = num; continue; }
+      if (sec === 'stock') { const SK = { metal: 'm', cristal: 'c', deuterium: 'd', energie: 'e', population: 'pop', nourriture: 'food' }[label]; if (cur && SK) { cur.stock = cur.stock || {}; cur.stock[SK] = num; } continue; }
       if (sec === 'forme de vie' || sec === 'formes de vie') { const lk = LF_LOOKUP[label]; if (cur && lk) cur.b[lk] = num; continue; }
       const key = LOOKUP[label]; if (!key) continue;
       if (/^r[A-Z]/.test(key)) research[key] = num;
       else if (cur && sec !== 'research') cur.b[key] = num;
     }
-    return { planets, research, server };
+    return { planets, research, server, exportedAt };
   }
 
   const POS_TEMP = { 1: 240, 2: 190, 3: 140, 4: 90, 5: 80, 6: 70, 7: 60, 8: 50, 9: 40, 10: 30, 11: 20, 12: 10, 13: -30, 14: -70, 15: -110 };
@@ -151,11 +153,23 @@ const OG = (() => {
   const fmtH = h => !isFinite(h) ? '∞' : h < 48 ? Math.round(h) + ' h' : (h / 24).toFixed(1).replace('.', ',') + ' j';
 
   function analyse(text, S) {
-    const { planets, research: R, server } = parse(text);
+    const { planets, research: R, server, exportedAt } = parse(text);
     if (server.speed) S = Object.assign({}, S, { speed: server.speed });
     const msu = c => c[0] + c[1] * S.ratioC + c[2] * S.ratioD; // metal standard units
-    const out = { planets: [], research: [], warnings: [], R, server, speedUsed: S.speed };
+    const out = { planets: [], research: [], warnings: [], R, server, speedUsed: S.speed, exportedAt };
     const calcs = planets.map(p => planetCalc(p, R, S));
+    // live stock: exported amount + production since the export, capped by storage
+    const elapsedH = exportedAt ? Math.max(0, ((S.now || Date.now()) - exportedAt) / 3600000) : 0;
+    planets.forEach((p, i) => { const c = calcs[i]; c.fillLeft = Object.assign({}, c.fill); c.full = {};
+      if (!p.stock) return;
+      c.stockNow = {}; c.stockAt = exportedAt;
+      for (const r of ['m', 'c', 'd']) {
+        const s0 = p.stock[r]; if (s0 == null) continue;
+        const now = s0 >= c.cap[r] ? s0 : Math.min(c.cap[r], s0 + Math.max(0, c.prod[r]) * elapsedH);
+        c.stockNow[r] = now; c.full[r] = now >= c.cap[r];
+        c.fillLeft[r] = c.full[r] ? 0 : (c.prod[r] > 0 ? (c.cap[r] - now) / c.prod[r] : Infinity);
+      }
+    });
 
     // empire totals
     const tot = { m: 0, c: 0, d: 0 };
@@ -207,9 +221,12 @@ const OG = (() => {
       // 2. storage
       const ST = { m: ['stM', 'Hangar de métal'], c: ['stC', 'Hangar de cristal'], d: ['stD', 'Réservoir de deutérium'] };
       for (const r of ['m', 'c', 'd']) {
-        if (c.fill[r] < S.fillHours) {
-          const [key, nm] = ST[r]; const lvl = (b[key] || 0) + 1;
-          recs.push({ prio: c.fill[r] < S.fillHours / 2 ? 1 : 2, type: c.fill[r] < S.fillHours / 2 ? 'urgent' : 'important', title: `${nm} ${lvl}`, cost: cost[key](lvl), why: `Plein en ${fmtH(c.fill[r])} (capacité ${fmt(c.cap[r])}). Si tu ne te connectes pas avant, la production s'arrête. Le niveau ${lvl} porte la capacité à ${fmt(storageCap(lvl))}.` });
+        const left = c.fillLeft[r];
+        if (left < S.fillHours) {
+          const [key, nm] = ST[r]; const lvl = (b[key] || 0) + 1; const RN = { m: 'métal', c: 'cristal', d: 'deutérium' }[r];
+          const why = c.full[r] ? `Déjà plein (${fmt(c.cap[r])}) : la production de ${RN} est arrêtée sur cette planète. Dépense ce stock ou monte le hangar tout de suite.`
+            : `${c.stockNow ? 'Plein dans' : 'Plein en'} ${fmtH(left)} (capacité ${fmt(c.cap[r])}). Si tu ne te connectes pas avant, la production s'arrête.`;
+          recs.push({ prio: left < S.fillHours / 2 ? 1 : 2, type: left < S.fillHours / 2 ? 'urgent' : 'important', title: `${nm} ${lvl}`, cost: cost[key](lvl), why: why + ` Le niveau ${lvl} porte la capacité à ${fmt(storageCap(lvl))}.` });
         }
       }
 
@@ -255,6 +272,7 @@ const OG = (() => {
       if (defPts === 0 && (b.metal || 0) >= 10) recs.push({ prio: 5, type: 'def', title: 'Défense de base', cost: null, why: 'Aucune défense : la planète est une cible facile pour les petits raideurs. Quelques lanceurs de missiles et lasers légers suffisent à les décourager (chantier spatial requis).' });
 
       recs.sort((a, b2) => a.prio - b2.prio);
+      if (c.stockNow) recs.forEach(r => { if (!r.cost) return; const miss = ['m', 'c', 'd'].map((k, j) => Math.max(0, r.cost[j] - (c.stockNow[k] ?? Infinity))); r.missing = miss; r.affordable = miss.every(v => v <= 0); });
       out.planets.push({ p, c, recs, cands, eSurplus });
     });
 
