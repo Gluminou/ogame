@@ -64,6 +64,9 @@ const CB = (() => {
     const cm = t.match(/classe\s*:\s*(le |la )?(collecteur|general|explorateur)/); if (cm) out.cls = cm[2];
     out.noResearch = /recherche\s+aucune donnee fiable/.test(t);
     const pm = text.match(/\[(\d+:\d+:\d+)\]/); if (pm) out.coords = pm[1];
+    const dm = text.match(/(\d{2})\.(\d{2})\.(\d{4})\s+(\d{2}):(\d{2}):(\d{2})/); if (dm) out.date = { y: +dm[3], mo: +dm[2], d: +dm[1], h: +dm[4], mi: +dm[5], s: +dm[6] };
+    const nm = text.match(/(?:Planète|Lune)\s*\n?\s*([^\[\n]*?)\s*\[\d+:\d+:\d+\]/i); if (nm) out.planetName = nm[1].trim();
+    out.isMoon = /de\s+Lune/i.test(text);
     const jm = text.match(/Joueur\s*:\s*([^\n]+)/i); if (jm) out.player = jm[1].trim();
     const am = t.match(/activite sur cette planete dans les (\d+) dernieres minutes/); if (am) out.activity = +am[1];
     return out;
@@ -154,6 +157,20 @@ const CB = (() => {
     return stat;
   }
 
-  return { U, SHIPS, ATTACK_SHIPS, DEFS, RF, parseReport, simulate, buildSide, num };
+  // split a paste holding several spy reports
+  function splitReports(text) {
+    const parts = text.split(/(?=Rapport d.espionnage de)/i).map(s => s.trim()).filter(s => s.length > 40);
+    return parts.length ? parts : [text];
+  }
+  // ship speeds (base) and drive used
+  const SPEED = { LF: [12500, 'comb'], HF: [10000, 'imp'], Cr: [15000, 'imp'], BS: [10000, 'hd'], BC: [10000, 'hd'], Bo: [4000, 'imp'], De: [5000, 'hd'], RIP: [100, 'hd'], Re: [7000, 'hd'], PF: [12000, 'hd'], SC: [5000, 'comb'], LC: [7500, 'comb'], Col: [2500, 'imp'], Rec: [2000, 'comb'], EP: [100000000, 'comb'] };
+  const FUEL = { LF: 20, HF: 75, Cr: 300, BS: 500, BC: 250, Bo: 700, De: 1000, RIP: 1, Re: 1100, PF: 300, SC: 10, LC: 50, Col: 1000, Rec: 300, EP: 1 };
+  function shipSpeed(k, R, collector) {
+    const [base, drv] = SPEED[k] || [10000, 'comb'];
+    const lvl = drv === 'comb' ? (R.rComb || 0) : drv === 'imp' ? (R.rImp || 0) : (R.rHD || 0);
+    const per = drv === 'comb' ? 0.1 : drv === 'imp' ? 0.2 : 0.3;
+    return base * (1 + per * lvl + (collector && (k === 'SC' || k === 'LC') ? 1 : 0));
+  }
+  return { U, SHIPS, ATTACK_SHIPS, DEFS, RF, parseReport, splitReports, simulate, buildSide, num, shipSpeed, FUEL };
 })();
 if (typeof module !== 'undefined') module.exports = CB;

@@ -57,6 +57,17 @@ boucliers, rapidfire, explosion sous 70 % de coque.
 Résultat : chances de victoire, pertes, butin, champ de débris, gain net,
 nombre de grands transporteurs et de recycleurs à envoyer.
 
+## Onglet Cibles
+
+On colle un ou plusieurs rapports d'espionnage ; ils restent enregistrés
+dans le navigateur (un rapport plus récent sur la même planète remplace
+l'ancien). Pour chaque cible : plusieurs escortes possibles tirées de la
+flotte de la planète de départ, simulées, puis l'escorte au meilleur gain
+qui atteint la victoire minimale est retenue, avec les grands
+transporteurs nécessaires, le vol aller-retour (vitesse des flottes de
+guerre du serveur), le deutérium et le gain net. Tri par gain par heure de
+vol ; « Simuler » ouvre la cible dans l'onglet Combat.
+
 ## Onglet Export auto
 
 Un favori (bookmarklet) à glisser dans la barre de favoris. Cliqué sur
