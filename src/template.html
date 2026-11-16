@@ -112,36 +112,9 @@ details.howto ol{margin:6px 0 6px;padding-left:22px}details.howto li{margin:4px 
   <h1>OGame <span>·</span> Conseiller de construction</h1>
   <p class="sub">Colle ton export de planètes : l'outil calcule production, énergie, stockage et rentabilité, et te dit quoi construire ensuite sur chaque planète.</p>
 
-  <nav class="tabs" style="flex-wrap:wrap"><a href="#vue" id="tab-vue">Vue générale</a><a href="#planetes" id="tab-planetes">Planètes</a><a href="#plan" id="tab-plan">Plan</a><a href="#combat" id="tab-combat">Combat</a><a href="#cibles" id="tab-cibles">Cibles</a><a href="#expe" id="tab-expe">Expéditions</a><a href="#histo" id="tab-histo">Historique</a><a href="#export" id="tab-export">Export auto</a></nav>
+  <nav class="tabs" style="flex-wrap:wrap"><a href="#export" id="tab-export">Export</a><a href="#vue" id="tab-vue">Vue générale</a><a href="#planetes" id="tab-planetes">Planètes</a><a href="#plan" id="tab-plan">Plan</a><a href="#combat" id="tab-combat">Combat</a><a href="#cibles" id="tab-cibles">Cibles</a><a href="#expe" id="tab-expe">Expéditions</a><a href="#histo" id="tab-histo">Historique</a></nav>
   <section id="view-planetes">
-  <details class="panel" id="inputPanel">
-    <summary>Mes données (export texte)</summary>
-    <textarea id="data" spellcheck="false"></textarea>
-    <div class="settings">
-      <label>Vitesse économique de l'univers<input type="number" id="speed" min="1" max="20" step="1" value="8"></label>
-      <label>Remplissage des hangars : alerte sous (heures)<input type="number" id="fill" min="1" max="200" value="24"></label>
-      <label>Taux d'échange cristal (en métal)<input type="number" id="rc" step="0.1" value="1.5"></label>
-      <label>Taux d'échange deutérium (en métal)<input type="number" id="rd" step="0.1" value="3"></label>
-      <label class="chk"><input type="checkbox" id="col" checked> Classe Collecteur</label>
-      <label class="chk"><input type="checkbox" id="geo"> Officier Géologue</label>
-      <label class="chk"><input type="checkbox" id="eng"> Officier Ingénieur</label>
-      <label class="chk"><input type="checkbox" id="ally"> Classe d'alliance Marchands (+5 %)</label>
-      <label>Bonus supplémentaires sur les mines (%)<input type="number" id="extra" value="0" step="1"></label>
-      <label class="chk"><input type="checkbox" id="nocalib"> Ne pas caler sur les chiffres du jeu</label>
-    </div>
-    <div class="row">
-      <button id="pasteData">Coller mon export</button>
-      <button class="ghost" id="go">Analyser</button>
-      <button class="ghost" id="copyTpl">Copier un modèle vide</button>
-      <span class="note" id="copyMsg"></span>
-    </div>
-    <div id="err"></div>
-  </details>
-
-  <div class="panel" style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;padding:12px 16px">
-    <span class="note" id="dataStamp">Aucune donnée pour l'instant.</span>
-    <button id="pasteTop">Coller mon export</button>
-  </div>
+  <div class="note" style="display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;margin:0 0 14px"><span id="dataStamp2">Aucune donnée pour l'instant.</span><a href="#export" style="color:var(--acc);font-weight:600">Mettre à jour</a></div>
   <div class="panel">
     <h2>Vue d'ensemble</h2>
     <div class="note" id="speedNote"></div>
@@ -167,7 +140,7 @@ details.howto ol{margin:6px 0 6px;padding-left:22px}details.howto li{margin:4px 
     </div>
     <div id="planSummary"></div>
     <div class="grid" id="planOut"></div>
-    <p class="note">Hypothèses : une construction à la fois par planète, avec le stock de l'export comme point de départ. Les transports, recherches, bâtiments de formes de vie, défenses et vaisseaux ne sont pas pris en compte : ils décalent le plan, qui se recale à chaque nouvel export. Les choix suivent ton taux d'échange (onglet Planètes, « Mes données »).</p>
+    <p class="note">Hypothèses : une construction à la fois par planète, avec le stock de l'export comme point de départ. Les transports, recherches, bâtiments de formes de vie, défenses et vaisseaux ne sont pas pris en compte : ils décalent le plan, qui se recale à chaque nouvel export. Les choix suivent ton taux d'échange (onglet Export, « Mes données et réglages »).</p>
   </section>
 
   <section id="view-vue" class="hidden">
@@ -231,7 +204,41 @@ details.howto ol{margin:6px 0 6px;padding-left:22px}details.howto li{margin:4px 
 
   <section id="view-export" class="hidden">
     <div class="panel">
-      <h2>Export automatique depuis OGame</h2>
+      <h2>Mettre à jour mes données</h2>
+      <p class="note" id="dataStamp" style="margin:6px 0 12px">Aucune donnée pour l'instant.</p>
+      <button id="pasteTop" style="font-size:16px;padding:12px 22px">Coller mon export</button>
+      <ol class="note" style="margin:14px 0 0;padding-left:20px;line-height:1.6">
+        <li>Dans Safari (ou Chrome sur ordinateur), sur une page d'OGame : favori <b>Export OGame</b>.</li>
+        <li>Attends « Export prêt », puis <b>Copier</b>.</li>
+        <li>Reviens ici et appuie sur <b>Coller mon export</b> : l'application passe à l'onglet Planètes.</li>
+      </ol>
+    </div>
+    <details class="panel" id="inputPanel">
+    <summary>Mes données (export texte) et réglages</summary>
+    <textarea id="data" spellcheck="false"></textarea>
+    <div class="settings">
+      <label>Vitesse économique de l'univers<input type="number" id="speed" min="1" max="20" step="1" value="8"></label>
+      <label>Remplissage des hangars : alerte sous (heures)<input type="number" id="fill" min="1" max="200" value="24"></label>
+      <label>Taux d'échange cristal (en métal)<input type="number" id="rc" step="0.1" value="1.5"></label>
+      <label>Taux d'échange deutérium (en métal)<input type="number" id="rd" step="0.1" value="3"></label>
+      <label class="chk"><input type="checkbox" id="col" checked> Classe Collecteur</label>
+      <label class="chk"><input type="checkbox" id="geo"> Officier Géologue</label>
+      <label class="chk"><input type="checkbox" id="eng"> Officier Ingénieur</label>
+      <label class="chk"><input type="checkbox" id="ally"> Classe d'alliance Marchands (+5 %)</label>
+      <label>Bonus supplémentaires sur les mines (%)<input type="number" id="extra" value="0" step="1"></label>
+      <label class="chk"><input type="checkbox" id="nocalib"> Ne pas caler sur les chiffres du jeu</label>
+    </div>
+    <div class="row">
+      <button id="pasteData">Coller mon export</button>
+      <button class="ghost" id="go">Analyser</button>
+      <button class="ghost" id="copyTpl">Copier un modèle vide</button>
+      <span class="note" id="copyMsg"></span>
+    </div>
+    <div id="err"></div>
+  </details>
+
+    <div class="panel">
+      <h2>Installer le favori Export OGame</h2>
       <p>Un favori spécial lit tes planètes directement dans le jeu (bâtiments, formes de vie, recherches, flotte, défense, paramètres du serveur) et prépare l'export pour l'onglet Planètes. Tu n'as plus rien à recopier.</p>
       <details class="howto" open>
         <summary>Sur ordinateur (Chrome)</summary>
@@ -253,7 +260,7 @@ details.howto ol{margin:6px 0 6px;padding-left:22px}details.howto li{margin:4px 
         <p class="note">Passe par Safari : l'application installée sur l'écran d'accueil et Chrome sur iPhone n'ont pas accès aux favoris. Si tu es dans l'application, ouvre ≡ puis « Ouvrir dans Safari ».</p>
         <div class="sub2">Installation, une seule fois</div>
         <ol>
-          <li>Dans Safari, ouvre cette page (gluminou.github.io/ogame), onglet Export auto.</li>
+          <li>Dans Safari, ouvre cette page (gluminou.github.io/ogame), onglet Export.</li>
           <li>Appuie sur <b>Copier le code du favori</b> (bouton ci-dessous).</li>
           <li>Appuie sur l'icône <b>≡</b> à gauche de l'adresse, puis sur <b>Partager</b>.</li>
           <li>Choisis <b>Ajouter aux favoris</b>, puis <b>Enregistrer</b>.</li>
@@ -267,7 +274,7 @@ details.howto ol{margin:6px 0 6px;padding-left:22px}details.howto li{margin:4px 
           <li>Dans Safari, ouvre OGame et connecte-toi.</li>
           <li>Sur une page du jeu, appuie sur la barre d'adresse, puis sur le favori <b>Export OGame</b>.</li>
           <li>Attends « Export prêt », puis appuie sur <b>Copier</b>.</li>
-          <li>Ouvre l'application depuis ton écran d'accueil et appuie sur <b>Coller mon export</b>, en haut de l'onglet Planètes. La date des données se met à jour.</li>
+          <li>Ouvre l'application depuis ton écran d'accueil et appuie sur <b>Coller mon export</b>, en haut de l'onglet Export. La date des données se met à jour.</li>
         </ol>
         <p class="note">Pourquoi pas « Ouvrir dans le conseiller » ? Sur iPhone, ce bouton ouvre un onglet Safari, et Safari ne partage pas ses données avec l'application de l'écran d'accueil. Il n'est utile que si tu utilises le conseiller dans Safari.</p>
         <ol style="display:none">
@@ -436,7 +443,7 @@ function run(){
     ['Deutérium', f(t.d)+'/h', f(t.d*24)+' par jour'],
     ['Planètes', nb+' / '+maxPl, 'Astrophysique '+(res.R.rAstro||0)],
   ].map(([a,b,c]) => `<div class="kpi"><small>${a}</small><b>${b}</b><small>${c}</small></div>`).join('');
-  if (!res.exportedAt && /Temperature max\s*:/.test(text)) res.warnings.unshift('Ton favori Export OGame est une ancienne version : il ne lit pas encore ton stock de ressources. Va dans l\'onglet Export auto, copie à nouveau le code du favori et remplace l\'adresse de ton favori.');
+  if (!res.exportedAt && /Temperature max\s*:/.test(text)) res.warnings.unshift('Ton favori Export OGame est une ancienne version : il ne lit pas encore ton stock de ressources. Va dans l\'onglet Export, copie à nouveau le code du favori et remplace l\'adresse de ton favori.');
   $('warns').innerHTML = res.warnings.map(w => `<div class="warn">${esc(w)}</div>`).join('');
   $('research').innerHTML = res.research.map(r => recLi(r, r.isBuilding ? 'infra' : 'res')).join('');
   showStamp(res.exportedAt);
@@ -766,7 +773,7 @@ function renderTargets(){
   sel.innerHTML = srcs.map(x => `<option value="${x.i}">${esc(x.p.name)}</option>`).join('') || '<option value="">(aucune flotte)</option>';
   if (prev && sel.querySelector(`option[value="${prev}"]`)) sel.value = prev;
   if (!TG.list.length){ $('tgOut').innerHTML = '<div class="panel note">Aucune cible pour l\'instant.</div>'; return; }
-  if (!res || !srcs.length){ $('tgOut').innerHTML = '<div class="panel note">Colle d\'abord ton export de planètes (onglet Planètes) pour connaître ta flotte.</div>'; return; }
+  if (!res || !srcs.length){ $('tgOut').innerHTML = '<div class="panel note">Colle d\'abord ton export de planètes (onglet Export) pour connaître ta flotte.</div>'; return; }
   const src = srcs.find(x => String(x.i) === sel.value) || srcs[0];
   const minWin = Math.min(1, Math.max(0.5, (+$('tgMinWin').value || 95) / 100));
   const sig = JSON.stringify([src.i, minWin, probesSent(), $('tgDebris').checked, S.ratioC, S.ratioD, S.collector, CS.sig]);
@@ -971,14 +978,15 @@ function renderHisto(){
 }
 
 function route(){
-  const v = { '#combat': 'combat', '#export': 'export', '#vue': 'vue', '#plan': 'plan', '#cibles': 'cibles', '#expe': 'expe', '#histo': 'histo' }[location.hash] || 'planetes';
+  const v = { '#planetes': 'planetes', '#combat': 'combat', '#export': 'export', '#vue': 'vue', '#plan': 'plan', '#cibles': 'cibles', '#expe': 'expe', '#histo': 'histo' }[location.hash] || 'export';
   ['planetes','plan','vue','combat','cibles','expe','histo','export'].forEach(n => { $('view-' + n).classList.toggle('hidden', v !== n); $('tab-' + n).classList.toggle('on', v === n); });
 }
 
 const BOOKMARKLET = /*BOOKMARKLET*/;
 function showStamp(exportedAt){
   const ts = exportedAt || +store.get('og_data_time');
-  $('dataStamp').innerHTML = ts ? (exportedAt ? 'Export du <b>' : 'Données du <b>') + new Date(ts).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) + '</b>. Pour les mettre à jour : favori Export OGame, « Copier », puis ce bouton.' : 'Aucune donnée pour l\'instant : lance le favori Export OGame, « Copier », puis ce bouton.';
+  $('dataStamp2').innerHTML = ts ? (exportedAt ? 'Export du <b>' : 'Données du <b>') + new Date(ts).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) + '</b>' : 'Aucune donnée pour l\'instant.';
+  $('dataStamp').innerHTML = ts ? (exportedAt ? 'Export du <b>' : 'Données du <b>') + new Date(ts).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) + '</b>.' : 'Aucune donnée pour l\'instant : lance le favori Export OGame, « Copier », puis ce bouton.';
 }
 function importFromHash(){
   if (!location.hash.startsWith('#import=')) return false;
@@ -1010,7 +1018,7 @@ function init(){
       const dOf = s => { const m = s.match(/Date export\s*:\s*(\d{10,})/); return m ? +m[1] : 0; };
       const newD = dOf(clip), curD = dOf($('data').value);
       if (newD && curD && newD <= curD) { $('dataStamp').innerHTML = `<span class="warnc">Le presse-papiers contient le même export (ou un plus ancien) que celui déjà chargé, du ${new Date(newD).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}. La copie depuis le jeu n'a sans doute pas marché : dans la fenêtre d'export, appuie longuement dans le texte, « Tout sélectionner », « Copier », puis réessaie.</span>`; return; }
-      $('data').value = clip; run(); window.scrollTo({ top: 0, behavior: 'smooth' });
+      $('data').value = clip; run(); location.hash = '#planetes'; window.scrollTo(0, 0);
     } catch(e){ $('inputPanel').open = true; $('data').focus(); $('dataStamp').textContent = 'Collage automatique refusé : colle l\'export dans la case « Mes données » (appui long, Coller).'; }
   };
   let rt; $('report').addEventListener('input', () => { clearTimeout(rt); rt = setTimeout(() => { if ($('report').value.trim().length > 30 && readReport()) runSim(); }, 400); });

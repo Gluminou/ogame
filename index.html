@@ -112,36 +112,9 @@ details.howto ol{margin:6px 0 6px;padding-left:22px}details.howto li{margin:4px 
   <h1>OGame <span>·</span> Conseiller de construction</h1>
   <p class="sub">Colle ton export de planètes : l'outil calcule production, énergie, stockage et rentabilité, et te dit quoi construire ensuite sur chaque planète.</p>
 
-  <nav class="tabs" style="flex-wrap:wrap"><a href="#vue" id="tab-vue">Vue générale</a><a href="#planetes" id="tab-planetes">Planètes</a><a href="#plan" id="tab-plan">Plan</a><a href="#combat" id="tab-combat">Combat</a><a href="#cibles" id="tab-cibles">Cibles</a><a href="#expe" id="tab-expe">Expéditions</a><a href="#histo" id="tab-histo">Historique</a><a href="#export" id="tab-export">Export auto</a></nav>
+  <nav class="tabs" style="flex-wrap:wrap"><a href="#export" id="tab-export">Export</a><a href="#vue" id="tab-vue">Vue générale</a><a href="#planetes" id="tab-planetes">Planètes</a><a href="#plan" id="tab-plan">Plan</a><a href="#combat" id="tab-combat">Combat</a><a href="#cibles" id="tab-cibles">Cibles</a><a href="#expe" id="tab-expe">Expéditions</a><a href="#histo" id="tab-histo">Historique</a></nav>
   <section id="view-planetes">
-  <details class="panel" id="inputPanel">
-    <summary>Mes données (export texte)</summary>
-    <textarea id="data" spellcheck="false"></textarea>
-    <div class="settings">
-      <label>Vitesse économique de l'univers<input type="number" id="speed" min="1" max="20" step="1" value="8"></label>
-      <label>Remplissage des hangars : alerte sous (heures)<input type="number" id="fill" min="1" max="200" value="24"></label>
-      <label>Taux d'échange cristal (en métal)<input type="number" id="rc" step="0.1" value="1.5"></label>
-      <label>Taux d'échange deutérium (en métal)<input type="number" id="rd" step="0.1" value="3"></label>
-      <label class="chk"><input type="checkbox" id="col" checked> Classe Collecteur</label>
-      <label class="chk"><input type="checkbox" id="geo"> Officier Géologue</label>
-      <label class="chk"><input type="checkbox" id="eng"> Officier Ingénieur</label>
-      <label class="chk"><input type="checkbox" id="ally"> Classe d'alliance Marchands (+5 %)</label>
-      <label>Bonus supplémentaires sur les mines (%)<input type="number" id="extra" value="0" step="1"></label>
-      <label class="chk"><input type="checkbox" id="nocalib"> Ne pas caler sur les chiffres du jeu</label>
-    </div>
-    <div class="row">
-      <button id="pasteData">Coller mon export</button>
-      <button class="ghost" id="go">Analyser</button>
-      <button class="ghost" id="copyTpl">Copier un modèle vide</button>
-      <span class="note" id="copyMsg"></span>
-    </div>
-    <div id="err"></div>
-  </details>
-
-  <div class="panel" style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;padding:12px 16px">
-    <span class="note" id="dataStamp">Aucune donnée pour l'instant.</span>
-    <button id="pasteTop">Coller mon export</button>
-  </div>
+  <div class="note" style="display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;margin:0 0 14px"><span id="dataStamp2">Aucune donnée pour l'instant.</span><a href="#export" style="color:var(--acc);font-weight:600">Mettre à jour</a></div>
   <div class="panel">
     <h2>Vue d'ensemble</h2>
     <div class="note" id="speedNote"></div>
@@ -167,7 +140,7 @@ details.howto ol{margin:6px 0 6px;padding-left:22px}details.howto li{margin:4px 
     </div>
     <div id="planSummary"></div>
     <div class="grid" id="planOut"></div>
-    <p class="note">Hypothèses : une construction à la fois par planète, avec le stock de l'export comme point de départ. Les transports, recherches, bâtiments de formes de vie, défenses et vaisseaux ne sont pas pris en compte : ils décalent le plan, qui se recale à chaque nouvel export. Les choix suivent ton taux d'échange (onglet Planètes, « Mes données »).</p>
+    <p class="note">Hypothèses : une construction à la fois par planète, avec le stock de l'export comme point de départ. Les transports, recherches, bâtiments de formes de vie, défenses et vaisseaux ne sont pas pris en compte : ils décalent le plan, qui se recale à chaque nouvel export. Les choix suivent ton taux d'échange (onglet Export, « Mes données et réglages »).</p>
   </section>
 
   <section id="view-vue" class="hidden">
@@ -231,7 +204,41 @@ details.howto ol{margin:6px 0 6px;padding-left:22px}details.howto li{margin:4px 
 
   <section id="view-export" class="hidden">
     <div class="panel">
-      <h2>Export automatique depuis OGame</h2>
+      <h2>Mettre à jour mes données</h2>
+      <p class="note" id="dataStamp" style="margin:6px 0 12px">Aucune donnée pour l'instant.</p>
+      <button id="pasteTop" style="font-size:16px;padding:12px 22px">Coller mon export</button>
+      <ol class="note" style="margin:14px 0 0;padding-left:20px;line-height:1.6">
+        <li>Dans Safari (ou Chrome sur ordinateur), sur une page d'OGame : favori <b>Export OGame</b>.</li>
+        <li>Attends « Export prêt », puis <b>Copier</b>.</li>
+        <li>Reviens ici et appuie sur <b>Coller mon export</b> : l'application passe à l'onglet Planètes.</li>
+      </ol>
+    </div>
+    <details class="panel" id="inputPanel">
+    <summary>Mes données (export texte) et réglages</summary>
+    <textarea id="data" spellcheck="false"></textarea>
+    <div class="settings">
+      <label>Vitesse économique de l'univers<input type="number" id="speed" min="1" max="20" step="1" value="8"></label>
+      <label>Remplissage des hangars : alerte sous (heures)<input type="number" id="fill" min="1" max="200" value="24"></label>
+      <label>Taux d'échange cristal (en métal)<input type="number" id="rc" step="0.1" value="1.5"></label>
+      <label>Taux d'échange deutérium (en métal)<input type="number" id="rd" step="0.1" value="3"></label>
+      <label class="chk"><input type="checkbox" id="col" checked> Classe Collecteur</label>
+      <label class="chk"><input type="checkbox" id="geo"> Officier Géologue</label>
+      <label class="chk"><input type="checkbox" id="eng"> Officier Ingénieur</label>
+      <label class="chk"><input type="checkbox" id="ally"> Classe d'alliance Marchands (+5 %)</label>
+      <label>Bonus supplémentaires sur les mines (%)<input type="number" id="extra" value="0" step="1"></label>
+      <label class="chk"><input type="checkbox" id="nocalib"> Ne pas caler sur les chiffres du jeu</label>
+    </div>
+    <div class="row">
+      <button id="pasteData">Coller mon export</button>
+      <button class="ghost" id="go">Analyser</button>
+      <button class="ghost" id="copyTpl">Copier un modèle vide</button>
+      <span class="note" id="copyMsg"></span>
+    </div>
+    <div id="err"></div>
+  </details>
+
+    <div class="panel">
+      <h2>Installer le favori Export OGame</h2>
       <p>Un favori spécial lit tes planètes directement dans le jeu (bâtiments, formes de vie, recherches, flotte, défense, paramètres du serveur) et prépare l'export pour l'onglet Planètes. Tu n'as plus rien à recopier.</p>
       <details class="howto" open>
         <summary>Sur ordinateur (Chrome)</summary>
@@ -253,7 +260,7 @@ details.howto ol{margin:6px 0 6px;padding-left:22px}details.howto li{margin:4px 
         <p class="note">Passe par Safari : l'application installée sur l'écran d'accueil et Chrome sur iPhone n'ont pas accès aux favoris. Si tu es dans l'application, ouvre ≡ puis « Ouvrir dans Safari ».</p>
         <div class="sub2">Installation, une seule fois</div>
         <ol>
-          <li>Dans Safari, ouvre cette page (gluminou.github.io/ogame), onglet Export auto.</li>
+          <li>Dans Safari, ouvre cette page (gluminou.github.io/ogame), onglet Export.</li>
           <li>Appuie sur <b>Copier le code du favori</b> (bouton ci-dessous).</li>
           <li>Appuie sur l'icône <b>≡</b> à gauche de l'adresse, puis sur <b>Partager</b>.</li>
           <li>Choisis <b>Ajouter aux favoris</b>, puis <b>Enregistrer</b>.</li>
@@ -267,7 +274,7 @@ details.howto ol{margin:6px 0 6px;padding-left:22px}details.howto li{margin:4px 
           <li>Dans Safari, ouvre OGame et connecte-toi.</li>
           <li>Sur une page du jeu, appuie sur la barre d'adresse, puis sur le favori <b>Export OGame</b>.</li>
           <li>Attends « Export prêt », puis appuie sur <b>Copier</b>.</li>
-          <li>Ouvre l'application depuis ton écran d'accueil et appuie sur <b>Coller mon export</b>, en haut de l'onglet Planètes. La date des données se met à jour.</li>
+          <li>Ouvre l'application depuis ton écran d'accueil et appuie sur <b>Coller mon export</b>, en haut de l'onglet Export. La date des données se met à jour.</li>
         </ol>
         <p class="note">Pourquoi pas « Ouvrir dans le conseiller » ? Sur iPhone, ce bouton ouvre un onglet Safari, et Safari ne partage pas ses données avec l'application de l'écran d'accueil. Il n'est utile que si tu utilises le conseiller dans Safari.</p>
         <ol style="display:none">
@@ -1079,7 +1086,7 @@ if (typeof module !== 'undefined') module.exports = CB;
 
 </script>
 <script>
-const APP_VERSION="202611160741";
+const APP_VERSION="202611160745";
 async function checkVersion(){
   if (location.protocol === 'file:') return;
   try { const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' }); if (!r.ok) return; const j = await r.json();
@@ -1184,7 +1191,7 @@ function run(){
     ['Deutérium', f(t.d)+'/h', f(t.d*24)+' par jour'],
     ['Planètes', nb+' / '+maxPl, 'Astrophysique '+(res.R.rAstro||0)],
   ].map(([a,b,c]) => `<div class="kpi"><small>${a}</small><b>${b}</b><small>${c}</small></div>`).join('');
-  if (!res.exportedAt && /Temperature max\s*:/.test(text)) res.warnings.unshift('Ton favori Export OGame est une ancienne version : il ne lit pas encore ton stock de ressources. Va dans l\'onglet Export auto, copie à nouveau le code du favori et remplace l\'adresse de ton favori.');
+  if (!res.exportedAt && /Temperature max\s*:/.test(text)) res.warnings.unshift('Ton favori Export OGame est une ancienne version : il ne lit pas encore ton stock de ressources. Va dans l\'onglet Export, copie à nouveau le code du favori et remplace l\'adresse de ton favori.');
   $('warns').innerHTML = res.warnings.map(w => `<div class="warn">${esc(w)}</div>`).join('');
   $('research').innerHTML = res.research.map(r => recLi(r, r.isBuilding ? 'infra' : 'res')).join('');
   showStamp(res.exportedAt);
@@ -1514,7 +1521,7 @@ function renderTargets(){
   sel.innerHTML = srcs.map(x => `<option value="${x.i}">${esc(x.p.name)}</option>`).join('') || '<option value="">(aucune flotte)</option>';
   if (prev && sel.querySelector(`option[value="${prev}"]`)) sel.value = prev;
   if (!TG.list.length){ $('tgOut').innerHTML = '<div class="panel note">Aucune cible pour l\'instant.</div>'; return; }
-  if (!res || !srcs.length){ $('tgOut').innerHTML = '<div class="panel note">Colle d\'abord ton export de planètes (onglet Planètes) pour connaître ta flotte.</div>'; return; }
+  if (!res || !srcs.length){ $('tgOut').innerHTML = '<div class="panel note">Colle d\'abord ton export de planètes (onglet Export) pour connaître ta flotte.</div>'; return; }
   const src = srcs.find(x => String(x.i) === sel.value) || srcs[0];
   const minWin = Math.min(1, Math.max(0.5, (+$('tgMinWin').value || 95) / 100));
   const sig = JSON.stringify([src.i, minWin, probesSent(), $('tgDebris').checked, S.ratioC, S.ratioD, S.collector, CS.sig]);
@@ -1719,14 +1726,15 @@ function renderHisto(){
 }
 
 function route(){
-  const v = { '#combat': 'combat', '#export': 'export', '#vue': 'vue', '#plan': 'plan', '#cibles': 'cibles', '#expe': 'expe', '#histo': 'histo' }[location.hash] || 'planetes';
+  const v = { '#planetes': 'planetes', '#combat': 'combat', '#export': 'export', '#vue': 'vue', '#plan': 'plan', '#cibles': 'cibles', '#expe': 'expe', '#histo': 'histo' }[location.hash] || 'export';
   ['planetes','plan','vue','combat','cibles','expe','histo','export'].forEach(n => { $('view-' + n).classList.toggle('hidden', v !== n); $('tab-' + n).classList.toggle('on', v === n); });
 }
 
 const BOOKMARKLET = "javascript:(async()%3D%3E%7Bif(window.__ogExportRunning)return%3Bwindow.__ogExportRunning%3D!0%3Bconst%20e%3D%7B1%3A%22Mine%20de%20metal%22%2C2%3A%22Mine%20de%20cristal%22%2C3%3A%22Synthetiseur%20de%20deuterium%22%2C4%3A%22Centrale%20electrique%20solaire%22%2C12%3A%22Centrale%20electrique%20de%20fusion%22%2C22%3A%22Hangar%20de%20metal%22%2C23%3A%22Hangar%20de%20cristal%22%2C24%3A%22Reservoir%20de%20deuterium%22%2C212%3A%22Satellite%20solaire%22%2C217%3A%22Foreuse%22%2C14%3A%22Usine%20de%20robots%22%2C21%3A%22Chantier%20spatial%22%2C31%3A%22Laboratoire%20de%20recherche%22%2C34%3A%22Depot%20de%20ravitaillement%22%2C44%3A%22Silo%20de%20missiles%22%2C15%3A%22Usine%20de%20nanites%22%2C33%3A%22Terraformeur%22%2C36%3A%22Dock%20Spatial%22%2C113%3A%22Technologie%20energetique%22%2C120%3A%22Technologie%20laser%22%2C121%3A%22Technologie%20a%20ions%22%2C114%3A%22Technologie%20hyperespace%22%2C122%3A%22Technologie%20plasma%22%2C115%3A%22Reacteur%20a%20combustion%22%2C117%3A%22Reacteur%20a%20impulsion%22%2C118%3A%22Propulsion%20hyperespace%22%2C106%3A%22Technologie%20espionnage%22%2C108%3A%22Technologie%20ordinateur%22%2C124%3A%22Astrophysique%22%2C123%3A%22Reseau%20de%20recherche%20intergalactique%22%2C199%3A%22Technologie%20graviton%22%2C109%3A%22Technologie%20armes%22%2C110%3A%22Technologie%20bouclier%22%2C111%3A%22Technologie%20protection%20des%20vaisseaux%20spatiaux%22%2C204%3A%22Chasseur%20leger%22%2C205%3A%22Chasseur%20lourd%22%2C206%3A%22Croiseur%22%2C207%3A%22Vaisseau%20de%20bataille%22%2C215%3A%22Traqueur%22%2C211%3A%22Bombardier%22%2C213%3A%22Destructeur%22%2C214%3A%22Etoile%20de%20la%20mort%22%2C218%3A%22Faucheur%22%2C219%3A%22Eclaireur%22%2C202%3A%22Petit%20transporteur%22%2C203%3A%22Grand%20transporteur%22%2C208%3A%22Vaisseau%20de%20colonisation%22%2C209%3A%22Recycleur%22%2C210%3A%22Sonde%20d'espionnage%22%2C401%3A%22Lanceur%20de%20missiles%22%2C402%3A%22Artillerie%20laser%20legere%22%2C403%3A%22Artillerie%20laser%20lourde%22%2C404%3A%22Canon%20de%20Gauss%22%2C405%3A%22Artillerie%20a%20Ions%22%2C406%3A%22Lanceur%20de%20plasma%22%2C407%3A%22Petit%20bouclier%22%2C408%3A%22Grand%20bouclier%22%2C502%3A%22Missile%20d'interception%22%2C503%3A%22Missile%20interplanetaire%22%2C11101%3A%22Secteur%20residentiel%22%2C11102%3A%22Ferme%20Biospherique%22%2C11103%3A%22Centre%20de%20recherche%22%2C11104%3A%22Academie%20des%20sciences%22%2C11105%3A%22Centre%20de%20neurocalibrage%22%2C11106%3A%22Fusion%20a%20haute%20energie%22%2C11107%3A%22Reserve%20alimentaire%22%2C11108%3A%22Extraction%20par%20fusion%22%2C11109%3A%22Tour%20d'habitation%22%2C11110%3A%22Laboratoire%20de%20biotechnologie%22%2C11111%3A%22Metropolis%22%2C11112%3A%22Bouclier%20planetaire%22%2C12101%3A%22Enclave%20stoique%22%2C12102%3A%22Culture%20du%20cristal%22%2C12103%3A%22Centre%20technologique%20runique%22%2C12104%3A%22Forge%20runique%22%2C12105%3A%22Orictorium%22%2C12106%3A%22Fusion%20magmatique%22%2C12107%3A%22Chambre%20de%20disruption%22%2C12108%3A%22Monument%20rocheux%22%2C12109%3A%22Raffinerie%20de%20cristaux%22%2C12110%3A%22Synthetiseur%20de%20deuterium%22%2C12111%3A%22Centre%20de%20recherche%20sur%20les%20mineraux%22%2C12112%3A%22Usine%20de%20traitement%20a%20haut%20rendement%22%2C11201%3A%22Ambassadeurs%20intergalactiques%22%2C11202%3A%22Extracteurs%20a%20haute%20performance%22%2C11203%3A%22Moteurs%20a%20fusion%22%2C11204%3A%22Generateur%20de%20champ%20de%20camouflage%22%2C11205%3A%22Planque%20Orbitale%22%2C11206%3A%22IA%20de%20recherche%22%2C12201%3A%22Batteries%20volcaniques%22%7D%2Ct%3D%5B1%2C2%2C3%2C4%2C12%2C22%2C23%2C24%5D%2Cr%3Ddocument.createElement(%22div%22)%3Br.style.cssText%3D%22position%3Afixed%3Binset%3A5%25%2010%25%3Bz-index%3A2147483647%3Bbackground%3A%230b1020%3Bcolor%3A%23e6ebf7%3Bborder%3A2px%20solid%20%23f5a623%3Bborder-radius%3A12px%3Bpadding%3A16px%3Bfont%3A14px%2F1.45%20Arial%2Csans-serif%3Bdisplay%3Aflex%3Bflex-direction%3Acolumn%3Bgap%3A10px%3Bbox-shadow%3A0%2010px%2040px%20%23000%22%2Cr.innerHTML%3D'%3Cdiv%20style%3D%22display%3Aflex%3Bjustify-content%3Aspace-between%3Balign-items%3Acenter%22%3E%3Cb%20style%3D%22font-size%3A18px%3Bcolor%3A%23f5a623%22%3EExport%20pour%20le%20conseiller%20OGame%3C%2Fb%3E%3Cbutton%20data-x%20style%3D%22background%3Anone%3Bborder%3A0%3Bcolor%3A%23e6ebf7%3Bfont-size%3A22px%3Bcursor%3Apointer%22%3E%C3%97%3C%2Fbutton%3E%3C%2Fdiv%3E%3Cdiv%20data-msg%3EPr%C3%A9paration%E2%80%A6%3C%2Fdiv%3E%3Ctextarea%20data-out%20style%3D%22flex%3A1%3Bwidth%3A100%25%3Bbackground%3A%23050914%3Bcolor%3A%23e6ebf7%3Bborder%3A1px%20solid%20%2326335a%3Bborder-radius%3A8px%3Bpadding%3A8px%3Bfont%3A12px%20monospace%22%20readonly%3E%3C%2Ftextarea%3E%3Cdiv%20style%3D%22display%3Aflex%3Bgap%3A8px%3Bflex-wrap%3Awrap%22%3E%3Cbutton%20data-copy%20disabled%20style%3D%22background%3A%23f5a623%3Bborder%3A0%3Bborder-radius%3A8px%3Bpadding%3A9px%2016px%3Bfont-weight%3Abold%3Bcursor%3Apointer%22%3ECopier%3C%2Fbutton%3E%3Cbutton%20data-open%20disabled%20style%3D%22background%3A%2318223d%3Bcolor%3A%23e6ebf7%3Bborder%3A1px%20solid%20%2326335a%3Bborder-radius%3A8px%3Bpadding%3A9px%2016px%3Bcursor%3Apointer%22%3EOuvrir%20dans%20le%20conseiller%3C%2Fbutton%3E%3Cspan%20data-note%20style%3D%22align-self%3Acenter%3Bcolor%3A%238f9bbd%22%3E%3C%2Fspan%3E%3C%2Fdiv%3E'%2Cdocument.body.appendChild(r)%3Bconst%20a%3De%3D%3Er.querySelector(e)%2Co%3De%3D%3E%7Ba(%22%5Bdata-msg%5D%22).textContent%3De%7D%3Ba(%22%5Bdata-x%5D%22).onclick%3D()%3D%3E%7Br.remove()%2Cwindow.__ogExportRunning%3D!1%7D%3Btry%7Bconst%20r%3D%5B...document.querySelectorAll(%22%23planetList%20.smallplanet%22)%5D.map(e%3D%3E%7Bconst%20t%3D(e.id%7C%7C%22%22).replace(%2F%5CD%2Fg%2C%22%22)%2Cr%3D(e.querySelector(%22.planet-name%22)%3F.textContent%7C%7C%22%22).trim()%2Ca%3D(e.querySelector(%22.planet-koords%22)%3F.textContent%7C%7C%22%22).replace(%2F%5B%5C%5B%5C%5D%5Cs%5D%2Fg%2C%22%22)%2Co%3D(e.querySelector(%22a.planetlink%22)%3F.getAttribute(%22title%22)%7C%7Ce.querySelector(%22a.planetlink%22)%3F.getAttribute(%22data-tooltip-title%22)%7C%7C%22%22).replace(%2F%3C%5B%5E%3E%5D%2B%3E%2Fg%2C%22%20%22).match(%2F(-%3F%5Cd%2B)%5Cs*%C2%B0C%5Cs*%5CS*%5Cs*(-%3F%5Cd%2B)%5Cs*%C2%B0C%2F)%3Breturn%7Bid%3At%2Cname%3Ar%2Ccoords%3Aa%2Ctmax%3Ao%3F%2Bo%5B2%5D%3Anull%7D%7D).filter(e%3D%3Ee.id)%3Bif(!r.length)throw%20new%20Error(%22Liste%20des%20plan%C3%A8tes%20introuvable.%20Lance%20l'export%20depuis%20une%20page%20du%20jeu%20(Vue%20d'ensemble%20par%20exemple).%22)%3Bconst%20n%3Dlocation.origin%2B%22%2Fgame%2Findex.php%3Fpage%3Dingame%26component%3D%22%2Ci%3D%5B%5D%3Blet%20s%3D0%3Bconst%20l%3Dasync(e%2Ct)%3D%3E%7Bconst%20r%3Dn%2Be%2B(t%3F%22%26cp%3D%22%2Bt%3A%22%22)%2Ca%3Dawait%20fetch(r%2C%7Bcredentials%3A%22include%22%7D)%3Bif(!a.ok)throw%20new%20Error(e%2B%22%20%3A%20erreur%20%22%2Ba.status)%3Bconst%20l%3D(new%20DOMParser).parseFromString(await%20a.text()%2C%22text%2Fhtml%22)%2Cc%3D%7B%7D%3Bif(l.querySelectorAll(%22%5Bdata-technology%5D%22).forEach(e%3D%3E%7Bconst%20t%3D%2Be.getAttribute(%22data-technology%22)%3Bif(!t%7C%7Cnull!%3Dc%5Bt%5D)return%3Bconst%20r%3De.querySelector(%22.level%5Bdata-value%5D%2C%20.amount%5Bdata-value%5D%2C%20%5Bdata-value%5D%22)%3Blet%20a%3Dr%3Fr.getAttribute(%22data-value%22)%3Anull%3Bif(null%3D%3Da)%7Ba%3D(e.querySelector(%22.level%2C%20.amount%22)%3F.textContent%7C%7C%22%22).replace(%2F%5B%5E%5Cd%5D%2Fg%2C%22%22)%7C%7Cnull%7Dif(null%3D%3Da)return%3Bconst%20o%3De.getAttribute(%22aria-label%22)%7C%7Ce.querySelector(%22%5Baria-label%5D%22)%3F.getAttribute(%22aria-label%22)%7C%7C%22%22%3Bc%5Bt%5D%3D%7Bv%3AparseInt(String(a).replace(%2F%5B%5E%5Cd%5D%2Fg%2C%22%22)%2C10)%7C%7C0%2Clabel%3Ao.trim()%7D%7D)%2CObject.keys(c).length%7C%7Ci.push(e%2B(t%3F%22%40%22%2Bt%3A%22%22)%2B%22%20%3A%20rien%20lu%22)%2C%22supplies%22%3D%3D%3De)%7Bconst%20e%3D%7B%7D%2Cr%3Dl.documentElement.innerHTML%3Bfor(const%5Bt%2Ca%5Dof%20Object.entries(%7Bm%3A%5B%22metal%22%5D%2Cc%3A%5B%22crystal%22%5D%2Cd%3A%5B%22deuterium%22%5D%2Ce%3A%5B%22energy%22%5D%2Cpop%3A%5B%22population%22%5D%2Cfood%3A%5B%22food%22%5D%7D))%7Bconst%20o%3Dl.getElementById(%22resources_%22%2Ba%5B0%5D)%3Blet%20n%3Do%3Fo.getAttribute(%22data-raw%22)%3Anull%3Bif(null%3D%3Dn%26%26o)%7Bconst%20e%3Do.textContent.trim().match(%2F%5E(-%3F%5B%5Cd.%2C%5D%2B)%5Cs*(%5BkKmM%5D%3F)%2F)%3Be%26%26(n%3De%5B2%5D%3FparseFloat(e%5B1%5D.replace(%22%2C%22%2C%22.%22))*(%2Fm%2Fi.test(e%5B2%5D)%3F1e6%3A1e3)%3Ae%5B1%5D.replace(%2F%5B.%2C%5D%2Fg%2C%22%22))%7Dif(null%3D%3Dn)%7Bconst%20e%3Dr.match(new%20RegExp('%22'%2Ba%5B0%5D%2B'%22%5C%5Cs*%3A%5C%5Cs*%5C%5C%7B%5B%5E%7D%5D*%3F%22amount%22%5C%5Cs*%3A%5C%5Cs*(-%3F%5B%5C%5Cd.%5D%2B)'))%3Be%26%26(n%3De%5B1%5D)%7Dnull!%3Dn%26%26%22%22!%3D%3Dn%26%26(e%5Bt%5D%3DMath.floor(parseFloat(n)))%7Dconst%20a%3De%3D%3E%7Bconst%20t%3DString(e).replace(%2F%3C%5B%5E%3E%5D%2B%3E%2Fg%2C%22%20%22).match(%2F%5B-%2B%5D%3F%5Cd%5B%5Cd.%2C%5D*%2F)%3Breturn%20t%3FparseInt(t%5B0%5D.replace(%2F%5B.%2C%5D%2Fg%2C%22%22)%2C10)%3Anull%7D%3Bfor(const%5Bt%2Co%5Dof%5B%5B%22m%22%2C%22metal%22%5D%2C%5B%22c%22%2C%22crystal%22%5D%2C%5B%22d%22%2C%22deuterium%22%5D%2C%5B%22e%22%2C%22energy%22%5D%5D)%7Bconst%20n%3Dl.getElementById(o%2B%22_box%22)%7C%7Cl.querySelector('%5Bid%5E%3D%22'%2Bo%2B'_box%22%5D')%2Ci%3D%5B...(n%26%26(n.getAttribute(%22title%22)%7C%7Cn.getAttribute(%22data-tooltip-title%22))%7C%7C%22%22).matchAll(%2F%3Ctd%5B%5E%3E%5D*%3E(%5B%5Cs%5CS%5D*%3F)%3C%5C%2Ftd%3E%2Fgi)%5D.map(e%3D%3Ea(e%5B1%5D)).filter(e%3D%3Enull!%3De)%3Bif(%22e%22%3D%3D%3Dt)i.length%3E%3D3%26%26(e.eProd%3Di%5B1%5D%2Ce.eUse%3DMath.abs(i%5B2%5D))%3Belse%20if(i.length%3E%3D3)e%5B%22cap%22%2Bt%5D%3Di%5B1%5D%2Ce%5B%22prod%22%2Bt%5D%3Di%5B2%5D%3Belse%7Bconst%20a%3Dr.match(new%20RegExp('%22'%2Bo%2B'%22%5C%5Cs*%3A%5C%5Cs*%5C%5C%7B%5B%5E%7D%5D*%3F%22production%22%5C%5Cs*%3A%5C%5Cs*(-%3F%5B%5C%5Cd.%5D%2B)'))%3Ba%26%26%22e%22!%3D%3Dt%26%26(e%5B%22prodps%22%2Bt%5D%3DparseFloat(a%5B1%5D))%7D%7Dc.__stock%3De%2CObject.keys(e).length%7C%7Ci.push(%22stock%40%22%2Bt%2B%22%20%3A%20rien%20lu%22)%7Dvar%20u%3Breturn%20s%2B%2B%2Co(%60Lecture%E2%80%A6%20%24%7Bs%7D%20pages%60)%2Cawait(u%3D350%2Cnew%20Promise(e%3D%3EsetTimeout(e%2Cu)))%2Cc%7D%2Cc%3D(t%2Cr)%3D%3Et%5Br%5D%3F%60%24%7Be%5Br%5D%7C%7Ct%5Br%5D.label%7C%7C%22ID%20%22%2Br%7D%3A%20%24%7Bt%5Br%5D.v%7D%60%3Anull%2Cu%3D(e%2Ct)%3D%3Et.map(t%3D%3Ec(e%2Ct)).filter(Boolean).join(%22%5Cn%22)%2Cd%3D(e%2Ct)%3D%3EObject.keys(e).map(Number).filter(e%3D%3E!t.includes(e)).map(t%3D%3Ec(e%2Ct)).join(%22%5Cn%22)%2Cp%3D%5B%5D%3Bfor(const%20e%20of%20r)%7Bo(%60Lecture%20de%20%24%7Be.name%7D%E2%80%A6%60)%3Bconst%20r%3Dawait%20l(%22supplies%22%2Ce.id)%2Ca%3Dawait%20l(%22facilities%22%2Ce.id)%2Cn%3Dawait%20l(%22lfbuildings%22%2Ce.id)%2Ci%3Dawait%20l(%22lfresearch%22%2Ce.id)%2Cs%3Dawait%20l(%22shipyard%22%2Ce.id)%2Cc%3Dawait%20l(%22defenses%22%2Ce.id)%2Cm%3Dr.__stock%7C%7C%7B%7D%3Bdelete%20r.__stock%3Bconst%20g%3DObject.assign(%7B%7D%2Cr%2Cs)%2Ch%3D%5B%60Planete%3A%20%24%7Be.name%7D%60%2C%60Coordonnees%3A%20%24%7Be.coords%7D%60%5D%3Bnull!%3De.tmax%26%26h.push(%60Temperature%20max%3A%20%24%7Be.tmax%7D%60)%3Bconst%20b%3D%7Bm%3A%22Metal%22%2Cc%3A%22Cristal%22%2Cd%3A%22Deuterium%22%2Ce%3A%22Energie%22%2Cpop%3A%22Population%22%2Cfood%3A%22Nourriture%22%2Cprodm%3A%22Production%20metal%22%2Cprodc%3A%22Production%20cristal%22%2Cprodd%3A%22Production%20deuterium%22%2Ccapm%3A%22Capacite%20metal%22%2Ccapc%3A%22Capacite%20cristal%22%2Ccapd%3A%22Capacite%20deuterium%22%2CeProd%3A%22Production%20energie%22%2CeUse%3A%22Consommation%20energie%22%2Cprodpsm%3A%22Production%20metal%20par%20seconde%22%2Cprodpsc%3A%22Production%20cristal%20par%20seconde%22%2Cprodpsd%3A%22Production%20deuterium%20par%20seconde%22%7D%3BObject.keys(m).length%26%26h.push(%22%22%2C%22Stock%3A%22%2CObject.keys(b).filter(e%3D%3Enull!%3Dm%5Be%5D).map(e%3D%3E%60%24%7Bb%5Be%5D%7D%3A%20%24%7Bm%5Be%5D%7D%60).join(%22%5Cn%22))%2Ch.push(%22%22%2C%22Ressources%22%2Cu(g%2C%5B...t%2C212%2C217%5D)%2C%22%22%2C%22Forme%20de%20vie%22%2Cd(n%2C%5B%5D)%2C%22%22%2C%22Recherche%20Forme%20de%20vie%3A%22%2Cd(i%2C%5B%5D)%2C%22%22%2C%22Installations%22%2Cd(a%2C%5B%5D)%2C%22%22%2C%22Defense%3A%22%2Cd(c%2C%5B%5D)%2C%22%22%2C%22Flotte%3A%22%2Cd(s%2C%5B212%2C217%5D)%2C%22%22)%2Cp.push(h.join(%22%5Cn%22))%7Do(%22Lecture%20des%20recherches%E2%80%A6%22)%3Bconst%20m%3Dawait%20l(%22research%22%2Cr%5B0%5D.id)%3Bp.push(%22Recherche%3A%5Cn%22%2Bd(m%2C%5B%5D)%2B%22%5Cn%22)%3Btry%7Bconst%20e%3D(new%20DOMParser).parseFromString(await(await%20fetch(location.origin%2B%22%2Fapi%2FserverData.xml%22)).text()%2C%22text%2Fxml%22)%2Ct%3Dt%3D%3Ee.querySelector(t)%3F.textContent%2Cr%3D%5B%22Parametres%20de%20serveur%3A%22%5D%3Bt(%22speed%22)%26%26r.push(%60Vitesse%20de%20d%C3%A9veloppement%20%3A%20x%24%7Bt(%22speed%22)%7D%60)%2Ct(%22researchDurationDivisor%22)%26%26r.push(%22Vitesse%20de%20recherche%20%3A%20x%22%2B(%2Bt(%22speed%22)%7C%7C1)*(%2Bt(%22researchDurationDivisor%22)%7C%7C1))%2Ct(%22debrisFactor%22)%26%26r.push(%60Flotte%20dans%20le%20champ%20de%20d%C3%A9bris%20%2B%24%7BMath.round(100*parseFloat(t(%22debrisFactor%22)))%7D%20%25%60)%2Ct(%22debrisFactorDef%22)%26%26r.push(%60Installations%20de%20d%C3%A9fense%20dans%20le%20champ%20de%20d%C3%A9bris%20%2B%24%7BMath.round(100*parseFloat(t(%22debrisFactorDef%22)))%7D%20%25%60)%2C%221%22%3D%3D%3Dt(%22deuteriumInDebris%22)%26%26r.push(%22Deut%C3%A9rium%20dans%20les%20champs%20de%20d%C3%A9bris%22)%2Ct(%22galaxies%22)%26%26r.push(%60Nombre%20de%20galaxies%3A%20%24%7Bt(%22galaxies%22)%7D%60)%3Bconst%20a%3Dt(%22speedFleetPeaceful%22)%7C%7Ct(%22speedFleet%22)%3Ba%26%26r.push(%60Vitesse%20de%20flotte%20des%20unit%C3%A9s%20pacifiques%20%3A%20x%24%7Ba%7D%60)%3Bconst%20o%3Dt(%22speedFleetWar%22)%7C%7Ct(%22speedFleet%22)%3Bo%26%26r.push(%60Vitesse%20de%20flotte%20des%20unit%C3%A9s%20de%20guerre%20%3A%20x%24%7Bo%7D%60)%3Btry%7Bconst%20e%3D(new%20DOMParser).parseFromString(await(await%20fetch(location.origin%2B%22%2Fapi%2Fhighscore.xml%3Fcategory%3D1%26type%3D0%22)).text()%2C%22text%2Fxml%22).querySelector('player%5Bposition%3D%221%22%5D')%3Be%26%26r.push(%60Points%20du%20top%201%3A%20%24%7BMath.round(parseFloat(e.getAttribute(%22score%22)))%7D%60)%7Dcatch(e)%7Bi.push(%22classement%20%3A%20%22%2Be.message)%7Dp.push(r.join(%22%5Cn%22))%7Dcatch(e)%7Bi.push(%22serverData%20%3A%20%22%2Be.message)%7Dconst%20g%3D%5B...document.querySelectorAll(%22%23officers%20a%22)%5D.filter(e%3D%3E%2F%5Cbon%5Cb%2F.test(e.className)).map(e%3D%3E(e.className.match(%2F%5Cb(commander%7Cadmiral%7Cengineer%7Cgeologist%7Ctechnocrat)%5Cb%2F)%7C%7C%5B%5D)%5B1%5D).filter(Boolean)%2Ch%3D%22Date%20export%3A%20%22%2BDate.now()%2B%22%5Cn%22%2B(document.querySelector(%22%23officers%22)%3F%22Officiers%20actifs%3A%20%22%2B(g.join(%22%2C%20%22)%7C%7C%22aucun%22)%2B%22%5Cn%22%3A%22%22)%2B%22%5Cn%22%2Bp.join(%22%5Cn%22)%3Ba(%22%5Bdata-out%5D%22).value%3Dh%2Co(%60Export%20pr%C3%AAt%20%3A%20%24%7Br.length%7D%20plan%C3%A8tes%2C%20%24%7Bs%7D%20pages%20lues.%60%2B(i.length%3F%22%20%C3%80%20v%C3%A9rifier%20%3A%20%22%2Bi.join(%22%20%3B%20%22)%3A%22%22))%3Bconst%20b%3Da(%22%5Bdata-copy%5D%22)%2Cx%3Da(%22%5Bdata-open%5D%22)%3Bb.disabled%3Dx.disabled%3D!1%2Cb.onclick%3D()%3D%3E%7Bconst%20e%3Da(%22%5Bdata-out%5D%22)%3Blet%20t%3D!1%3Btry%7Be.readOnly%3D!1%2Ce.focus()%2Ce.setSelectionRange(0%2Ce.value.length)%2Ct%3Ddocument.execCommand(%22copy%22)%7Dcatch(e)%7B%7De.readOnly%3D!0%2Ce.blur()%2Ct%3Fa(%22%5Bdata-note%5D%22).textContent%3D%22Copi%C3%A9%20!%20Ouvre%20l'application%20et%20appuie%20sur%20%C2%AB%20Coller%20mon%20export%20%C2%BB.%22%3Anavigator.clipboard%26%26navigator.clipboard.writeText%3Fnavigator.clipboard.writeText(h).then(()%3D%3E%7Ba(%22%5Bdata-note%5D%22).textContent%3D%22Copi%C3%A9%20!%22%7D%2C()%3D%3E%7Ba(%22%5Bdata-note%5D%22).textContent%3D%22Copie%20bloqu%C3%A9e%20%3A%20appuie%20longuement%20dans%20le%20texte%2C%20%C2%AB%20Tout%20s%C3%A9lectionner%20%C2%BB%2C%20puis%20%C2%AB%20Copier%20%C2%BB.%22%2Ce.readOnly%3D!1%2Ce.focus()%2Ce.setSelectionRange(0%2Ce.value.length)%7D)%3Aa(%22%5Bdata-note%5D%22).textContent%3D%22Copie%20bloqu%C3%A9e%20%3A%20appuie%20longuement%20dans%20le%20texte%2C%20%C2%AB%20Tout%20s%C3%A9lectionner%20%C2%BB%2C%20puis%20%C2%AB%20Copier%20%C2%BB.%22%7D%2Cx.onclick%3D()%3D%3E%7Bconst%20e%3Dbtoa(unescape(encodeURIComponent(h)))%3Bwindow.open(%22https%3A%2F%2Fgluminou.github.io%2Fogame%2F%23import%3D%22%2BencodeURIComponent(e)%2C%22_blank%22)%7D%7Dcatch(e)%7Bo(%22Erreur%20%3A%20%22%2Be.message)%7Dwindow.__ogExportRunning%3D!1%7D)()%3B";
 function showStamp(exportedAt){
   const ts = exportedAt || +store.get('og_data_time');
-  $('dataStamp').innerHTML = ts ? (exportedAt ? 'Export du <b>' : 'Données du <b>') + new Date(ts).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) + '</b>. Pour les mettre à jour : favori Export OGame, « Copier », puis ce bouton.' : 'Aucune donnée pour l\'instant : lance le favori Export OGame, « Copier », puis ce bouton.';
+  $('dataStamp2').innerHTML = ts ? (exportedAt ? 'Export du <b>' : 'Données du <b>') + new Date(ts).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) + '</b>' : 'Aucune donnée pour l\'instant.';
+  $('dataStamp').innerHTML = ts ? (exportedAt ? 'Export du <b>' : 'Données du <b>') + new Date(ts).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) + '</b>.' : 'Aucune donnée pour l\'instant : lance le favori Export OGame, « Copier », puis ce bouton.';
 }
 function importFromHash(){
   if (!location.hash.startsWith('#import=')) return false;
@@ -1758,7 +1766,7 @@ function init(){
       const dOf = s => { const m = s.match(/Date export\s*:\s*(\d{10,})/); return m ? +m[1] : 0; };
       const newD = dOf(clip), curD = dOf($('data').value);
       if (newD && curD && newD <= curD) { $('dataStamp').innerHTML = `<span class="warnc">Le presse-papiers contient le même export (ou un plus ancien) que celui déjà chargé, du ${new Date(newD).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}. La copie depuis le jeu n'a sans doute pas marché : dans la fenêtre d'export, appuie longuement dans le texte, « Tout sélectionner », « Copier », puis réessaie.</span>`; return; }
-      $('data').value = clip; run(); window.scrollTo({ top: 0, behavior: 'smooth' });
+      $('data').value = clip; run(); location.hash = '#planetes'; window.scrollTo(0, 0);
     } catch(e){ $('inputPanel').open = true; $('data').focus(); $('dataStamp').textContent = 'Collage automatique refusé : colle l\'export dans la case « Mes données » (appui long, Coller).'; }
   };
   let rt; $('report').addEventListener('input', () => { clearTimeout(rt); rt = setTimeout(() => { if ($('report').value.trim().length > 30 && readReport()) runSim(); }, 400); });

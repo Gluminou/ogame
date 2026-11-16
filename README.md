@@ -99,9 +99,11 @@ expéditions (répartition des résultats, ressources, antimatière, vaisseaux,
 moyenne). La plus grosse découverte sert à proposer le multiplicateur de
 l'onglet Expéditions. Saisie manuelle possible.
 
-## Onglet Export auto
+## Onglet Export (premier onglet)
 
-Un favori (bookmarklet) à glisser dans la barre de favoris. Cliqué sur
+C'est l'onglet d'ouverture : bouton « Coller mon export » (qui bascule
+ensuite sur l'onglet Planètes), export texte, réglages, et installation
+du favori. Un favori (bookmarklet) à glisser dans la barre de favoris. Cliqué sur
 une page d'OGame, il lit les pages de chaque planète (ressources,
 installations, formes de vie, chantier spatial, défense), les recherches
 et `/api/serverData.xml`, puis produit l'export et l'ouvre dans
