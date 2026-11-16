@@ -33,12 +33,12 @@ button.ghost{background:transparent;color:var(--txt);border:1px solid var(--line
 .settings label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--mut)}
 .settings label.chk{flex-direction:row;align-items:center;gap:8px;color:var(--txt)}
 input[type=number],select{background:#0a0f1e;color:var(--txt);border:1px solid var(--line);border-radius:6px;padding:6px 8px;font:inherit}
-.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
 .kpi{background:var(--panel2);border-radius:10px;padding:10px 12px}
 .kpi b{display:block;font-family:Rajdhani;font-size:22px}
 .kpi small{color:var(--mut)}
 .warn{background:#2a1a0e;border:1px solid #6b4316;color:#ffd7a1;border-radius:10px;padding:10px 12px;margin-top:10px}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,400px),1fr));gap:16px}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
 .card header{padding:12px 14px;background:var(--panel2);display:flex;justify-content:space-between;align-items:baseline;gap:8px}
 .card header h3{font-size:20px}
@@ -77,6 +77,24 @@ table.t td,table.t th{padding:5px 6px;border-bottom:1px solid var(--line);text-a
 table.t td:first-child,table.t th:first-child{text-align:left}
 table.t th{color:var(--mut);font-weight:500}
 .hidden{display:none}
+.pstat{display:flex;flex-wrap:wrap;gap:4px 14px;padding:8px 14px;font-size:12px;color:var(--mut);border-bottom:1px solid var(--line)}.pstat b{color:var(--txt)}
+.lv3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;padding:10px 14px;font-size:12px}
+.lvh{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--acc);margin-bottom:4px;font-weight:600}
+.lvr{display:flex;justify-content:space-between;gap:6px;padding:2px 0;border-bottom:1px solid #1d2747}.lvr > span:first-child{color:var(--mut);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.lvr b{font-variant-numeric:tabular-nums;white-space:nowrap}.lvr.hl b{color:var(--acc)}
+.pill{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:8px;background:var(--acc);color:#1a1200;font-size:10px;font-weight:700;margin-right:4px;vertical-align:1px}
+.top3{list-style:none;margin:0;padding:0 14px 10px;font-size:13px}
+.top3 details{border-top:1px solid var(--line)}
+.top3 summary{display:flex;gap:10px;align-items:baseline;padding:7px 0;cursor:pointer;list-style:none}.top3 summary::-webkit-details-marker{display:none}
+.rk{flex:none;width:20px;height:20px;border-radius:10px;background:var(--panel2);color:var(--acc);font-weight:700;font-size:12px;display:inline-flex;align-items:center;justify-content:center}.rk.first{background:var(--acc);color:#1a1200}
+.top3 .tt{flex:1;min-width:0;font-weight:600}.top3 .cc{color:var(--acc);font-size:12px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.top3 .why{padding:0 0 8px 30px}
+.mx{width:100%;border-collapse:collapse;font-size:13px}.mx th{padding:8px 10px;text-align:right;font-family:Rajdhani,Inter,sans-serif;font-size:16px;white-space:nowrap}.mx th small{display:block;font-family:Inter;font-size:11px;color:var(--mut);font-weight:400}
+.mx td{padding:4px 10px;text-align:right;font-variant-numeric:tabular-nums;border-bottom:1px solid #1d2747;white-space:nowrap}.mx td:first-child{text-align:left;color:var(--mut)}
+.mx tr.grp td{color:var(--acc);font-size:10px;letter-spacing:.08em;text-transform:uppercase;font-weight:600;padding-top:12px;border-bottom:0}
+.mx .z{color:#55618a}.mx .hl{background:var(--acc);color:#1a1200;border-radius:6px;padding:1px 7px;font-weight:700}.mx sup{color:var(--acc);font-size:10px;margin-left:3px}
+.tops{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+.topc{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:6px}
+.topc h3{font-size:17px}.topc .it{display:flex;gap:8px;font-size:12.5px;align-items:baseline}.topc .it .rk{width:18px;height:18px;font-size:11px}
 details.howto{border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin:12px 0;background:var(--panel2)}
 details.howto>summary{cursor:pointer;font-weight:600;font-size:16px}
 details.howto ol{margin:6px 0 6px;padding-left:22px}details.howto li{margin:4px 0}
@@ -87,7 +105,7 @@ details.howto ol{margin:6px 0 6px;padding-left:22px}details.howto li{margin:4px 
   <h1>OGame <span>·</span> Conseiller de construction</h1>
   <p class="sub">Colle ton export de planètes : l'outil calcule production, énergie, stockage et rentabilité, et te dit quoi construire ensuite sur chaque planète.</p>
 
-  <nav class="tabs"><a href="#planetes" id="tab-planetes">Planètes</a><a href="#combat" id="tab-combat">Combat</a><a href="#export" id="tab-export">Export auto</a></nav>
+  <nav class="tabs" style="flex-wrap:wrap"><a href="#planetes" id="tab-planetes">Planètes</a><a href="#vue" id="tab-vue">Vue générale</a><a href="#combat" id="tab-combat">Combat</a><a href="#export" id="tab-export">Export auto</a></nav>
   <section id="view-planetes">
   <details class="panel" id="inputPanel">
     <summary>Mes données (export texte)</summary>
@@ -122,10 +140,18 @@ details.howto ol{margin:6px 0 6px;padding-left:22px}details.howto li{margin:4px 
     <ul class="recs" id="research" style="padding:6px 0 0"></ul>
   </div>
 
-  <h2 style="margin:22px 0 12px">Planètes</h2>
+  <div style="display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between;margin:22px 0 12px"><h2>Planètes</h2><span class="note">Les pastilles <span class="pill">1</span> repèrent dans les niveaux les bâtiments à construire, dans l'ordre. Touche une construction pour voir pourquoi.</span></div>
   <div class="grid" id="planets"></div>
 
   <p class="note" style="margin-top:24px" id="plannerNote">Calculs basés sur les formules standard d'OGame (mines, centrales, hangars, plasma, bonus de position et de classe). Parmi les recherches de formes de vie, seuls les Extracteurs à haute performance sont comptés dans la production (et, pour les bâtiments, Fusion à haute énergie, Extraction par fusion, Fusion magmatique, Raffinerie de cristaux et Synthétiseur de deutérium Rock'tal) ; les objets, officiers non cochés et événements ne le sont pas. « Amorti en » = temps pour que le gain de production rembourse le coût, au taux d'échange choisi. Les temps de remplissage partent de hangars vides.</p>
+  </section>
+
+  <section id="view-vue" class="hidden">
+    <h2 style="margin:0 0 12px">À construire maintenant</h2>
+    <div class="tops" id="vueTops"></div>
+    <h2 style="margin:22px 0 12px">Niveaux par planète</h2>
+    <div class="panel" style="padding:0;overflow-x:auto"><table class="mx" id="vueTable"></table></div>
+    <p class="note">Les cases orange <span class="pill">1</span> sont les bâtiments à construire en priorité sur chaque planète.</p>
   </section>
 
   <section id="view-export" class="hidden">
@@ -322,24 +348,57 @@ function run(){
   ].map(([a,b,c]) => `<div class="kpi"><small>${a}</small><b>${b}</b><small>${c}</small></div>`).join('');
   $('warns').innerHTML = res.warnings.map(w => `<div class="warn">${esc(w)}</div>`).join('');
   $('research').innerHTML = res.research.map(r => recLi(r, r.isBuilding ? 'infra' : 'res')).join('');
-  $('planets').innerHTML = res.planets.map(x => {
-    const c = x.c, top = x.recs[0];
-    const eCls = c.factor < 0.999 ? 'red' : 'ok';
-    const fillCell = (lbl, h) => `<div><span>${lbl} plein en</span><b class="${h < S.fillHours ? 'red' : ''}">${OG.fmtH(h)}</b></div>`;
-    return `<article class="card">
-      <header><h3>${esc(x.p.name)}</h3><small>[${esc(x.p.coords||'?')}] · ~${Math.round(c.t)} °C</small></header>
-      ${top ? `<div class="next"><div class="lbl">À construire maintenant</div><div class="t">${esc(top.title)}</div>${top.cost ? `<div class="cost">${esc(OG.fmtCost(top.cost))}</div>` : ''}</div>` : ''}
-      <div class="stats">
-        <div><span>Métal</span><b>${f(c.prod.m)}/h</b></div>
-        <div><span>Cristal</span><b>${f(c.prod.c)}/h</b></div>
-        <div><span>Deutérium</span><b>${f(c.prod.d)}/h</b></div>
-        <div><span>Énergie</span><b class="${eCls}">${Math.round(c.eProd - c.eUse) >= 0 ? '+' : ''}${Math.round(c.eProd - c.eUse)}</b></div>
-        ${fillCell('Métal', c.fill.m)}${fillCell('Cristal', c.fill.c)}
-      </div>
-      <ul class="recs">${x.recs.slice(1).map(r => recLi(r)).join('') || '<li class="note">Rien d\'autre en attente.</li>'}</ul>
-    </article>`;
-  }).join('');
+  $('planets').innerHTML = res.planets.map(x => planetCard(x, S)).join('');
+  renderVue(res);
   $('inputPanel').open = false;
+}
+
+// ---------- Planet levels (cards + overview table) ----------
+const RES_ROWS = [['Métal','Mine de métal','metal'],['Cristal','Mine de cristal','crystal'],['Deut','Synthétiseur de deutérium','deut'],['Solaire','Centrale solaire','solar'],['Fusion','Centrale de fusion','fusion'],['Satellites','Satellites solaires','sats'],['Foreuses','Foreuses','crawlers'],['Hangar M','Hangar de métal','stM'],['Hangar C','Hangar de cristal','stC'],['Réserv. D','Réservoir de deutérium','stD']];
+const LF_HUM = [['Résidentiel','Secteur résidentiel','lfRes'],['Ferme bio.','Ferme biosphérique','lfFarm'],['Centre rech.','Centre de recherche','lfRC'],['Académie','Académie des sciences','lfAcad'],['Fus. haute én.','Fusion à haute énergie','lfHES'],['Réserve alim.','Réserve alimentaire','lfFood'],['Extr. fusion','Extraction par fusion','lfFPP'],['Tour hab.','Tour d\'habitation','lfTower'],['Metropolis','Metropolis','lfMetro']];
+const LF_ROCK = [['Enclave','Enclave stoïque','rtEnclave'],['Culture crist.','Culture du cristal','rtFarm'],['Tech. runique','Centre technologique runique','rtRTech'],['Forge runique','Forge runique','rtForge'],['Orictorium','Orictorium','rtOrik'],['Fus. magmat.','Fusion magmatique','rtMagma'],['Raffinerie','Raffinerie de cristaux','rtRefinery'],['Synth. deut.','Synthétiseur de deutérium Rock\'tal','rtDeutSynth']];
+const INST_ROWS = [['Robots','Usine de robots','robots'],['Chantier','Chantier spatial','shipyard'],['Labo','Laboratoire de recherche','lab'],['Nanites','Usine de nanites','nanite'],['Dock','Dock spatial','dock'],['Silo','Silo de missiles','silo'],['Dépôt','Dépôt de ravitaillement','depot'],['Terraform.','Terraformeur','terra'],['Scanner','Scanner d\'anomalies','scanner']];
+const normT = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/^(formes de vie|rock.tal)\s*:\s*/, '').replace(/\s+\d+$/, '').trim();
+function rankOf(recs, full){ const n = normT(full); for (let i = 0; i < Math.min(3, recs.length); i++) if (normT(recs[i].title) === n) return i + 1; return 0; }
+const isRock = b => (b.rtEnclave || 0) > 0 || (b.rtFarm || 0) > 0;
+function lvlRows(rows, b, recs, keepZero){
+  return rows.filter(([, , k]) => keepZero.includes(k) || (b[k] || 0) > 0).map(([lab, full, k]) => {
+    const rk = rankOf(recs, full);
+    return `<div class="lvr${rk ? ' hl' : ''}"><span title="${esc(full)}">${esc(lab)}</span><b>${rk ? `<span class="pill">${rk}</span>` : ''}${b[k] || 0}</b></div>`;
+  }).join('');
+}
+function planetCard(x, S){
+  const b = x.p.b, c = x.c, f = OG.fmt, recs = x.recs;
+  const rock = isRock(b), race = rock ? "Rock'tal" : (b.lfRes ? 'Humains' : 'sans forme de vie');
+  const e = Math.round(c.eProd - c.eUse);
+  const fh = (k, h) => `<span class="${h < S.fillHours ? 'red' : ''}">${k} ${OG.fmtH(h)}</span>`;
+  const lf = lvlRows(rock ? LF_ROCK : LF_HUM, b, recs, []) || '<div class="note">Aucun bâtiment</div>';
+  const top = recs.slice(0, 3).map((r, i) => `<li><details><summary><span class="rk${i === 0 ? ' first' : ''}">${i + 1}</span><span class="tt">${esc(r.title)}</span><span class="cc">${r.cost ? esc(OG.fmtCost(r.cost)) : ''}</span></summary><div class="why">${esc(r.why)}${r.alt && r.alt.length ? `<div class="alt">Autres options : ${esc(r.alt.join(' · '))}</div>` : ''}</div></details></li>`).join('') || '<li class="note" style="padding:8px 0">Rien en attente.</li>';
+  return `<article class="card">
+    <header><h3>${esc(x.p.name)}</h3><small>[${esc(x.p.coords || '?')}] · ~${Math.round(c.t)} °C · ${esc(race)}</small></header>
+    <div class="pstat"><span>Production/h <b>${f(c.prod.m)}</b> M · <b>${f(c.prod.c)}</b> C · <b>${f(c.prod.d)}</b> D</span><span>Énergie <b class="${e < 0 || c.factor < 0.999 ? 'red' : e < 100 ? '' : 'ok'}">${e >= 0 ? '+' : ''}${e}</b></span><span>Hangars pleins : ${fh('M', c.fill.m)} · ${fh('C', c.fill.c)} · ${fh('D', c.fill.d)}</span></div>
+    <div class="lv3"><div><div class="lvh">Ressources</div>${lvlRows(RES_ROWS, b, recs, ['metal','crystal','deut','solar','stM','stC','stD'])}</div><div><div class="lvh">Formes de vie</div>${lf}</div><div><div class="lvh">Installations</div>${lvlRows(INST_ROWS, b, recs, ['robots','shipyard','lab'])}</div></div>
+    <div class="lvh" style="padding:4px 14px 0">À construire</div>
+    <ol class="top3">${top}</ol>
+  </article>`;
+}
+function renderVue(res){
+  const P = res.planets, f = OG.fmt;
+  $('vueTops').innerHTML = P.map(x => `<div class="topc"><h3>${esc(x.p.name)}</h3>${x.recs.slice(0, 3).map((r, i) => `<div class="it"><span class="rk${i === 0 ? ' first' : ''}">${i + 1}</span><span style="min-width:0"><b>${esc(r.title)}</b>${r.cost ? `<br><span class="cost">${esc(OG.fmtCost(r.cost))}</span>` : ''}</span></div>`).join('') || '<div class="note">Rien en attente.</div>'}</div>`).join('');
+  const head = `<thead><tr><th style="text-align:left"></th>${P.map(x => `<th>${esc(x.p.name)}<small>[${esc(x.p.coords || '?')}]</small></th>`).join('')}</tr></thead>`;
+  const line = (label, vals) => `<tr><td>${esc(label)}</td>${vals.join('')}</tr>`;
+  const cell = (x, full, k) => { const v = x.p.b[k] || 0, rk = full ? rankOf(x.recs, full) : 0; return `<td>${rk ? `<span class="hl">${v}</span><sup>${rk}</sup>` : `<span class="${v ? '' : 'z'}">${v}</span>`}</td>`; };
+  let rows = '';
+  rows += line('Production/h (M · C · D)', P.map(x => `<td>${f(x.c.prod.m)} · ${f(x.c.prod.c)} · ${f(x.c.prod.d)}</td>`));
+  rows += line('Énergie', P.map(x => { const e = Math.round(x.c.eProd - x.c.eUse); return `<td class="${e < 0 ? 'red' : e < 100 ? '' : 'ok'}" style="font-weight:600">${e >= 0 ? '+' : ''}${e}</td>`; }));
+  rows += line('Hangar métal plein en', P.map(x => `<td class="${x.c.fill.m < settings().fillHours ? 'red' : ''}">${OG.fmtH(x.c.fill.m)}</td>`));
+  const grp = t => `<tr class="grp"><td colspan="${P.length + 1}">${t}</td></tr>`;
+  rows += grp('Ressources') + RES_ROWS.map(([, full, k]) => line(full, P.map(x => cell(x, full, k)))).join('');
+  // lifeform: one row per slot, species-aware
+  const LFS = [['Population (Résidentiel / Enclave)', 0], ['Nourriture (Ferme / Culture)', 1], ['Recherche (Centre / Tech. runique)', 2], ['Production métal (Fus. haute én. / Fus. magmat.)', [4, 5]], ['Production cristal (Extr. fusion / Raffinerie)', [6, 6]]];
+  rows += grp('Formes de vie') + LFS.map(([label, idx]) => line(label, P.map(x => { const rock = isRock(x.p.b); const arr = rock ? LF_ROCK : LF_HUM; const i = Array.isArray(idx) ? idx[rock ? 1 : 0] : idx; const [, full, k] = arr[i]; return cell(x, full, k); }))).join('');
+  rows += grp('Installations') + INST_ROWS.filter(([, , k]) => P.some(x => (x.p.b[k] || 0) > 0) || ['robots','shipyard','lab'].includes(k)).map(([, full, k]) => line(full, P.map(x => cell(x, full, k)))).join('');
+  $('vueTable').innerHTML = head + `<tbody>${rows}</tbody>`;
 }
 
 // ---------- Combat tab ----------
@@ -439,8 +498,8 @@ function renderSim(st, att, def, opts){
   </div>`;
 }
 function route(){
-  const v = location.hash === '#combat' ? 'combat' : location.hash === '#export' ? 'export' : 'planetes';
-  ['planetes','combat','export'].forEach(n => { $('view-' + n).classList.toggle('hidden', v !== n); $('tab-' + n).classList.toggle('on', v === n); });
+  const v = { '#combat': 'combat', '#export': 'export', '#vue': 'vue' }[location.hash] || 'planetes';
+  ['planetes','vue','combat','export'].forEach(n => { $('view-' + n).classList.toggle('hidden', v !== n); $('tab-' + n).classList.toggle('on', v === n); });
 }
 
 const BOOKMARKLET = /*BOOKMARKLET*/;

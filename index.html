@@ -33,12 +33,12 @@ button.ghost{background:transparent;color:var(--txt);border:1px solid var(--line
 .settings label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--mut)}
 .settings label.chk{flex-direction:row;align-items:center;gap:8px;color:var(--txt)}
 input[type=number],select{background:#0a0f1e;color:var(--txt);border:1px solid var(--line);border-radius:6px;padding:6px 8px;font:inherit}
-.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
 .kpi{background:var(--panel2);border-radius:10px;padding:10px 12px}
 .kpi b{display:block;font-family:Rajdhani;font-size:22px}
 .kpi small{color:var(--mut)}
 .warn{background:#2a1a0e;border:1px solid #6b4316;color:#ffd7a1;border-radius:10px;padding:10px 12px;margin-top:10px}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,400px),1fr));gap:16px}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
 .card header{padding:12px 14px;background:var(--panel2);display:flex;justify-content:space-between;align-items:baseline;gap:8px}
 .card header h3{font-size:20px}
@@ -77,6 +77,24 @@ table.t td,table.t th{padding:5px 6px;border-bottom:1px solid var(--line);text-a
 table.t td:first-child,table.t th:first-child{text-align:left}
 table.t th{color:var(--mut);font-weight:500}
 .hidden{display:none}
+.pstat{display:flex;flex-wrap:wrap;gap:4px 14px;padding:8px 14px;font-size:12px;color:var(--mut);border-bottom:1px solid var(--line)}.pstat b{color:var(--txt)}
+.lv3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;padding:10px 14px;font-size:12px}
+.lvh{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--acc);margin-bottom:4px;font-weight:600}
+.lvr{display:flex;justify-content:space-between;gap:6px;padding:2px 0;border-bottom:1px solid #1d2747}.lvr > span:first-child{color:var(--mut);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.lvr b{font-variant-numeric:tabular-nums;white-space:nowrap}.lvr.hl b{color:var(--acc)}
+.pill{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:8px;background:var(--acc);color:#1a1200;font-size:10px;font-weight:700;margin-right:4px;vertical-align:1px}
+.top3{list-style:none;margin:0;padding:0 14px 10px;font-size:13px}
+.top3 details{border-top:1px solid var(--line)}
+.top3 summary{display:flex;gap:10px;align-items:baseline;padding:7px 0;cursor:pointer;list-style:none}.top3 summary::-webkit-details-marker{display:none}
+.rk{flex:none;width:20px;height:20px;border-radius:10px;background:var(--panel2);color:var(--acc);font-weight:700;font-size:12px;display:inline-flex;align-items:center;justify-content:center}.rk.first{background:var(--acc);color:#1a1200}
+.top3 .tt{flex:1;min-width:0;font-weight:600}.top3 .cc{color:var(--acc);font-size:12px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.top3 .why{padding:0 0 8px 30px}
+.mx{width:100%;border-collapse:collapse;font-size:13px}.mx th{padding:8px 10px;text-align:right;font-family:Rajdhani,Inter,sans-serif;font-size:16px;white-space:nowrap}.mx th small{display:block;font-family:Inter;font-size:11px;color:var(--mut);font-weight:400}
+.mx td{padding:4px 10px;text-align:right;font-variant-numeric:tabular-nums;border-bottom:1px solid #1d2747;white-space:nowrap}.mx td:first-child{text-align:left;color:var(--mut)}
+.mx tr.grp td{color:var(--acc);font-size:10px;letter-spacing:.08em;text-transform:uppercase;font-weight:600;padding-top:12px;border-bottom:0}
+.mx .z{color:#55618a}.mx .hl{background:var(--acc);color:#1a1200;border-radius:6px;padding:1px 7px;font-weight:700}.mx sup{color:var(--acc);font-size:10px;margin-left:3px}
+.tops{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+.topc{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:6px}
+.topc h3{font-size:17px}.topc .it{display:flex;gap:8px;font-size:12.5px;align-items:baseline}.topc .it .rk{width:18px;height:18px;font-size:11px}
 details.howto{border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin:12px 0;background:var(--panel2)}
 details.howto>summary{cursor:pointer;font-weight:600;font-size:16px}
 details.howto ol{margin:6px 0 6px;padding-left:22px}details.howto li{margin:4px 0}
@@ -87,7 +105,7 @@ details.howto ol{margin:6px 0 6px;padding-left:22px}details.howto li{margin:4px 
   <h1>OGame <span>·</span> Conseiller de construction</h1>
   <p class="sub">Colle ton export de planètes : l'outil calcule production, énergie, stockage et rentabilité, et te dit quoi construire ensuite sur chaque planète.</p>
 
-  <nav class="tabs"><a href="#planetes" id="tab-planetes">Planètes</a><a href="#combat" id="tab-combat">Combat</a><a href="#export" id="tab-export">Export auto</a></nav>
+  <nav class="tabs" style="flex-wrap:wrap"><a href="#planetes" id="tab-planetes">Planètes</a><a href="#vue" id="tab-vue">Vue générale</a><a href="#combat" id="tab-combat">Combat</a><a href="#export" id="tab-export">Export auto</a></nav>
   <section id="view-planetes">
   <details class="panel" id="inputPanel">
     <summary>Mes données (export texte)</summary>
@@ -122,10 +140,18 @@ details.howto ol{margin:6px 0 6px;padding-left:22px}details.howto li{margin:4px 
     <ul class="recs" id="research" style="padding:6px 0 0"></ul>
   </div>
 
-  <h2 style="margin:22px 0 12px">Planètes</h2>
+  <div style="display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between;margin:22px 0 12px"><h2>Planètes</h2><span class="note">Les pastilles <span class="pill">1</span> repèrent dans les niveaux les bâtiments à construire, dans l'ordre. Touche une construction pour voir pourquoi.</span></div>
   <div class="grid" id="planets"></div>
 
   <p class="note" style="margin-top:24px" id="plannerNote">Calculs basés sur les formules standard d'OGame (mines, centrales, hangars, plasma, bonus de position et de classe). Parmi les recherches de formes de vie, seuls les Extracteurs à haute performance sont comptés dans la production (et, pour les bâtiments, Fusion à haute énergie, Extraction par fusion, Fusion magmatique, Raffinerie de cristaux et Synthétiseur de deutérium Rock'tal) ; les objets, officiers non cochés et événements ne le sont pas. « Amorti en » = temps pour que le gain de production rembourse le coût, au taux d'échange choisi. Les temps de remplissage partent de hangars vides.</p>
+  </section>
+
+  <section id="view-vue" class="hidden">
+    <h2 style="margin:0 0 12px">À construire maintenant</h2>
+    <div class="tops" id="vueTops"></div>
+    <h2 style="margin:22px 0 12px">Niveaux par planète</h2>
+    <div class="panel" style="padding:0;overflow-x:auto"><table class="mx" id="vueTable"></table></div>
+    <p class="note">Les cases orange <span class="pill">1</span> sont les bâtiments à construire en priorité sur chaque planète.</p>
   </section>
 
   <section id="view-export" class="hidden">
@@ -688,7 +714,7 @@ if (typeof module !== 'undefined') module.exports = CB;
 
 </script>
 <script>
-const APP_VERSION="202611160402";
+const APP_VERSION="202611160407";
 async function checkVersion(){
   if (location.protocol === 'file:') return;
   try { const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' }); if (!r.ok) return; const j = await r.json();
@@ -785,24 +811,57 @@ function run(){
   ].map(([a,b,c]) => `<div class="kpi"><small>${a}</small><b>${b}</b><small>${c}</small></div>`).join('');
   $('warns').innerHTML = res.warnings.map(w => `<div class="warn">${esc(w)}</div>`).join('');
   $('research').innerHTML = res.research.map(r => recLi(r, r.isBuilding ? 'infra' : 'res')).join('');
-  $('planets').innerHTML = res.planets.map(x => {
-    const c = x.c, top = x.recs[0];
-    const eCls = c.factor < 0.999 ? 'red' : 'ok';
-    const fillCell = (lbl, h) => `<div><span>${lbl} plein en</span><b class="${h < S.fillHours ? 'red' : ''}">${OG.fmtH(h)}</b></div>`;
-    return `<article class="card">
-      <header><h3>${esc(x.p.name)}</h3><small>[${esc(x.p.coords||'?')}] · ~${Math.round(c.t)} °C</small></header>
-      ${top ? `<div class="next"><div class="lbl">À construire maintenant</div><div class="t">${esc(top.title)}</div>${top.cost ? `<div class="cost">${esc(OG.fmtCost(top.cost))}</div>` : ''}</div>` : ''}
-      <div class="stats">
-        <div><span>Métal</span><b>${f(c.prod.m)}/h</b></div>
-        <div><span>Cristal</span><b>${f(c.prod.c)}/h</b></div>
-        <div><span>Deutérium</span><b>${f(c.prod.d)}/h</b></div>
-        <div><span>Énergie</span><b class="${eCls}">${Math.round(c.eProd - c.eUse) >= 0 ? '+' : ''}${Math.round(c.eProd - c.eUse)}</b></div>
-        ${fillCell('Métal', c.fill.m)}${fillCell('Cristal', c.fill.c)}
-      </div>
-      <ul class="recs">${x.recs.slice(1).map(r => recLi(r)).join('') || '<li class="note">Rien d\'autre en attente.</li>'}</ul>
-    </article>`;
-  }).join('');
+  $('planets').innerHTML = res.planets.map(x => planetCard(x, S)).join('');
+  renderVue(res);
   $('inputPanel').open = false;
+}
+
+// ---------- Planet levels (cards + overview table) ----------
+const RES_ROWS = [['Métal','Mine de métal','metal'],['Cristal','Mine de cristal','crystal'],['Deut','Synthétiseur de deutérium','deut'],['Solaire','Centrale solaire','solar'],['Fusion','Centrale de fusion','fusion'],['Satellites','Satellites solaires','sats'],['Foreuses','Foreuses','crawlers'],['Hangar M','Hangar de métal','stM'],['Hangar C','Hangar de cristal','stC'],['Réserv. D','Réservoir de deutérium','stD']];
+const LF_HUM = [['Résidentiel','Secteur résidentiel','lfRes'],['Ferme bio.','Ferme biosphérique','lfFarm'],['Centre rech.','Centre de recherche','lfRC'],['Académie','Académie des sciences','lfAcad'],['Fus. haute én.','Fusion à haute énergie','lfHES'],['Réserve alim.','Réserve alimentaire','lfFood'],['Extr. fusion','Extraction par fusion','lfFPP'],['Tour hab.','Tour d\'habitation','lfTower'],['Metropolis','Metropolis','lfMetro']];
+const LF_ROCK = [['Enclave','Enclave stoïque','rtEnclave'],['Culture crist.','Culture du cristal','rtFarm'],['Tech. runique','Centre technologique runique','rtRTech'],['Forge runique','Forge runique','rtForge'],['Orictorium','Orictorium','rtOrik'],['Fus. magmat.','Fusion magmatique','rtMagma'],['Raffinerie','Raffinerie de cristaux','rtRefinery'],['Synth. deut.','Synthétiseur de deutérium Rock\'tal','rtDeutSynth']];
+const INST_ROWS = [['Robots','Usine de robots','robots'],['Chantier','Chantier spatial','shipyard'],['Labo','Laboratoire de recherche','lab'],['Nanites','Usine de nanites','nanite'],['Dock','Dock spatial','dock'],['Silo','Silo de missiles','silo'],['Dépôt','Dépôt de ravitaillement','depot'],['Terraform.','Terraformeur','terra'],['Scanner','Scanner d\'anomalies','scanner']];
+const normT = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/^(formes de vie|rock.tal)\s*:\s*/, '').replace(/\s+\d+$/, '').trim();
+function rankOf(recs, full){ const n = normT(full); for (let i = 0; i < Math.min(3, recs.length); i++) if (normT(recs[i].title) === n) return i + 1; return 0; }
+const isRock = b => (b.rtEnclave || 0) > 0 || (b.rtFarm || 0) > 0;
+function lvlRows(rows, b, recs, keepZero){
+  return rows.filter(([, , k]) => keepZero.includes(k) || (b[k] || 0) > 0).map(([lab, full, k]) => {
+    const rk = rankOf(recs, full);
+    return `<div class="lvr${rk ? ' hl' : ''}"><span title="${esc(full)}">${esc(lab)}</span><b>${rk ? `<span class="pill">${rk}</span>` : ''}${b[k] || 0}</b></div>`;
+  }).join('');
+}
+function planetCard(x, S){
+  const b = x.p.b, c = x.c, f = OG.fmt, recs = x.recs;
+  const rock = isRock(b), race = rock ? "Rock'tal" : (b.lfRes ? 'Humains' : 'sans forme de vie');
+  const e = Math.round(c.eProd - c.eUse);
+  const fh = (k, h) => `<span class="${h < S.fillHours ? 'red' : ''}">${k} ${OG.fmtH(h)}</span>`;
+  const lf = lvlRows(rock ? LF_ROCK : LF_HUM, b, recs, []) || '<div class="note">Aucun bâtiment</div>';
+  const top = recs.slice(0, 3).map((r, i) => `<li><details><summary><span class="rk${i === 0 ? ' first' : ''}">${i + 1}</span><span class="tt">${esc(r.title)}</span><span class="cc">${r.cost ? esc(OG.fmtCost(r.cost)) : ''}</span></summary><div class="why">${esc(r.why)}${r.alt && r.alt.length ? `<div class="alt">Autres options : ${esc(r.alt.join(' · '))}</div>` : ''}</div></details></li>`).join('') || '<li class="note" style="padding:8px 0">Rien en attente.</li>';
+  return `<article class="card">
+    <header><h3>${esc(x.p.name)}</h3><small>[${esc(x.p.coords || '?')}] · ~${Math.round(c.t)} °C · ${esc(race)}</small></header>
+    <div class="pstat"><span>Production/h <b>${f(c.prod.m)}</b> M · <b>${f(c.prod.c)}</b> C · <b>${f(c.prod.d)}</b> D</span><span>Énergie <b class="${e < 0 || c.factor < 0.999 ? 'red' : e < 100 ? '' : 'ok'}">${e >= 0 ? '+' : ''}${e}</b></span><span>Hangars pleins : ${fh('M', c.fill.m)} · ${fh('C', c.fill.c)} · ${fh('D', c.fill.d)}</span></div>
+    <div class="lv3"><div><div class="lvh">Ressources</div>${lvlRows(RES_ROWS, b, recs, ['metal','crystal','deut','solar','stM','stC','stD'])}</div><div><div class="lvh">Formes de vie</div>${lf}</div><div><div class="lvh">Installations</div>${lvlRows(INST_ROWS, b, recs, ['robots','shipyard','lab'])}</div></div>
+    <div class="lvh" style="padding:4px 14px 0">À construire</div>
+    <ol class="top3">${top}</ol>
+  </article>`;
+}
+function renderVue(res){
+  const P = res.planets, f = OG.fmt;
+  $('vueTops').innerHTML = P.map(x => `<div class="topc"><h3>${esc(x.p.name)}</h3>${x.recs.slice(0, 3).map((r, i) => `<div class="it"><span class="rk${i === 0 ? ' first' : ''}">${i + 1}</span><span style="min-width:0"><b>${esc(r.title)}</b>${r.cost ? `<br><span class="cost">${esc(OG.fmtCost(r.cost))}</span>` : ''}</span></div>`).join('') || '<div class="note">Rien en attente.</div>'}</div>`).join('');
+  const head = `<thead><tr><th style="text-align:left"></th>${P.map(x => `<th>${esc(x.p.name)}<small>[${esc(x.p.coords || '?')}]</small></th>`).join('')}</tr></thead>`;
+  const line = (label, vals) => `<tr><td>${esc(label)}</td>${vals.join('')}</tr>`;
+  const cell = (x, full, k) => { const v = x.p.b[k] || 0, rk = full ? rankOf(x.recs, full) : 0; return `<td>${rk ? `<span class="hl">${v}</span><sup>${rk}</sup>` : `<span class="${v ? '' : 'z'}">${v}</span>`}</td>`; };
+  let rows = '';
+  rows += line('Production/h (M · C · D)', P.map(x => `<td>${f(x.c.prod.m)} · ${f(x.c.prod.c)} · ${f(x.c.prod.d)}</td>`));
+  rows += line('Énergie', P.map(x => { const e = Math.round(x.c.eProd - x.c.eUse); return `<td class="${e < 0 ? 'red' : e < 100 ? '' : 'ok'}" style="font-weight:600">${e >= 0 ? '+' : ''}${e}</td>`; }));
+  rows += line('Hangar métal plein en', P.map(x => `<td class="${x.c.fill.m < settings().fillHours ? 'red' : ''}">${OG.fmtH(x.c.fill.m)}</td>`));
+  const grp = t => `<tr class="grp"><td colspan="${P.length + 1}">${t}</td></tr>`;
+  rows += grp('Ressources') + RES_ROWS.map(([, full, k]) => line(full, P.map(x => cell(x, full, k)))).join('');
+  // lifeform: one row per slot, species-aware
+  const LFS = [['Population (Résidentiel / Enclave)', 0], ['Nourriture (Ferme / Culture)', 1], ['Recherche (Centre / Tech. runique)', 2], ['Production métal (Fus. haute én. / Fus. magmat.)', [4, 5]], ['Production cristal (Extr. fusion / Raffinerie)', [6, 6]]];
+  rows += grp('Formes de vie') + LFS.map(([label, idx]) => line(label, P.map(x => { const rock = isRock(x.p.b); const arr = rock ? LF_ROCK : LF_HUM; const i = Array.isArray(idx) ? idx[rock ? 1 : 0] : idx; const [, full, k] = arr[i]; return cell(x, full, k); }))).join('');
+  rows += grp('Installations') + INST_ROWS.filter(([, , k]) => P.some(x => (x.p.b[k] || 0) > 0) || ['robots','shipyard','lab'].includes(k)).map(([, full, k]) => line(full, P.map(x => cell(x, full, k)))).join('');
+  $('vueTable').innerHTML = head + `<tbody>${rows}</tbody>`;
 }
 
 // ---------- Combat tab ----------
@@ -902,8 +961,8 @@ function renderSim(st, att, def, opts){
   </div>`;
 }
 function route(){
-  const v = location.hash === '#combat' ? 'combat' : location.hash === '#export' ? 'export' : 'planetes';
-  ['planetes','combat','export'].forEach(n => { $('view-' + n).classList.toggle('hidden', v !== n); $('tab-' + n).classList.toggle('on', v === n); });
+  const v = { '#combat': 'combat', '#export': 'export', '#vue': 'vue' }[location.hash] || 'planetes';
+  ['planetes','vue','combat','export'].forEach(n => { $('view-' + n).classList.toggle('hidden', v !== n); $('tab-' + n).classList.toggle('on', v === n); });
 }
 
 const BOOKMARKLET = "javascript:(async()%3D%3E%7Bif(window.__ogExportRunning)return%3Bwindow.__ogExportRunning%3D!0%3Bconst%20e%3D%7B1%3A%22Mine%20de%20metal%22%2C2%3A%22Mine%20de%20cristal%22%2C3%3A%22Synthetiseur%20de%20deuterium%22%2C4%3A%22Centrale%20electrique%20solaire%22%2C12%3A%22Centrale%20electrique%20de%20fusion%22%2C22%3A%22Hangar%20de%20metal%22%2C23%3A%22Hangar%20de%20cristal%22%2C24%3A%22Reservoir%20de%20deuterium%22%2C212%3A%22Satellite%20solaire%22%2C217%3A%22Foreuse%22%2C14%3A%22Usine%20de%20robots%22%2C21%3A%22Chantier%20spatial%22%2C31%3A%22Laboratoire%20de%20recherche%22%2C34%3A%22Depot%20de%20ravitaillement%22%2C44%3A%22Silo%20de%20missiles%22%2C15%3A%22Usine%20de%20nanites%22%2C33%3A%22Terraformeur%22%2C36%3A%22Dock%20Spatial%22%2C113%3A%22Technologie%20energetique%22%2C120%3A%22Technologie%20laser%22%2C121%3A%22Technologie%20a%20ions%22%2C114%3A%22Technologie%20hyperespace%22%2C122%3A%22Technologie%20plasma%22%2C115%3A%22Reacteur%20a%20combustion%22%2C117%3A%22Reacteur%20a%20impulsion%22%2C118%3A%22Propulsion%20hyperespace%22%2C106%3A%22Technologie%20espionnage%22%2C108%3A%22Technologie%20ordinateur%22%2C124%3A%22Astrophysique%22%2C123%3A%22Reseau%20de%20recherche%20intergalactique%22%2C199%3A%22Technologie%20graviton%22%2C109%3A%22Technologie%20armes%22%2C110%3A%22Technologie%20bouclier%22%2C111%3A%22Technologie%20protection%20des%20vaisseaux%20spatiaux%22%2C204%3A%22Chasseur%20leger%22%2C205%3A%22Chasseur%20lourd%22%2C206%3A%22Croiseur%22%2C207%3A%22Vaisseau%20de%20bataille%22%2C215%3A%22Traqueur%22%2C211%3A%22Bombardier%22%2C213%3A%22Destructeur%22%2C214%3A%22Etoile%20de%20la%20mort%22%2C218%3A%22Faucheur%22%2C219%3A%22Eclaireur%22%2C202%3A%22Petit%20transporteur%22%2C203%3A%22Grand%20transporteur%22%2C208%3A%22Vaisseau%20de%20colonisation%22%2C209%3A%22Recycleur%22%2C210%3A%22Sonde%20d'espionnage%22%2C401%3A%22Lanceur%20de%20missiles%22%2C402%3A%22Artillerie%20laser%20legere%22%2C403%3A%22Artillerie%20laser%20lourde%22%2C404%3A%22Canon%20de%20Gauss%22%2C405%3A%22Artillerie%20a%20Ions%22%2C406%3A%22Lanceur%20de%20plasma%22%2C407%3A%22Petit%20bouclier%22%2C408%3A%22Grand%20bouclier%22%2C502%3A%22Missile%20d'interception%22%2C503%3A%22Missile%20interplanetaire%22%2C11101%3A%22Secteur%20residentiel%22%2C11102%3A%22Ferme%20Biospherique%22%2C11103%3A%22Centre%20de%20recherche%22%2C11104%3A%22Academie%20des%20sciences%22%2C11105%3A%22Centre%20de%20neurocalibrage%22%2C11106%3A%22Fusion%20a%20haute%20energie%22%2C11107%3A%22Reserve%20alimentaire%22%2C11108%3A%22Extraction%20par%20fusion%22%2C11109%3A%22Tour%20d'habitation%22%2C11110%3A%22Laboratoire%20de%20biotechnologie%22%2C11111%3A%22Metropolis%22%2C11112%3A%22Bouclier%20planetaire%22%2C12101%3A%22Enclave%20stoique%22%2C12102%3A%22Culture%20du%20cristal%22%2C12103%3A%22Centre%20technologique%20runique%22%2C12104%3A%22Forge%20runique%22%2C12105%3A%22Orictorium%22%2C12106%3A%22Fusion%20magmatique%22%2C12107%3A%22Chambre%20de%20disruption%22%2C12108%3A%22Monument%20rocheux%22%2C12109%3A%22Raffinerie%20de%20cristaux%22%2C12110%3A%22Synthetiseur%20de%20deuterium%22%2C12111%3A%22Centre%20de%20recherche%20sur%20les%20mineraux%22%2C12112%3A%22Usine%20de%20traitement%20a%20haut%20rendement%22%2C11201%3A%22Ambassadeurs%20intergalactiques%22%2C11202%3A%22Extracteurs%20a%20haute%20performance%22%2C11203%3A%22Moteurs%20a%20fusion%22%2C11204%3A%22Generateur%20de%20champ%20de%20camouflage%22%2C11205%3A%22Planque%20Orbitale%22%2C11206%3A%22IA%20de%20recherche%22%2C12201%3A%22Batteries%20volcaniques%22%7D%2Ct%3D%5B1%2C2%2C3%2C4%2C12%2C22%2C23%2C24%5D%2Cr%3Ddocument.createElement(%22div%22)%3Br.style.cssText%3D%22position%3Afixed%3Binset%3A5%25%2010%25%3Bz-index%3A2147483647%3Bbackground%3A%230b1020%3Bcolor%3A%23e6ebf7%3Bborder%3A2px%20solid%20%23f5a623%3Bborder-radius%3A12px%3Bpadding%3A16px%3Bfont%3A14px%2F1.45%20Arial%2Csans-serif%3Bdisplay%3Aflex%3Bflex-direction%3Acolumn%3Bgap%3A10px%3Bbox-shadow%3A0%2010px%2040px%20%23000%22%2Cr.innerHTML%3D'%3Cdiv%20style%3D%22display%3Aflex%3Bjustify-content%3Aspace-between%3Balign-items%3Acenter%22%3E%3Cb%20style%3D%22font-size%3A18px%3Bcolor%3A%23f5a623%22%3EExport%20pour%20le%20conseiller%20OGame%3C%2Fb%3E%3Cbutton%20data-x%20style%3D%22background%3Anone%3Bborder%3A0%3Bcolor%3A%23e6ebf7%3Bfont-size%3A22px%3Bcursor%3Apointer%22%3E%C3%97%3C%2Fbutton%3E%3C%2Fdiv%3E%3Cdiv%20data-msg%3EPr%C3%A9paration%E2%80%A6%3C%2Fdiv%3E%3Ctextarea%20data-out%20style%3D%22flex%3A1%3Bwidth%3A100%25%3Bbackground%3A%23050914%3Bcolor%3A%23e6ebf7%3Bborder%3A1px%20solid%20%2326335a%3Bborder-radius%3A8px%3Bpadding%3A8px%3Bfont%3A12px%20monospace%22%20readonly%3E%3C%2Ftextarea%3E%3Cdiv%20style%3D%22display%3Aflex%3Bgap%3A8px%3Bflex-wrap%3Awrap%22%3E%3Cbutton%20data-copy%20disabled%20style%3D%22background%3A%23f5a623%3Bborder%3A0%3Bborder-radius%3A8px%3Bpadding%3A9px%2016px%3Bfont-weight%3Abold%3Bcursor%3Apointer%22%3ECopier%3C%2Fbutton%3E%3Cbutton%20data-open%20disabled%20style%3D%22background%3A%2318223d%3Bcolor%3A%23e6ebf7%3Bborder%3A1px%20solid%20%2326335a%3Bborder-radius%3A8px%3Bpadding%3A9px%2016px%3Bcursor%3Apointer%22%3EOuvrir%20dans%20le%20conseiller%3C%2Fbutton%3E%3Cspan%20data-note%20style%3D%22align-self%3Acenter%3Bcolor%3A%238f9bbd%22%3E%3C%2Fspan%3E%3C%2Fdiv%3E'%2Cdocument.body.appendChild(r)%3Bconst%20a%3De%3D%3Er.querySelector(e)%2Co%3De%3D%3E%7Ba(%22%5Bdata-msg%5D%22).textContent%3De%7D%3Ba(%22%5Bdata-x%5D%22).onclick%3D()%3D%3E%7Br.remove()%2Cwindow.__ogExportRunning%3D!1%7D%3Btry%7Bconst%20r%3D%5B...document.querySelectorAll(%22%23planetList%20.smallplanet%22)%5D.map(e%3D%3E%7Bconst%20t%3D(e.id%7C%7C%22%22).replace(%2F%5CD%2Fg%2C%22%22)%2Cr%3D(e.querySelector(%22.planet-name%22)%3F.textContent%7C%7C%22%22).trim()%2Ca%3D(e.querySelector(%22.planet-koords%22)%3F.textContent%7C%7C%22%22).replace(%2F%5B%5C%5B%5C%5D%5Cs%5D%2Fg%2C%22%22)%2Co%3D(e.querySelector(%22a.planetlink%22)%3F.getAttribute(%22title%22)%7C%7Ce.querySelector(%22a.planetlink%22)%3F.getAttribute(%22data-tooltip-title%22)%7C%7C%22%22).replace(%2F%3C%5B%5E%3E%5D%2B%3E%2Fg%2C%22%20%22).match(%2F(-%3F%5Cd%2B)%5Cs*%C2%B0C%5Cs*%5CS*%5Cs*(-%3F%5Cd%2B)%5Cs*%C2%B0C%2F)%3Breturn%7Bid%3At%2Cname%3Ar%2Ccoords%3Aa%2Ctmax%3Ao%3F%2Bo%5B2%5D%3Anull%7D%7D).filter(e%3D%3Ee.id)%3Bif(!r.length)throw%20new%20Error(%22Liste%20des%20plan%C3%A8tes%20introuvable.%20Lance%20l'export%20depuis%20une%20page%20du%20jeu%20(Vue%20d'ensemble%20par%20exemple).%22)%3Bconst%20i%3Dlocation.origin%2B%22%2Fgame%2Findex.php%3Fpage%3Dingame%26component%3D%22%2Cn%3D%5B%5D%3Blet%20s%3D0%3Bconst%20l%3Dasync(e%2Ct)%3D%3E%7Bconst%20r%3Di%2Be%2B(t%3F%22%26cp%3D%22%2Bt%3A%22%22)%2Ca%3Dawait%20fetch(r%2C%7Bcredentials%3A%22include%22%7D)%3Bif(!a.ok)throw%20new%20Error(e%2B%22%20%3A%20erreur%20%22%2Ba.status)%3Bconst%20l%3D(new%20DOMParser).parseFromString(await%20a.text()%2C%22text%2Fhtml%22)%2Cd%3D%7B%7D%3Bvar%20u%3Breturn%20l.querySelectorAll(%22%5Bdata-technology%5D%22).forEach(e%3D%3E%7Bconst%20t%3D%2Be.getAttribute(%22data-technology%22)%3Bif(!t%7C%7Cnull!%3Dd%5Bt%5D)return%3Bconst%20r%3De.querySelector(%22.level%5Bdata-value%5D%2C%20.amount%5Bdata-value%5D%2C%20%5Bdata-value%5D%22)%3Blet%20a%3Dr%3Fr.getAttribute(%22data-value%22)%3Anull%3Bif(null%3D%3Da)%7Ba%3D(e.querySelector(%22.level%2C%20.amount%22)%3F.textContent%7C%7C%22%22).replace(%2F%5B%5E%5Cd%5D%2Fg%2C%22%22)%7C%7Cnull%7Dif(null%3D%3Da)return%3Bconst%20o%3De.getAttribute(%22aria-label%22)%7C%7Ce.querySelector(%22%5Baria-label%5D%22)%3F.getAttribute(%22aria-label%22)%7C%7C%22%22%3Bd%5Bt%5D%3D%7Bv%3AparseInt(String(a).replace(%2F%5B%5E%5Cd%5D%2Fg%2C%22%22)%2C10)%7C%7C0%2Clabel%3Ao.trim()%7D%7D)%2CObject.keys(d).length%7C%7Cn.push(e%2B(t%3F%22%40%22%2Bt%3A%22%22)%2B%22%20%3A%20rien%20lu%22)%2Cs%2B%2B%2Co(%60Lecture%E2%80%A6%20%24%7Bs%7D%20pages%60)%2Cawait(u%3D350%2Cnew%20Promise(e%3D%3EsetTimeout(e%2Cu)))%2Cd%7D%2Cd%3D(t%2Cr)%3D%3Et%5Br%5D%3F%60%24%7Be%5Br%5D%7C%7Ct%5Br%5D.label%7C%7C%22ID%20%22%2Br%7D%3A%20%24%7Bt%5Br%5D.v%7D%60%3Anull%2Cu%3D(e%2Ct)%3D%3Et.map(t%3D%3Ed(e%2Ct)).filter(Boolean).join(%22%5Cn%22)%2Cc%3D(e%2Ct)%3D%3EObject.keys(e).map(Number).filter(e%3D%3E!t.includes(e)).map(t%3D%3Ed(e%2Ct)).join(%22%5Cn%22)%2Cp%3D%5B%5D%3Bfor(const%20e%20of%20r)%7Bo(%60Lecture%20de%20%24%7Be.name%7D%E2%80%A6%60)%3Bconst%20r%3Dawait%20l(%22supplies%22%2Ce.id)%2Ca%3Dawait%20l(%22facilities%22%2Ce.id)%2Ci%3Dawait%20l(%22lfbuildings%22%2Ce.id)%2Cn%3Dawait%20l(%22lfresearch%22%2Ce.id)%2Cs%3Dawait%20l(%22shipyard%22%2Ce.id)%2Cd%3Dawait%20l(%22defenses%22%2Ce.id)%2Ch%3DObject.assign(%7B%7D%2Cr%2Cs)%2Cm%3D%5B%60Planete%3A%20%24%7Be.name%7D%60%2C%60Coordonnees%3A%20%24%7Be.coords%7D%60%5D%3Bnull!%3De.tmax%26%26m.push(%60Temperature%20max%3A%20%24%7Be.tmax%7D%60)%2Cm.push(%22%22%2C%22Ressources%22%2Cu(h%2C%5B...t%2C212%2C217%5D)%2C%22%22%2C%22Forme%20de%20vie%22%2Cc(i%2C%5B%5D)%2C%22%22%2C%22Recherche%20Forme%20de%20vie%3A%22%2Cc(n%2C%5B%5D)%2C%22%22%2C%22Installations%22%2Cc(a%2C%5B%5D)%2C%22%22%2C%22Defense%3A%22%2Cc(d%2C%5B%5D)%2C%22%22%2C%22Flotte%3A%22%2Cc(s%2C%5B212%2C217%5D)%2C%22%22)%2Cp.push(m.join(%22%5Cn%22))%7Do(%22Lecture%20des%20recherches%E2%80%A6%22)%3Bconst%20h%3Dawait%20l(%22research%22%2Cr%5B0%5D.id)%3Bp.push(%22Recherche%3A%5Cn%22%2Bc(h%2C%5B%5D)%2B%22%5Cn%22)%3Btry%7Bconst%20e%3D(new%20DOMParser).parseFromString(await(await%20fetch(location.origin%2B%22%2Fapi%2FserverData.xml%22)).text()%2C%22text%2Fxml%22)%2Ct%3Dt%3D%3Ee.querySelector(t)%3F.textContent%2Cr%3D%5B%22Parametres%20de%20serveur%3A%22%5D%3Bt(%22speed%22)%26%26r.push(%60Vitesse%20de%20d%C3%A9veloppement%20%3A%20x%24%7Bt(%22speed%22)%7D%60)%2Ct(%22researchDurationDivisor%22)%26%26r.push(%60Vitesse%20de%20recherche%20%3A%20x%24%7Bt(%22researchDurationDivisor%22)%7D%60)%2Ct(%22debrisFactor%22)%26%26r.push(%60Flotte%20dans%20le%20champ%20de%20d%C3%A9bris%20%2B%24%7BMath.round(100*parseFloat(t(%22debrisFactor%22)))%7D%20%25%60)%2Ct(%22debrisFactorDef%22)%26%26r.push(%60Installations%20de%20d%C3%A9fense%20dans%20le%20champ%20de%20d%C3%A9bris%20%2B%24%7BMath.round(100*parseFloat(t(%22debrisFactorDef%22)))%7D%20%25%60)%2C%221%22%3D%3D%3Dt(%22deuteriumInDebris%22)%26%26r.push(%22Deut%C3%A9rium%20dans%20les%20champs%20de%20d%C3%A9bris%22)%2Ct(%22galaxies%22)%26%26r.push(%60Nombre%20de%20galaxies%3A%20%24%7Bt(%22galaxies%22)%7D%60)%2Cp.push(r.join(%22%5Cn%22))%7Dcatch(e)%7Bn.push(%22serverData%20%3A%20%22%2Be.message)%7Dconst%20m%3Dp.join(%22%5Cn%22)%3Ba(%22%5Bdata-out%5D%22).value%3Dm%2Co(%60Export%20pr%C3%AAt%20%3A%20%24%7Br.length%7D%20plan%C3%A8tes%2C%20%24%7Bs%7D%20pages%20lues.%60%2B(n.length%3F%22%20%C3%80%20v%C3%A9rifier%20%3A%20%22%2Bn.join(%22%20%3B%20%22)%3A%22%22))%3Bconst%20g%3Da(%22%5Bdata-copy%5D%22)%2Cb%3Da(%22%5Bdata-open%5D%22)%3Bg.disabled%3Db.disabled%3D!1%2Cg.onclick%3Dasync()%3D%3E%7Btry%7Bawait%20navigator.clipboard.writeText(m)%2Ca(%22%5Bdata-note%5D%22).textContent%3D%22Copi%C3%A9%20!%22%7Dcatch(e)%7Ba(%22%5Bdata-out%5D%22).select()%2Cdocument.execCommand(%22copy%22)%2Ca(%22%5Bdata-note%5D%22).textContent%3D%22Copi%C3%A9.%22%7D%7D%2Cb.onclick%3D()%3D%3E%7Bconst%20e%3Dbtoa(unescape(encodeURIComponent(m)))%3Bwindow.open(%22https%3A%2F%2Fgluminou.github.io%2Fogame%2F%23import%3D%22%2BencodeURIComponent(e)%2C%22_blank%22)%7D%7Dcatch(e)%7Bo(%22Erreur%20%3A%20%22%2Be.message)%7Dwindow.__ogExportRunning%3D!1%7D)()%3B";
