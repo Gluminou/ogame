@@ -84,7 +84,7 @@ table.t th{color:var(--mut);font-weight:500}
   <h1>OGame <span>·</span> Conseiller de construction</h1>
   <p class="sub">Colle ton export de planètes : l'outil calcule production, énergie, stockage et rentabilité, et te dit quoi construire ensuite sur chaque planète.</p>
 
-  <nav class="tabs"><a href="#planetes" id="tab-planetes">Planètes</a><a href="#combat" id="tab-combat">Combat</a></nav>
+  <nav class="tabs"><a href="#planetes" id="tab-planetes">Planètes</a><a href="#combat" id="tab-combat">Combat</a><a href="#export" id="tab-export">Export auto</a></nav>
   <section id="view-planetes">
   <details class="panel" id="inputPanel">
     <summary>Mes données (export texte)</summary>
@@ -123,6 +123,26 @@ table.t th{color:var(--mut);font-weight:500}
   <div class="grid" id="planets"></div>
 
   <p class="note" style="margin-top:24px" id="plannerNote">Calculs basés sur les formules standard d'OGame (mines, centrales, hangars, plasma, bonus de position et de classe). Parmi les recherches de formes de vie, seuls les Extracteurs à haute performance sont comptés dans la production (et, pour les bâtiments, Fusion à haute énergie, Extraction par fusion, Fusion magmatique, Raffinerie de cristaux et Synthétiseur de deutérium Rock'tal) ; les objets, officiers non cochés et événements ne le sont pas. « Amorti en » = temps pour que le gain de production rembourse le coût, au taux d'échange choisi. Les temps de remplissage partent de hangars vides.</p>
+  </section>
+
+  <section id="view-export" class="hidden">
+    <div class="panel">
+      <h2>Export automatique depuis OGame</h2>
+      <p>Un favori spécial lit tes planètes directement dans le jeu (bâtiments, formes de vie, recherches, flotte, défense, paramètres du serveur) et prépare l'export pour l'onglet Planètes. Tu n'as plus rien à recopier.</p>
+      <div class="sub2">Installation (une seule fois, sur ordinateur)</div>
+      <ol>
+        <li>Affiche la barre de favoris de Chrome (Ctrl+Maj+B).</li>
+        <li>Fais glisser ce bouton dans la barre de favoris : <a id="bmLink" href="#" style="display:inline-block;background:var(--acc);color:#1a1200;font-weight:700;padding:6px 14px;border-radius:8px;text-decoration:none;cursor:grab">Export OGame</a></li>
+        <li>Si le glisser-déposer ne marche pas : crée un favori à la main, nomme-le « Export OGame » et colle ce code comme adresse. <button class="ghost" id="bmCopy">Copier le code du favori</button> <span class="note" id="bmMsg"></span></li>
+      </ol>
+      <div class="sub2">Utilisation</div>
+      <ol>
+        <li>Connecte-toi à OGame et ouvre n'importe quelle page du jeu.</li>
+        <li>Clique sur le favori « Export OGame ». Il lit tes pages une par une (une quinzaine de secondes pour 5 planètes).</li>
+        <li>Clique sur « Ouvrir dans le conseiller » : l'application s'ouvre avec tes données à jour. Tu peux aussi cliquer sur « Copier » et coller l'export ici ou dans la conversation avec Claude.</li>
+      </ol>
+      <p class="note">Le favori ne fait que lire tes propres pages, avec ta session, une page à la fois. Il n'envoie rien ailleurs que vers cette application, et seulement quand tu cliques sur « Ouvrir ». Les flottes en vol au moment de l'export ne sont pas comptées.</p>
+    </div>
   </section>
 
   <section id="view-combat" class="hidden">
@@ -384,12 +404,22 @@ function renderSim(st, att, def, opts){
   </div>`;
 }
 function route(){
-  const v = location.hash === '#combat' ? 'combat' : 'planetes';
-  $('view-planetes').classList.toggle('hidden', v !== 'planetes'); $('view-combat').classList.toggle('hidden', v !== 'combat');
-  $('tab-planetes').classList.toggle('on', v === 'planetes'); $('tab-combat').classList.toggle('on', v === 'combat');
+  const v = location.hash === '#combat' ? 'combat' : location.hash === '#export' ? 'export' : 'planetes';
+  ['planetes','combat','export'].forEach(n => { $('view-' + n).classList.toggle('hidden', v !== n); $('tab-' + n).classList.toggle('on', v === n); });
 }
 
+const BOOKMARKLET = /*BOOKMARKLET*/;
+function importFromHash(){
+  if (!location.hash.startsWith('#import=')) return false;
+  try { const b64 = decodeURIComponent(location.hash.slice(8)); const txt = decodeURIComponent(escape(atob(b64)));
+    store.set('og_data_v4', txt); history.replaceState(null, '', location.pathname + '#planetes'); return true; }
+  catch(e){ history.replaceState(null, '', location.pathname); return false; }
+}
 function init(){
+  const imported = importFromHash();
+  $('bmLink').href = BOOKMARKLET;
+  $('bmLink').onclick = e => { e.preventDefault(); $('bmMsg').textContent = 'Fais glisser le bouton dans ta barre de favoris (un clic ici ne fait rien).'; };
+  $('bmCopy').onclick = async () => { try { await navigator.clipboard.writeText(BOOKMARKLET); $('bmMsg').textContent = 'Code copié.'; } catch(e){ $('bmMsg').textContent = 'Copie refusée par le navigateur.'; } };
   const saved = store.get('og_data_v4'); $('data').value = saved || DEFAULT_DATA; if (!$('data').value.trim()) { $('inputPanel').open = true; }
   try { const s = JSON.parse(store.get('og_settings_v2')||'null'); if (s){ $('speed').value=s.speed; $('fill').value=s.fillHours; $('rc').value=s.ratioC; $('rd').value=s.ratioD; $('col').checked=s.collector; $('geo').checked=s.geologist; $('eng').checked=s.engineer; } } catch(e){}
   $('go').onclick = run;
@@ -408,6 +438,7 @@ function init(){
   $('appVer').textContent = APP_VERSION.replace(/^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})$/, '$3/$2/$1 $4:$5 UTC');
   $('refreshBtn').onclick = () => location.replace(location.pathname + '?r=' + Date.now() + location.hash);
   run();
+  if (imported) { $('err').textContent = ''; const n = document.createElement('div'); n.className = 'warn'; n.textContent = 'Export importé depuis OGame : tes planètes sont à jour.'; $('warns').prepend(n); }
 }
 init();
 </script>

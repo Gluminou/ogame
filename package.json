@@ -1,0 +1,5 @@
+{
+  "private": true,
+  "scripts": { "build": "node tools/build.js" },
+  "devDependencies": { "terser": "^5" }
+}
