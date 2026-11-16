@@ -74,6 +74,7 @@ const OG = (() => {
         else if (label.startsWith('nombre de galaxies')) server.galaxies = n;
         else if (label.startsWith('vitesse de flotte des unites pacifiques')) server.speedPeace = n;
         else if (label.startsWith('vitesse de flotte des unites de guerre')) server.speedWar = n;
+        else if (label.startsWith('points du top 1')) server.top1 = parseInt(val.replace(/[^\d]/g, ''), 10);
         else if (label.startsWith('flotte dans le champ de debris')) server.dfShips = n;
         else if (label.startsWith('installations de defense dans le champ de debris')) server.dfDef = n;
         continue;

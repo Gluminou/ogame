@@ -105,7 +105,7 @@ details.howto ol{margin:6px 0 6px;padding-left:22px}details.howto li{margin:4px 
   <h1>OGame <span>·</span> Conseiller de construction</h1>
   <p class="sub">Colle ton export de planètes : l'outil calcule production, énergie, stockage et rentabilité, et te dit quoi construire ensuite sur chaque planète.</p>
 
-  <nav class="tabs" style="flex-wrap:wrap"><a href="#vue" id="tab-vue">Vue générale</a><a href="#planetes" id="tab-planetes">Planètes</a><a href="#plan" id="tab-plan">Plan</a><a href="#combat" id="tab-combat">Combat</a><a href="#cibles" id="tab-cibles">Cibles</a><a href="#export" id="tab-export">Export auto</a></nav>
+  <nav class="tabs" style="flex-wrap:wrap"><a href="#vue" id="tab-vue">Vue générale</a><a href="#planetes" id="tab-planetes">Planètes</a><a href="#plan" id="tab-plan">Plan</a><a href="#combat" id="tab-combat">Combat</a><a href="#cibles" id="tab-cibles">Cibles</a><a href="#expe" id="tab-expe">Expéditions</a><a href="#export" id="tab-export">Export auto</a></nav>
   <section id="view-planetes">
   <details class="panel" id="inputPanel">
     <summary>Mes données (export texte)</summary>
@@ -186,6 +186,21 @@ details.howto ol{margin:6px 0 6px;padding-left:22px}details.howto li{margin:4px 
     </div>
     <div id="tgOut"></div>
     <p class="note">Pour chaque cible, l'application cherche la flotte optimale dans la planète de départ : la moins coûteuse (pertes + deutérium) qui atteint la victoire minimale, avec les grands transporteurs nécessaires au butin. Gain net = butin × chance de victoire + débris − pertes − deutérium, en équivalent métal. Les technologies cachées sont supposées égales aux tiennes.</p>
+  </section>
+
+  <section id="view-expe" class="hidden">
+    <div class="panel">
+      <h2>Expéditions</h2>
+      <p class="note" style="margin:4px 0 8px">Calcule le plafond des découvertes de ton univers et la flotte à envoyer à chaque expédition pour l'atteindre, avec assez de soute pour tout ramener.</p>
+      <div class="settings">
+        <label>Points du top 1 de l'univers<input type="number" id="exTop1" min="0" step="1000" placeholder="lu dans l'export"></label>
+        <label>Partir de<select id="exFrom"></select></label>
+        <label>Multiplicateur des découvertes<input type="number" id="exMult" value="1" step="0.1" min="0.1"></label>
+        <label>Expéditions simultanées<input type="number" id="exSlots" min="1" max="10" placeholder="auto"></label>
+      </div>
+    </div>
+    <div id="exOut"></div>
+    <p class="note">Formules des guides officiels du forum OGame : points d'expédition d'un vaisseau = structure × 5 / 1 000 ; plafond selon les points du top 1 ; découverte maximale = 200 × plafond en métal (la moitié en cristal, le tiers en deutérium). Si tes vraies découvertes sont plus grosses (vitesse de l'univers, événements), augmente le multiplicateur. Nombre d'expéditions = racine carrée de l'astrophysique.</p>
   </section>
 
   <section id="view-export" class="hidden">
@@ -403,6 +418,7 @@ function run(){
   renderVue(res);
   renderPlan(res);
   if (location.hash === '#cibles') renderTargets();
+  if (location.hash === '#expe') renderExpe();
   $('inputPanel').open = false;
 }
 
@@ -730,9 +746,66 @@ function renderTargets(){
     if (readReport()) runSim(); location.hash = '#combat'; window.scrollTo(0, 0); });
 }
 
+// ---------- Expeditions tab ----------
+const EXP_TIERS = [[1e5, 2500], [1e6, 6000], [5e6, 9000], [25e6, 12000], [50e6, 15000], [75e6, 18000], [100e6, 21000], [Infinity, 24000]];
+const expPts = k => (CB.U[k][1] + CB.U[k][2]) * 5 / 1000;
+function renderExpe(){
+  if (!$('exOut')) return;
+  const res = CS.parsed; const S = settings();
+  if (!res || !res.planets.length){ $('exOut').innerHTML = '<div class="panel note">Colle d\'abord ton export de planètes.</div>'; return; }
+  const R = res.research || {}, sv = res.server || {}, f = OG.fmt;
+  if (!$('exTop1').value && sv.top1) $('exTop1').value = sv.top1;
+  const top1 = +$('exTop1').value || 0;
+  const srcs = tgSources(); const sel = $('exFrom'); const prev = sel.value;
+  sel.innerHTML = srcs.map(x => `<option value="${x.i}">${esc(x.p.name)}</option>`).join('') || '<option value="">(aucune flotte)</option>';
+  if (prev && sel.querySelector(`option[value="${prev}"]`)) sel.value = prev;
+  const src = srcs.find(x => String(x.i) === sel.value) || srcs[0];
+  if (!top1){ $('exOut').innerHTML = '<div class="panel note">Indique les points du top 1 de ton univers (classement du jeu), ou utilise le nouveau favori qui les lit tout seul.</div>'; return; }
+  if (!src){ $('exOut').innerHTML = '<div class="panel note">Aucune planète avec une flotte.</div>'; return; }
+  const cap = EXP_TIERS.find(([lim]) => top1 < lim)[1];
+  const mult = +$('exMult').value || 1;
+  const maxM = cap * 200 * mult, maxC = maxM / 2, maxD = maxM / 3;
+  const autoSlots = Math.max(1, Math.floor(Math.sqrt(R.rAstro || 0)));
+  const slots = +$('exSlots').value || autoSlots;
+  const hyper = 1 + 0.05 * (R.rHyper || 0), capLC = 25000 * hyper * (S.collector ? 1.25 : 1);
+  const avail = {}; CB.ATTACK_SHIPS.forEach(k => avail[k] = src.p.b[SHIPKEY[k]] || 0);
+  const per = {}; Object.keys(avail).forEach(k => per[k] = Math.floor(avail[k] / slots));
+  // one expedition: cargo for the biggest metal find, then combat ships (strongest first) up to the cap
+  const needLC = Math.ceil(maxM / capLC);
+  const fleet = {}; let ep = 0, cargo = 0;
+  const lc = Math.min(needLC, per.LC); if (lc) { fleet.LC = lc; ep += lc * expPts('LC'); cargo += lc * capLC; }
+  if (cargo < maxM && per.SC) { const sc = Math.min(per.SC, Math.ceil((maxM - cargo) / (5000 * hyper * (S.collector ? 1.25 : 1)))); if (sc) { fleet.SC = sc; ep += sc * expPts('SC'); cargo += sc * 5000 * hyper * (S.collector ? 1.25 : 1); } }
+  for (const k of ['De', 'BS', 'BC', 'Cr', 'HF', 'LF']) {
+    if (ep >= cap || !per[k]) continue;
+    const n = Math.min(per[k], Math.ceil((cap - ep) / expPts(k))); if (n > 0) { fleet[k] = n; ep += n * expPts(k); cargo += n * CB.U[k][6] * hyper; }
+  }
+  if (per.EP) fleet.EP = 1;
+  const epCap = Math.min(ep, cap);
+  const findM = Math.min(epCap * 200 * mult, cargo);
+  const pos = src.p.pos || 8;
+  const v = Math.min(...Object.keys(fleet).filter(k => k !== 'EP').map(k => CB.shipSpeed(k, R, S.collector)).concat([Infinity]));
+  const fl = isFinite(v) ? OG.flight(src.p, { gal: src.p.gal, sys: src.p.sys, pos: 16 }, v, sv.speedPeace || 1) : { h: 0, d: 0 };
+  const fuel = Math.round(1 + Object.entries(fleet).reduce((a, [k, n]) => a + n * (CB.FUEL[k] || 0), 0) * fl.d / 35000 * 4) * 2;
+  const missLC = Math.max(0, needLC * slots - (avail.LC || 0));
+  const epShort = Math.max(0, cap - ep);
+  $('exOut').innerHTML = `<div class="panel"><h2>Ton univers</h2><div class="kpis" style="margin-top:10px">
+      <div class="kpi"><small>Plafond (points d'expédition)</small><b>${f(cap)}</b><small>top 1 à ${f(top1)} points</small></div>
+      <div class="kpi"><small>Découverte maximale</small><b>${f(maxM)}</b><small>de métal, ou ${f(maxC)} de cristal, ou ${f(maxD)} de deut</small></div>
+      <div class="kpi"><small>Expéditions simultanées</small><b>${slots}</b><small>astrophysique ${R.rAstro || 0}${+$('exSlots').value ? ' (réglé à la main)' : ''}</small></div>
+      <div class="kpi"><small>Soute pour tout ramener</small><b>${needLC} GT</b><small>par expédition (${f(capLC)} chacun)</small></div></div></div>
+    <div class="panel"><h2>Flotte à envoyer, pour chacune des ${slots} expéditions</h2>
+      <p style="font-size:15px;margin:8px 0"><b>${esc(fleetTxt(fleet)) || 'aucun vaisseau disponible'}</b></p>
+      <div class="kpis"><div class="kpi"><small>Points d'expédition</small><b class="${ep >= cap ? 'ok' : 'warnc'}">${f(ep)} / ${f(cap)}</b><small>${ep >= cap ? 'plafond atteint' : 'en dessous du plafond'}</small></div>
+      <div class="kpi"><small>Soute</small><b class="${cargo >= maxM ? 'ok' : 'warnc'}">${f(cargo)}</b><small>découverte métal max ${f(findM)}</small></div>
+      <div class="kpi"><small>Vol vers la position 16</small><b>${fl.h ? fmtDur(fl.h) : '–'}</b><small>aller · ${f(fuel)} D aller-retour (hors attente)</small></div></div>
+      ${missLC ? `<div class="warn">Il te manque ${missLC} grands transporteurs sur ${esc(src.p.name)} pour que chaque expédition puisse ramener la plus grosse découverte. Avec ta soute actuelle, une grosse découverte serait en partie perdue.</div>` : ''}
+      ${epShort ? `<div class="warn">Il manque ${f(epShort)} points d'expédition par expédition pour atteindre le plafond : les découvertes seront plus petites. Ajoute des vaisseaux (un vaisseau de bataille vaut ${f(expPts('BS'))} points, un grand transporteur ${f(expPts('LC'))}).</div>` : ''}
+      <p class="note">Les vaisseaux de combat servent aussi contre les pirates. Envoie de préférence une durée d'1 heure : plus d'expéditions par jour, et une zone moins visitée donne de meilleurs résultats.</p></div>`;
+}
+
 function route(){
-  const v = { '#combat': 'combat', '#export': 'export', '#vue': 'vue', '#plan': 'plan', '#cibles': 'cibles' }[location.hash] || 'planetes';
-  ['planetes','plan','vue','combat','cibles','export'].forEach(n => { $('view-' + n).classList.toggle('hidden', v !== n); $('tab-' + n).classList.toggle('on', v === n); });
+  const v = { '#combat': 'combat', '#export': 'export', '#vue': 'vue', '#plan': 'plan', '#cibles': 'cibles', '#expe': 'expe' }[location.hash] || 'planetes';
+  ['planetes','plan','vue','combat','cibles','expe','export'].forEach(n => { $('view-' + n).classList.toggle('hidden', v !== n); $('tab-' + n).classList.toggle('on', v === n); });
 }
 
 const BOOKMARKLET = /*BOOKMARKLET*/;
@@ -781,7 +854,9 @@ function init(){
   $('tgPaste').onclick = async () => { try { const s = await navigator.clipboard.readText(); tgAdd(s); } catch(e){ $('tgIn').focus(); $('tgMsg').textContent = 'Collage automatique refusé : colle dans la case puis « Ajouter ».'; } };
   $('tgClear').onclick = () => { TG.list = []; tgSave(); renderTargets(); };
   ['tgFrom','tgMinWin','tgDebris'].forEach(id => $(id).addEventListener('change', renderTargets));
-  window.addEventListener('hashchange', () => { route(); if (location.hash === '#cibles') renderTargets(); }); route();
+  ['exTop1','exFrom','exMult','exSlots'].forEach(id => $(id).addEventListener('change', () => { store.set('og_exp', JSON.stringify({ top1: $('exTop1').value, mult: $('exMult').value, slots: $('exSlots').value })); renderExpe(); }));
+  try { const ex = JSON.parse(store.get('og_exp') || 'null'); if (ex) { $('exTop1').value = ex.top1 || ''; $('exMult').value = ex.mult || 1; $('exSlots').value = ex.slots || ''; } } catch(e){}
+  window.addEventListener('hashchange', () => { route(); if (location.hash === '#cibles') renderTargets(); if (location.hash === '#expe') renderExpe(); }); route();
   $('appVer').textContent = APP_VERSION.replace(/^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})$/, '$3/$2/$1 $4:$5 UTC');
   $('refreshBtn').onclick = () => location.replace(location.pathname + '?r=' + Date.now() + location.hash);
   run();

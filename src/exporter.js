@@ -132,6 +132,8 @@
       if (g('galaxies')) sv.push(`Nombre de galaxies: ${g('galaxies')}`);
       const fp = g('speedFleetPeaceful') || g('speedFleet'); if (fp) sv.push(`Vitesse de flotte des unités pacifiques : x${fp}`);
       const fw = g('speedFleetWar') || g('speedFleet'); if (fw) sv.push(`Vitesse de flotte des unités de guerre : x${fw}`);
+      try { const hx = new DOMParser().parseFromString(await (await fetch(location.origin + '/api/highscore.xml?category=1&type=0')).text(), 'text/xml');
+        const top = hx.querySelector('player[position="1"]'); if (top) sv.push(`Points du top 1: ${Math.round(parseFloat(top.getAttribute('score')))}`); } catch (e) { diag.push('classement : ' + e.message); }
       parts.push(sv.join('\n'));
     } catch (e) { diag.push('serverData : ' + e.message); }
 

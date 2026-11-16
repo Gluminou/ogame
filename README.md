@@ -77,6 +77,15 @@ transporteurs nécessaires, le vol aller-retour (vitesse des flottes de
 guerre du serveur), le deutérium et le gain net. Tri par gain par heure de
 vol ; « Simuler » ouvre la cible dans l'onglet Combat.
 
+## Onglet Expéditions
+
+Plafond des découvertes selon les points du top 1 (lus par le favori dans
+`/api/highscore.xml`), découverte maximale, nombre d'expéditions
+simultanées, et flotte à envoyer par expédition : grands transporteurs
+pour ramener la plus grosse découverte, puis vaisseaux de combat jusqu'au
+plafond de points d'expédition. Multiplicateur réglable pour caler sur les
+découvertes réelles.
+
 ## Onglet Export auto
 
 Un favori (bookmarklet) à glisser dans la barre de favoris. Cliqué sur
