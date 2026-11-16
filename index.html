@@ -188,6 +188,7 @@ details.howto ol{margin:6px 0 6px;padding-left:22px}details.howto li{margin:4px 
       <div class="settings">
         <label>Partir de<select id="tgFrom"></select></label>
         <label>Victoire minimale (%)<input type="number" id="tgMinWin" value="95" min="50" max="100"></label>
+        <label>Sondes envoyées par sondage<input type="number" id="tgProbes" value="4" min="1" max="999"></label>
         <label class="chk"><input type="checkbox" id="tgDebris" checked> Compter les débris dans le gain</label>
       </div>
     </div>
@@ -1045,7 +1046,7 @@ if (typeof module !== 'undefined') module.exports = CB;
 
 </script>
 <script>
-const APP_VERSION="202611160720";
+const APP_VERSION="202611160723";
 async function checkVersion(){
   if (location.protocol === 'file:') return;
   try { const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' }); if (!r.ok) return; const j = await r.json();
@@ -1302,12 +1303,18 @@ function fillAttFleet(){
   }).join('');
 }
 const val = id => Math.max(0, +($(id)?.value) || 0);
+function probesSent(){ const v = +($('tgProbes')?.value); return v >= 1 ? Math.round(v) : 4; }
 function probeAdvice(r){
   const R = (CS.parsed && CS.parsed.research) || {}; const mine = R.rEsp || 0;
   const need = !r.fleetKnown ? 2 : 3; const what = !r.fleetKnown ? 'sa flotte et sa défense' : 'sa défense';
   if (r.tech && r.tech.esp != null) { const d = mine - r.tech.esp; const n = d >= 0 ? Math.max(1, need - d * d) : need + d * d;
     return `Pour voir ${what}, envoie au moins ${n} sonde${n > 1 ? 's' : ''} (ton espionnage ${mine}, le sien ${r.tech.esp}).`; }
-  return `Pour voir ${what}, renvoie plus de sondes : au moins ${need} si vous avez le même niveau d'espionnage, beaucoup plus s'il est au-dessus de toi (chaque écart de niveau compte au carré). Ton espionnage : ${mine}.`;
+  // info level = probes + gap² if you are ahead, probes - gap² if he is ahead; flotte needs 2, défense 3
+  const n = probesSent(), maxInfo = need - 1;
+  if (n <= maxInfo) return `Pour voir ${what}, envoie au moins ${need} sondes (tu en as envoyé ${n}). Ton espionnage : ${mine}.`;
+  let d = 1; while (n - d * d > maxInfo) d++;
+  const a = 3 + d * d, b = 3 + (d + 1) * (d + 1); // 3 = level that shows both fleet and defence
+  return `Avec ${n} sondes, ça veut dire que son espionnage dépasse le tien d'au moins ${d} niveau${d > 1 ? 'x' : ''} (au moins ${mine + d}, toi ${mine}). Pour voir ${what}, renvoie ${a} sondes. Si c'est encore caché, l'écart est d'au moins ${d + 1} et il en faudra ${b}.`;
 }
 function hiddenWarning(r){
   if (r.fleetKnown && r.defKnown) return '';
@@ -1476,7 +1483,7 @@ function renderTargets(){
   if (!res || !srcs.length){ $('tgOut').innerHTML = '<div class="panel note">Colle d\'abord ton export de planètes (onglet Planètes) pour connaître ta flotte.</div>'; return; }
   const src = srcs.find(x => String(x.i) === sel.value) || srcs[0];
   const minWin = Math.min(1, Math.max(0.5, (+$('tgMinWin').value || 95) / 100));
-  const sig = JSON.stringify([src.i, minWin, $('tgDebris').checked, S.ratioC, S.ratioD, S.collector, CS.sig]);
+  const sig = JSON.stringify([src.i, minWin, probesSent(), $('tgDebris').checked, S.ratioC, S.ratioD, S.collector, CS.sig]);
   TG.cache = TG.cache || {};
   const todo = TG.list.filter(tg => !TG.cache[tg.key + tg.at + sig]);
   if (todo.length && !TG.busy) { TG.busy = true; $('tgMsg').textContent = `Calcul des flottes optimales… 0/${todo.length}`;
@@ -1727,7 +1734,9 @@ function init(){
   $('tgAdd').onclick = () => { tgAdd($('tgIn').value); $('tgIn').value = ''; };
   $('tgPaste').onclick = async () => { try { const s = await navigator.clipboard.readText(); tgAdd(s); } catch(e){ $('tgIn').focus(); $('tgMsg').textContent = 'Collage automatique refusé : colle dans la case puis « Ajouter ».'; } };
   $('tgClear').onclick = () => { TG.list = []; tgSave(); renderTargets(); };
-  ['tgFrom','tgMinWin','tgDebris'].forEach(id => $(id).addEventListener('change', renderTargets));
+  try { const pv = localStorage.getItem('og_probes'); if (pv) $('tgProbes').value = pv; } catch(e){}
+  $('tgProbes').addEventListener('change', () => { try { localStorage.setItem('og_probes', probesSent()); } catch(e){} });
+  ['tgFrom','tgMinWin','tgDebris','tgProbes'].forEach(id => $(id).addEventListener('change', renderTargets));
   ['exTop1','exFrom','exMult','exSlots'].forEach(id => $(id).addEventListener('change', () => { store.set('og_exp', JSON.stringify({ top1: $('exTop1').value, mult: $('exMult').value, slots: $('exSlots').value })); renderExpe(); }));
   try { const ex = JSON.parse(store.get('og_exp') || 'null'); if (ex) { $('exTop1').value = ex.top1 || ''; $('exMult').value = ex.mult || 1; $('exSlots').value = ex.slots || ''; } } catch(e){}
   hiLoad();
