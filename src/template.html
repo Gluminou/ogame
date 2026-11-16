@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OGame : conseiller de construction</title>
+<meta name="theme-color" content="#0b1020">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="OGame">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0b1020;--panel:#121a30;--panel2:#18223d;--line:#26335a;--txt:#e6ebf7;--mut:#8f9bbd;--acc:#f5a623;--urg:#ff5d5d;--imp:#ffb347;--eco:#4fd18b;--inf:#5aa9ff;--lf:#c38bff;--def:#ff8fb1}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(1200px 600px at 70% -10%,#1b2b5a 0,transparent 60%),var(--bg);color:var(--txt);font:15px/1.5 Inter,system-ui,sans-serif}
+.wrap{max-width:1100px;margin:0 auto;padding:20px 16px 60px}
+h1,h2,h3{font-family:Rajdhani,Inter,sans-serif;letter-spacing:.02em;margin:0}
+h1{font-size:28px}
+h1 span{color:var(--acc)}
+.sub{color:var(--mut);margin:4px 0 18px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px}
+details.panel>summary{cursor:pointer;font-family:Rajdhani;font-size:18px;font-weight:600;list-style:none}
+details.panel>summary::before{content:"▸ ";color:var(--acc)}
+details[open].panel>summary::before{content:"▾ "}
+textarea{width:100%;min-height:220px;background:#0a0f1e;color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:10px;font:13px/1.4 ui-monospace,Menlo,monospace;margin-top:10px}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:10px}
+button{background:var(--acc);color:#1a1200;border:0;border-radius:8px;padding:9px 16px;font-weight:600;cursor:pointer;font-family:Inter}
+button.ghost{background:transparent;color:var(--txt);border:1px solid var(--line)}
+.settings{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-top:12px}
+.settings label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--mut)}
+.settings label.chk{flex-direction:row;align-items:center;gap:8px;color:var(--txt)}
+input[type=number],select{background:#0a0f1e;color:var(--txt);border:1px solid var(--line);border-radius:6px;padding:6px 8px;font:inherit}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.kpi{background:var(--panel2);border-radius:10px;padding:10px 12px}
+.kpi b{display:block;font-family:Rajdhani;font-size:22px}
+.kpi small{color:var(--mut)}
+.warn{background:#2a1a0e;border:1px solid #6b4316;color:#ffd7a1;border-radius:10px;padding:10px 12px;margin-top:10px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:16px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.card header{padding:12px 14px;background:var(--panel2);display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.card header h3{font-size:20px}
+.card header small{color:var(--mut)}
+.next{margin:12px 14px;padding:12px;border-radius:10px;background:linear-gradient(135deg,#2b2410,#1c1a12);border:1px solid #6b5520}
+.next .lbl{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--acc)}
+.next .t{font-family:Rajdhani;font-size:20px;font-weight:700}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:0 14px 6px;font-size:12px}
+.stats div{background:#0e1529;border-radius:6px;padding:6px 8px}
+.stats span{color:var(--mut);display:block}
+.recs{list-style:none;margin:0;padding:6px 14px 14px}
+.recs li{border-top:1px solid var(--line);padding:9px 0}
+.tag{display:inline-block;font-size:11px;font-weight:600;padding:1px 7px;border-radius:20px;margin-right:6px;vertical-align:1px}
+.tag.urgent{background:#3b1414;color:var(--urg)}.tag.important{background:#3a2610;color:var(--imp)}.tag.eco{background:#0f3020;color:var(--eco)}.tag.infra{background:#0f2440;color:var(--inf)}.tag.lf{background:#2a1740;color:var(--lf)}.tag.def{background:#3a1424;color:var(--def)}.tag.res{background:#2b2410;color:var(--acc)}
+.recs .t{font-weight:600}
+.cost{color:var(--acc);font-size:13px;font-variant-numeric:tabular-nums}
+.why{color:#c3cbe3;font-size:13.5px;margin-top:2px}
+.alt{color:var(--mut);font-size:12px;margin-top:3px}
+.red{color:var(--urg)}.ok{color:var(--eco)}
+.note{color:var(--mut);font-size:12.5px}
+#err{color:var(--urg);margin-top:8px}
+.tabs{display:flex;gap:8px;margin:0 0 16px}
+.tabs a{padding:8px 16px;border-radius:8px;border:1px solid var(--line);color:var(--mut);text-decoration:none;font-weight:600}
+.tabs a.on{background:var(--acc);border-color:var(--acc);color:#1a1200}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px}
+.ugrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px 10px;margin-top:8px}
+.ugrid label{display:flex;justify-content:space-between;align-items:center;gap:6px;font-size:13px;color:#c3cbe3}
+.ugrid input{width:78px;text-align:right}
+.ugrid.wide{grid-template-columns:repeat(auto-fill,minmax(190px,1fr))}.ugrid.wide input{width:120px}
+.sub2{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--acc);margin:14px 0 2px}
+.verdict{font-family:Rajdhani;font-size:26px;font-weight:700}
+.bar{display:flex;height:12px;border-radius:6px;overflow:hidden;margin:8px 0;background:#0e1529}
+.bar i{display:block}
+table.t{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
+table.t td,table.t th{padding:5px 6px;border-bottom:1px solid var(--line);text-align:right}
+table.t td:first-child,table.t th:first-child{text-align:left}
+table.t th{color:var(--mut);font-weight:500}
+.hidden{display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>OGame <span>·</span> Conseiller de construction</h1>
+  <p class="sub">Colle ton export de planètes : l'outil calcule production, énergie, stockage et rentabilité, et te dit quoi construire ensuite sur chaque planète.</p>
+
+  <nav class="tabs"><a href="#planetes" id="tab-planetes">Planètes</a><a href="#combat" id="tab-combat">Combat</a></nav>
+  <section id="view-planetes">
+  <details class="panel" id="inputPanel">
+    <summary>Mes données (export texte)</summary>
+    <textarea id="data" spellcheck="false"></textarea>
+    <div class="settings">
+      <label>Vitesse économique de l'univers<input type="number" id="speed" min="1" max="20" step="1" value="8"></label>
+      <label>Remplissage des hangars : alerte sous (heures)<input type="number" id="fill" min="1" max="200" value="24"></label>
+      <label>Taux d'échange cristal (en métal)<input type="number" id="rc" step="0.1" value="1.5"></label>
+      <label>Taux d'échange deutérium (en métal)<input type="number" id="rd" step="0.1" value="3"></label>
+      <label class="chk"><input type="checkbox" id="col" checked> Classe Collecteur</label>
+      <label class="chk"><input type="checkbox" id="geo"> Officier Géologue</label>
+      <label class="chk"><input type="checkbox" id="eng"> Officier Ingénieur</label>
+    </div>
+    <div class="row">
+      <button id="pasteData">Coller mon export</button>
+      <button class="ghost" id="go">Analyser</button>
+      <button class="ghost" id="copyTpl">Copier un modèle vide</button>
+      <span class="note" id="copyMsg"></span>
+    </div>
+    <div id="err"></div>
+  </details>
+
+  <div class="panel">
+    <h2>Vue d'ensemble</h2>
+    <div class="note" id="speedNote"></div>
+    <div class="kpis" id="kpis" style="margin-top:10px"></div>
+    <div id="warns"></div>
+  </div>
+
+  <div class="panel">
+    <h2>Recherche : prochaines étapes</h2>
+    <ul class="recs" id="research" style="padding:6px 0 0"></ul>
+  </div>
+
+  <h2 style="margin:22px 0 12px">Planètes</h2>
+  <div class="grid" id="planets"></div>
+
+  <p class="note" style="margin-top:24px" id="plannerNote">Calculs basés sur les formules standard d'OGame (mines, centrales, hangars, plasma, bonus de position et de classe). Parmi les recherches de formes de vie, seuls les Extracteurs à haute performance sont comptés dans la production (et, pour les bâtiments, Fusion à haute énergie, Extraction par fusion, Fusion magmatique, Raffinerie de cristaux et Synthétiseur de deutérium Rock'tal) ; les objets, officiers non cochés et événements ne le sont pas. « Amorti en » = temps pour que le gain de production rembourse le coût, au taux d'échange choisi. Les temps de remplissage partent de hangars vides.</p>
+  </section>
+
+  <section id="view-combat" class="hidden">
+    <div class="cols">
+      <div class="panel">
+        <h2>Attaquant (toi)</h2>
+        <div class="row"><label class="note">Partir avec la flotte de <select id="aPlanet"></select></label><button class="ghost" id="aClear">Vider</button></div>
+        <div class="sub2">Technologies</div>
+        <div class="ugrid" id="aTech"></div>
+        <div class="sub2">Vaisseaux envoyés</div>
+        <div class="ugrid" id="aShips"></div>
+      </div>
+      <div class="panel">
+        <h2>Défenseur</h2>
+        <textarea id="report" style="min-height:120px" placeholder="Colle ici le rapport d'espionnage : la lecture et la simulation se lancent toutes seules."></textarea>
+        <div class="row"><button id="pasteReport">Coller le rapport</button><button class="ghost" id="readReport">Relire et simuler</button><button class="ghost" id="dClear">Vider</button><span class="note" id="readMsg"></span></div>
+        <div class="sub2">Ressources sur la planète</div>
+        <div class="ugrid wide" id="dRes"></div>
+        <div class="sub2">Technologies</div>
+        <div class="ugrid" id="dTech"></div>
+        <div class="sub2">Flotte</div>
+        <div class="ugrid" id="dShips"></div>
+        <div class="sub2">Défense</div>
+        <div class="ugrid" id="dDefs"></div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="settings" style="margin-top:0">
+        <label>Nombre de combats simulés<input type="number" id="runs" value="300" min="20" max="2000" step="50"></label>
+        <label>Butin (% des ressources)<input type="number" id="lootPct" value="50" min="0" max="100"></label>
+        <label>Vaisseaux dans le champ de débris (%)<input type="number" id="dfShips" value="40"></label>
+        <label>Défenses dans le champ de débris (%)<input type="number" id="dfDef" value="0"></label>
+        <label class="chk"><input type="checkbox" id="dfDeut" checked> Deutérium dans les débris</label>
+      </div>
+      <div class="row"><button id="simulate">Simuler le combat</button><span class="note" id="simMsg"></span></div>
+    </div>
+    <div id="simOut"></div>
+    <p class="note">Règles OGame : 6 rounds, boucliers rechargés à chaque round, tirs sans effet sous 1 % du bouclier, explosion possible sous 70 % de coque, rapidfire. Les bonus de formes de vie, de classe et d'alliance sur les vaisseaux ne sont pas comptés : vérifie avec une marge si le défenseur est Rock'tal.</p>
+  </section>
+</div>
+
+<script>
+/*ENGINE*/
+/*COMBAT*/
+</script>
+<script>
+const DEFAULT_DATA = /*DATA*/;
+const TEMPLATE = `Planete: NomDeLaPlanete
+Coordonnees: 1:100:8
+
+Ressources
+Mine de metal: 0
+Mine de cristal: 0
+Synthetiseur de deuterium: 0
+Centrale electrique solaire: 0
+Centrale electrique de fusion: 0
+Satellite solaire: 0
+Hangar de metal: 0
+Hangar de cristal: 0
+Reservoir de deuterium: 0
+Foreuse: 0
+
+Forme de vie
+Secteur residentiel: 0
+Ferme Biospherique: 0
+Centre de recherche: 0
+Fusion a haute energie: 0
+Extraction par fusion: 0
+
+Recherche Forme de vie:
+Ambassadeurs intergalactiques: 0
+Extracteurs a haute performance: 0
+Moteurs a fusion: 0
+Generateur de champ de camouflage: 0
+Planque Orbitale: 0
+IA de recherche: 0
+
+Installations
+Usine de robots: 0
+Chantier spatial: 0
+Laboratoire de recherche: 0
+Usine de nanites: 0
+
+Defense:
+Lanceur de missiles: 0
+Artillerie laser legere: 0
+Artillerie laser lourde: 0
+Canon de Gauss: 0
+Artillerie a Ions: 0
+Lanceur de plasma: 0
+
+Recherche:
+Technologie energetique: 0
+Technologie plasma: 0
+Technologie ordinateur: 0
+Astrophysique: 0
+Reseau de recherche intergalactique: 0
+Technologie hyperespace: 0
+
+Parametres de serveur:
+Vitesse de développement : x1
+Vitesse de recherche : x1`;
+
+const $ = id => document.getElementById(id);
+const store = { get(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }, set(k,v){ try { localStorage.setItem(k,v); } catch(e){} } };
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const TAGS = { urgent:'Urgent', important:'Important', eco:'Production', infra:'Infrastructure', lf:'Formes de vie', def:'Défense', res:'Recherche' };
+
+function settings(){ return { speed:+$("speed").value||8, fillHours:+$('fill').value||24, ratioC:+$('rc').value||1.5, ratioD:+$('rd').value||3, collector:$('col').checked, geologist:$('geo').checked, engineer:$('eng').checked }; }
+
+function recLi(r, tag){
+  return `<li><span class="tag ${tag||r.type}">${TAGS[tag||r.type]}</span><span class="t">${esc(r.title)}</span>
+  ${r.cost ? `<div class="cost">${esc(OG.fmtCost(r.cost))}</div>` : ''}
+  <div class="why">${esc(r.why)}</div>${r.alt && r.alt.length ? `<div class="alt">Autres options : ${esc(r.alt.join(' · '))}</div>` : ''}</li>`;
+}
+
+function run(){
+  const text = $('data').value; const S = settings();
+  store.set('og_data_v4', text); store.set('og_settings_v2', JSON.stringify(S));
+  $('err').textContent = '';
+  let res;
+  try { res = OG.analyse(text, S); } catch(e){ $('err').textContent = 'Impossible de lire les données : ' + e.message; return; }
+  try { CS.parsed = OG.parse(text); buildCombatForm(); } catch(e){}
+  if (!res.planets.length){ $('err').textContent = text.trim() ? 'Aucune planète trouvée. Chaque planète doit commencer par une ligne « Planete: Nom ».' : 'Colle ton export de planètes pour commencer (bouton « Copier un modèle vide » pour le format).'; $('inputPanel').open = true; return; }
+  if (res.server && res.server.speed) { $('speed').value = res.server.speed; $('speedNote').textContent = 'Vitesse x' + res.server.speed + ' lue dans tes paramètres de serveur' + (res.server.researchSpeed ? ' (recherche x' + res.server.researchSpeed + ')' : '') + '.'; } else $('speedNote').textContent = '';
+  const t = res.totals, f = OG.fmt;
+  const nb = res.planets.length, maxPl = 1 + Math.ceil((res.R.rAstro||0)/2);
+  $('kpis').innerHTML = [
+    ['Métal', f(t.m)+'/h', f(t.m*24)+' par jour'],
+    ['Cristal', f(t.c)+'/h', f(t.c*24)+' par jour'],
+    ['Deutérium', f(t.d)+'/h', f(t.d*24)+' par jour'],
+    ['Planètes', nb+' / '+maxPl, 'Astrophysique '+(res.R.rAstro||0)],
+  ].map(([a,b,c]) => `<div class="kpi"><small>${a}</small><b>${b}</b><small>${c}</small></div>`).join('');
+  $('warns').innerHTML = res.warnings.map(w => `<div class="warn">${esc(w)}</div>`).join('');
+  $('research').innerHTML = res.research.map(r => recLi(r, r.isBuilding ? 'infra' : 'res')).join('');
+  $('planets').innerHTML = res.planets.map(x => {
+    const c = x.c, top = x.recs[0];
+    const eCls = c.factor < 0.999 ? 'red' : 'ok';
+    const fillCell = (lbl, h) => `<div><span>${lbl} plein en</span><b class="${h < S.fillHours ? 'red' : ''}">${OG.fmtH(h)}</b></div>`;
+    return `<article class="card">
+      <header><h3>${esc(x.p.name)}</h3><small>[${esc(x.p.coords||'?')}] · ~${Math.round(c.t)} °C</small></header>
+      ${top ? `<div class="next"><div class="lbl">À construire maintenant</div><div class="t">${esc(top.title)}</div>${top.cost ? `<div class="cost">${esc(OG.fmtCost(top.cost))}</div>` : ''}</div>` : ''}
+      <div class="stats">
+        <div><span>Métal</span><b>${f(c.prod.m)}/h</b></div>
+        <div><span>Cristal</span><b>${f(c.prod.c)}/h</b></div>
+        <div><span>Deutérium</span><b>${f(c.prod.d)}/h</b></div>
+        <div><span>Énergie</span><b class="${eCls}">${Math.round(c.eProd - c.eUse) >= 0 ? '+' : ''}${Math.round(c.eProd - c.eUse)}</b></div>
+        ${fillCell('Métal', c.fill.m)}${fillCell('Cristal', c.fill.c)}
+      </div>
+      <ul class="recs">${x.recs.slice(1).map(r => recLi(r)).join('') || '<li class="note">Rien d\'autre en attente.</li>'}</ul>
+    </article>`;
+  }).join('');
+  $('inputPanel').open = false;
+}
+
+// ---------- Combat tab ----------
+const CS = { parsed: null };
+function numInput(id, label, val){ return `<label>${esc(label)}<input type="number" min="0" id="${id}" value="${val||0}"></label>`; }
+function buildCombatForm(){
+  const res = CS.parsed || { planets: [], research: {}, server: {} };
+  const R = res.research || {};
+  const sel = $('aPlanet'); const prev = sel.value;
+  sel.innerHTML = res.planets.map((p,i) => `<option value="${i}">${esc(p.name)}</option>`).join('') + '<option value="-1">(aucune)</option>';
+  const withFleet = res.planets.findIndex(p => CB.ATTACK_SHIPS.some(k => (p.b[SHIPKEY[k]]||0) > 0));
+  sel.value = prev !== '' && sel.querySelector(`option[value="${prev}"]`) ? prev : String(withFleet);
+  const sig = JSON.stringify([R, res.planets.map(p => CB.ATTACK_SHIPS.map(k => p.b[SHIPKEY[k]]||0))]);
+  if (CS.sig !== sig){ CS.sig = sig;
+    $('aTech').innerHTML = numInput('aT_weap','Armes',R.rWeap) + numInput('aT_shield','Bouclier',R.rShield) + numInput('aT_armour','Protection',R.rArmour) + numInput('aT_hyper','Hyperespace',R.rHyper);
+    fillAttFleet(); }
+  if (!$('dTech').innerHTML){
+    $('dRes').innerHTML = numInput('dR_m','Métal',0)+numInput('dR_c','Cristal',0)+numInput('dR_d','Deutérium',0);
+    $('dTech').innerHTML = numInput('dT_weap','Armes',0)+numInput('dT_shield','Bouclier',0)+numInput('dT_armour','Protection',0);
+    $('dShips').innerHTML = CB.SHIPS.map(k => numInput('dU_'+k, CB.U[k][0], 0)).join('');
+    $('dDefs').innerHTML = CB.DEFS.map(k => numInput('dU_'+k, CB.U[k][0], 0)).join('');
+  }
+  const sv = res.server || {};
+  if (sv.dfShips != null) $('dfShips').value = sv.dfShips;
+  if (sv.dfDef != null) $('dfDef').value = sv.dfDef;
+  if (sv.dfDeut != null) $('dfDeut').checked = !!sv.dfDeut;
+}
+const SHIPKEY = { LF:'sLF', HF:'sHF', Cr:'sCr', BS:'sBS', BC:'sBC', Bo:'sBo', De:'sDe', RIP:'sRIP', Re:'sRe', PF:'sPF', SC:'sSC', LC:'sLC', Col:'sCol', Rec:'sRec', EP:'sProbe' };
+function fillAttFleet(){
+  const res = CS.parsed || { planets: [] }; const i = +$('aPlanet').value; const p = res.planets[i];
+  $('aShips').innerHTML = CB.ATTACK_SHIPS.map(k => {
+    let v = p ? (p.b[SHIPKEY[k]]||0) : 0;
+    if (k === 'EP' || k === 'Col' || k === 'Rec') v = 0; // not sent into battle by default
+    return numInput('aU_'+k, CB.U[k][0], v);
+  }).join('');
+}
+const val = id => Math.max(0, +($(id)?.value) || 0);
+function readReport(auto){
+  const r = CB.parseReport($('report').value);
+  if (!r.found){ $('readMsg').textContent = 'Rien reconnu dans ce texte.'; return false; }
+  [...CB.SHIPS, ...CB.DEFS].forEach(k => $('dU_'+k).value = r.units[k] || 0);
+  $('dR_m').value = r.res.m || 0; $('dR_c').value = r.res.c || 0; $('dR_d').value = r.res.d || 0;
+  if (r.lootPct) $('lootPct').value = r.lootPct;
+  const msgs = [`Rapport lu${r.player ? ' : ' + r.player : ''}${r.coords ? ' [' + r.coords + ']' : ''}.`];
+  if (r.tech.weap == null) {
+    ['weap','shield','armour'].forEach(k => $('dT_'+k).value = val('aT_'+k));
+    msgs.push('Ses recherches ne sont pas visibles : j\'ai mis ses technologies au niveau des tiennes, par prudence. Envoie plus de sondes pour les voir.');
+  } else ['weap','shield','armour'].forEach(k => $('dT_'+k).value = r.tech[k] || 0);
+  if (r.res.m == null) msgs.push('Ressources non trouvées.');
+  if (r.activity != null && r.activity < 60) msgs.push(`Activité il y a ${r.activity} min : le joueur est peut-être connecté et peut mettre sa flotte et ses ressources à l'abri.`);
+  $('readMsg').textContent = msgs.join(' ');
+  return true;
+}
+function runSim(){
+  const att = { units: {}, tech: { weap: val('aT_weap'), shield: val('aT_shield'), armour: val('aT_armour') } };
+  CB.ATTACK_SHIPS.forEach(k => { const n = val('aU_'+k); if (n) att.units[k] = n; });
+  const def = { units: {}, tech: { weap: val('dT_weap'), shield: val('dT_shield'), armour: val('dT_armour') }, res: { m: val('dR_m'), c: val('dR_c'), d: val('dR_d') } };
+  [...CB.SHIPS, ...CB.DEFS].forEach(k => { const n = val('dU_'+k); if (n) def.units[k] = n; });
+  if (!Object.keys(att.units).length){ $('simMsg').textContent = 'Ajoute au moins un vaisseau à ta flotte.'; return; }
+  const opts = { runs: Math.min(2000, Math.max(20, val('runs'))), lootPct: val('lootPct')/100, dfShips: val('dfShips')/100, dfDef: val('dfDef')/100, dfDeut: $('dfDeut').checked, hyperA: val('aT_hyper'), attackerCollector: $('col').checked };
+  $('simMsg').textContent = 'Simulation en cours…';
+  setTimeout(() => { const t0 = performance.now(); const st = CB.simulate(att, def, opts); $('simMsg').textContent = `${st.n} combats simulés en ${Math.round(performance.now()-t0)} ms.`; renderSim(st, att, def, opts); }, 20);
+}
+function renderSim(st, att, def, opts){
+  const f = OG.fmt, n = st.n, pa = st.A/n*100, pd = st.D/n*100, pn = st.draw/n*100;
+  const S = settings(); const msu = c => c[0] + c[1]*S.ratioC + c[2]*S.ratioD;
+  const verdict = pa >= 95 ? ['Victoire quasi certaine', 'ok'] : pa >= 60 ? ['Victoire probable, mais risquée', ''] : pd >= 50 ? ['Défaite probable', 'red'] : ['Issue incertaine (souvent match nul)', ''];
+  const rows = (loss, units) => Object.keys(units).filter(k => units[k]).map(k => `<tr><td>${esc(CB.U[k][0])}</td><td>${units[k]}</td><td>${(loss[k]||0).toFixed(1).replace('.',',')}</td></tr>`).join('');
+  const hyper = 1 + 0.05*opts.hyperA; const recCap = 20000*hyper; const lcCap = 25000*hyper*(opts.attackerCollector?1.25:1);
+  const debrisTot = st.debris[0]+st.debris[1]+st.debris[2];
+  const lootWant = st.lootAvail[0]+st.lootAvail[1]+st.lootAvail[2];
+  const lootGot = st.lootIfWin[0]+st.lootIfWin[1]+st.lootIfWin[2];
+  const missingCargo = Math.max(0, lootWant - st.cargo);
+  const lcNeeded = Math.ceil(missingCargo / lcCap);
+  const gain = (st.lootExpected[0] + st.lootExpected[1]*S.ratioC + st.lootExpected[2]*S.ratioD) + (st.debris[0] + st.debris[1]*S.ratioC + st.debris[2]*S.ratioD) - msu(st.costA);
+  const tips = [];
+  if (pa < 95) tips.push('Renforce ta flotte : ajoute de la chair à canon (chasseurs légers) pour protéger tes gros vaisseaux, ou plus de vaisseaux de bataille. Contre beaucoup de lanceurs de missiles, les croiseurs (rapidfire x10) et les bombardiers sont efficaces.');
+  if (msu(st.costA) > 0 && pa >= 95) tips.push(`Tu gagnes, mais tu perds en moyenne ${f(msu(st.costA))} (équivalent métal) de vaisseaux. Ajoute de la chair à canon pour réduire les pertes.`);
+  if (lcNeeded > 0 && pa >= 60) tips.push(`Ta soute ne suffit pas pour tout le butin : ajoute ${lcNeeded} grand${lcNeeded>1?'s':''} transporteur${lcNeeded>1?'s':''} (${f(lcCap)} chacun) pour emporter ${f(lootWant)}.`);
+  if (debrisTot > 0) tips.push(`Envoie ${Math.ceil(debrisTot/recCap)} recycleur${Math.ceil(debrisTot/recCap)>1?'s':''} pour récupérer le champ de débris (${f(recCap)} chacun).`);
+  $('simOut').innerHTML = `
+  <div class="panel">
+    <div class="verdict ${verdict[1]}">${verdict[0]}</div>
+    <div class="bar"><i style="width:${pa}%;background:var(--eco)"></i><i style="width:${pn}%;background:var(--imp)"></i><i style="width:${pd}%;background:var(--urg)"></i></div>
+    <div class="note">Victoire ${pa.toFixed(0)} % · Match nul ${pn.toFixed(0)} % · Défaite ${pd.toFixed(0)} % · ${st.rounds.toFixed(1).replace('.',',')} rounds en moyenne</div>
+    <div class="kpis" style="margin-top:12px">
+      <div class="kpi"><small>Tes pertes (moyenne)</small><b class="${msu(st.costA)>0?'red':'ok'}">${f(msu(st.costA))}</b><small>${esc(OG.fmtCost(st.costA)||'aucune')}</small></div>
+      <div class="kpi"><small>Butin si victoire</small><b>${f(lootGot)}</b><small>${esc(OG.fmtCost(st.lootIfWin)||'0')} · soute ${f(st.cargo)}</small></div>
+      <div class="kpi"><small>Champ de débris</small><b>${f(debrisTot)}</b><small>${esc(OG.fmtCost(st.debris)||'0')}</small></div>
+      <div class="kpi"><small>Gain net attendu</small><b class="${gain>=0?'ok':'red'}">${gain>=0?'+':''}${f(gain)}</b><small>butin × victoire + débris − pertes, en équiv. métal</small></div>
+    </div>
+    ${tips.map(t => `<div class="warn">${esc(t)}</div>`).join('')}
+  </div>
+  <div class="cols">
+    <div class="panel"><h3>Tes vaisseaux</h3><table class="t"><tr><th>Unité</th><th>Envoyés</th><th>Perdus (moy.)</th></tr>${rows(st.lossA, att.units)}</table></div>
+    <div class="panel"><h3>Défenseur</h3><table class="t"><tr><th>Unité</th><th>Présents</th><th>Détruits (moy.)</th></tr>${rows(st.lossD, def.units)}</table><p class="note">Environ 70 % des défenses détruites sont reconstruites gratuitement après le combat.</p></div>
+  </div>`;
+}
+function route(){
+  const v = location.hash === '#combat' ? 'combat' : 'planetes';
+  $('view-planetes').classList.toggle('hidden', v !== 'planetes'); $('view-combat').classList.toggle('hidden', v !== 'combat');
+  $('tab-planetes').classList.toggle('on', v === 'planetes'); $('tab-combat').classList.toggle('on', v === 'combat');
+}
+
+function init(){
+  const saved = store.get('og_data_v4'); $('data').value = saved || DEFAULT_DATA; if (!$('data').value.trim()) { $('inputPanel').open = true; }
+  try { const s = JSON.parse(store.get('og_settings_v2')||'null'); if (s){ $('speed').value=s.speed; $('fill').value=s.fillHours; $('rc').value=s.ratioC; $('rd').value=s.ratioD; $('col').checked=s.collector; $('geo').checked=s.geologist; $('eng').checked=s.engineer; } } catch(e){}
+  $('go').onclick = run;
+  ['speed','fill','rc','rd','col','geo','eng'].forEach(id => $(id).addEventListener('change', run));
+  $('copyTpl').onclick = async () => { try { await navigator.clipboard.writeText(TEMPLATE); $('copyMsg').textContent = 'Modèle copié.'; } catch(e){ $('data').value = TEMPLATE; $('copyMsg').textContent = 'Copie refusée : le modèle a été placé dans la zone de texte.'; $('inputPanel').open = true; } };
+  $('aPlanet').addEventListener('change', fillAttFleet);
+  $('aClear').onclick = () => CB.ATTACK_SHIPS.forEach(k => $('aU_'+k).value = 0);
+  $('dClear').onclick = () => { [...CB.SHIPS, ...CB.DEFS].forEach(k => $('dU_'+k).value = 0); ['dR_m','dR_c','dR_d','dT_weap','dT_shield','dT_armour'].forEach(id => $(id).value = 0); $('report').value=''; $('readMsg').textContent=''; };
+  $('readReport').onclick = () => { if (readReport()) runSim(); };
+  const pasteInto = async (id, after, msgId) => { try { const txt = await navigator.clipboard.readText(); if (!txt.trim()) throw new Error('vide'); $(id).value = txt; after(); } catch(e){ $(id).focus(); $(msgId).textContent = 'Collage automatique refusé par le navigateur : colle le texte dans la case (appui long ou Ctrl+V).'; } };
+  $('pasteReport').onclick = () => pasteInto('report', () => { if (readReport()) runSim(); }, 'readMsg');
+  $('pasteData').onclick = () => { $('inputPanel').open = true; pasteInto('data', run, 'copyMsg'); };
+  let rt; $('report').addEventListener('input', () => { clearTimeout(rt); rt = setTimeout(() => { if ($('report').value.trim().length > 30 && readReport()) runSim(); }, 400); });
+  $('simulate').onclick = runSim;
+  window.addEventListener('hashchange', route); route();
+  run();
+}
+init();
+</script>
+</body>
+</html>
