@@ -272,7 +272,11 @@ const OG = (() => {
       if (defPts === 0 && (b.metal || 0) >= 10) recs.push({ prio: 5, type: 'def', title: 'Défense de base', cost: null, why: 'Aucune défense : la planète est une cible facile pour les petits raideurs. Quelques lanceurs de missiles et lasers légers suffisent à les décourager (chantier spatial requis).' });
 
       recs.sort((a, b2) => a.prio - b2.prio);
-      if (c.stockNow) recs.forEach(r => { if (!r.cost) return; const miss = ['m', 'c', 'd'].map((k, j) => Math.max(0, r.cost[j] - (c.stockNow[k] ?? Infinity))); r.missing = miss; r.affordable = miss.every(v => v <= 0); });
+      if (c.stockNow) recs.forEach(r => { if (!r.cost) return; const miss = ['m', 'c', 'd'].map((k, j) => Math.max(0, r.cost[j] - (c.stockNow[k] ?? Infinity))); r.missing = miss; r.affordable = miss.every(v => v <= 0);
+        if (!r.affordable) { const P3 = [c.prod.m, c.prod.c, c.prod.d], K3 = ['m', 'c', 'd'];
+          let w = 0, block = null;
+          miss.forEach((v, j) => { if (v <= 0) return; if (r.cost[j] > c.cap[K3[j]]) block = 'hangar'; else if (P3[j] <= 0) block = 'prod'; else w = Math.max(w, v / P3[j]); });
+          r.waitH = block ? Infinity : w; r.waitBlock = block; } });
       out.planets.push({ p, c, recs, cands, eSurplus });
     });
 
