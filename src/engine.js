@@ -71,6 +71,7 @@ const OG = (() => {
         if (label.startsWith('vitesse de developpement') || label.startsWith('vitesse economique')) server.speed = n;
         else if (label.startsWith('vitesse de recherche')) server.researchSpeed = n;
         else if (label.startsWith('nombre de galaxies')) server.galaxies = n;
+        else if (label.startsWith('vitesse de flotte des unites pacifiques')) server.speedPeace = n;
         else if (label.startsWith('flotte dans le champ de debris')) server.dfShips = n;
         else if (label.startsWith('installations de defense dans le champ de debris')) server.dfDef = n;
         continue;
@@ -151,6 +152,65 @@ const OG = (() => {
   const fmt = n => { const a = Math.abs(n); if (a >= 1e6) return (n / 1e6).toFixed(a >= 1e7 ? 1 : 2).replace('.', ',') + ' M'; if (a >= 1e3) return Math.round(n / 1e3) + 'k'; return Math.round(n).toString(); };
   const fmtCost = c => [c[0] ? fmt(c[0]) + ' M' : null, c[1] ? fmt(c[1]) + ' C' : null, c[2] ? fmt(c[2]) + ' D' : null].filter(Boolean).join(' · ');
   const fmtH = h => !isFinite(h) ? '∞' : h < 48 ? Math.round(h) + ' h' : (h / 24).toFixed(1).replace('.', ',') + ' j';
+
+
+  // ---------- transports between planets ----------
+  function flight(a, b, shipSpeed, fleetSpeed) {
+    let d;
+    if (a.gal !== b.gal) d = 20000 * Math.abs(a.gal - b.gal);
+    else if (a.sys !== b.sys) d = 2700 + 95 * Math.abs(a.sys - b.sys);
+    else if (a.pos !== b.pos) d = 1000 + 5 * Math.abs(a.pos - b.pos);
+    else d = 5;
+    const sec = (10 + 350 * Math.sqrt(10 * d / shipSpeed)) / fleetSpeed;
+    return { d, h: sec / 3600 };
+  }
+  function planTransports(out, R, S) {
+    const P = out.planets; const hyper = 1 + 0.05 * (R.rHyper || 0); const col = S.collector ? 1.25 : 1;
+    const capLC = 25000 * hyper * col, capSC = 5000 * hyper * col;
+    const speedLC = 7500 * (1 + 0.1 * (R.rComb || 0) + (S.collector ? 1 : 0));
+    const fleetSpeed = (out.server && out.server.speedPeace) || S.fleetSpeed || 1;
+    const K = ['m', 'c', 'd'];
+    // what each planet can give: stock minus what its own next build needs
+    const avail = P.map(x => {
+      if (!x.c.stockNow) return null;
+      const top = x.recs.find(r => r.cost); const res = top ? top.cost : [0, 0, 0];
+      return K.map((k, j) => Math.max(0, Math.floor((x.c.stockNow[k] || 0) - res[j])));
+    });
+    const ships = P.map(x => ({ LC: x.p.b.sLC || 0, SC: x.p.b.sSC || 0 }));
+    const plans = [];
+    P.forEach((x, ti) => {
+      const r = x.recs[0];
+      if (!r || !r.cost || r.affordable !== false || !r.missing) return;
+      if (r.waitBlock === 'hangar') return;
+      let need = r.missing.map(v => Math.ceil(v)); const legs = [];
+      const sources = P.map((s, si) => ({ s, si, f: flight(s.p, x.p, speedLC, fleetSpeed) }))
+        .filter(o => o.si !== ti && avail[o.si])
+        .sort((a, b) => ((ships[b.si].LC + ships[b.si].SC > 0) - (ships[a.si].LC + ships[a.si].SC > 0)) || a.f.h - b.f.h);
+      for (const o of sources) {
+        if (need.every(v => v <= 0)) break;
+        const give = need.map((v, j) => Math.min(Math.max(0, v), avail[o.si][j]));
+        const tot = give.reduce((a, b) => a + b, 0); if (tot <= 0) continue;
+        let lc = Math.min(ships[o.si].LC, Math.ceil(tot / capLC)); let rest = tot - lc * capLC;
+        let sc = rest > 0 ? Math.min(ships[o.si].SC, Math.ceil(rest / capSC)) : 0; rest -= sc * capSC;
+        let carry = give.slice();
+        const shortShips = rest > 0 ? Math.ceil(rest / capLC) : 0;
+        if (rest > 0) { // not enough transporters: scale the load down
+          const ratio = Math.max(0, (tot - rest) / tot); carry = give.map(v => Math.floor(v * ratio));
+        }
+        const fuel = Math.round(1 + (lc * 50 + sc * 10) * o.f.d / 35000 * 4);
+        carry.forEach((v, j) => { need[j] -= v; avail[o.si][j] -= v; });
+        if (lc) ships[o.si].LC -= lc; if (sc) ships[o.si].SC -= sc;
+        legs.push({ from: o.s.p.name, carry, lc, sc, h: o.f.h, fuel, shortShips });
+      }
+      if (!legs.length) return;
+      const covered = need.every(v => v <= 0);
+      const arrive = Math.max(...legs.map(l => l.h));
+      if (covered && isFinite(r.waitH) && arrive >= r.waitH) return; // waiting is as fast
+      const plan = { to: x.p.name, build: r.title, legs, covered, arriveH: arrive, waitH: r.waitH, left: need.map(v => Math.max(0, v)) };
+      plans.push(plan); r.transport = plan;
+    });
+    out.transports = plans;
+  }
 
   function analyse(text, S) {
     const { planets, research: R, server, exportedAt } = parse(text);
@@ -316,6 +376,7 @@ const OG = (() => {
       pr.why += ` Tes mines s'amortissent en ${fmtH(bestMine)} : investis d'abord dans les mines, la plasma deviendra rentable plus tard.`;
       out.research.push(pr);
     }
+    planTransports(out, R, S);
     // warnings
     if (tot.d < tot.m * 0.15) out.warnings.push(`Le deutérium est ton goulot d'étranglement (${fmt(tot.d)}/h contre ${fmt(tot.m)} métal/h). Monte les synthétiseurs et échange ton surplus au Marchand.`);
     return out;

@@ -20,6 +20,15 @@ Puis elle classe quoi construire : urgences (énergie, hangars), meilleure
 mine, infrastructure, formes de vie, défense. Elle propose aussi les
 prochaines recherches.
 
+## Transports conseillés (Vue générale)
+
+Quand la construction n°1 d'une planète n'est pas faisable, l'application
+cherche le stock des autres planètes (chacune garde de quoi lancer sa
+propre construction n°1) et propose le transport le plus court : quantités,
+grands transporteurs disponibles, durée du vol (vitesse des flottes
+pacifiques du serveur) et deutérium. Le transport n'est proposé que s'il
+est plus rapide que d'attendre la production.
+
 ## Onglet Combat
 
 On colle un rapport d'espionnage (texte copié depuis OGame). Le lecteur

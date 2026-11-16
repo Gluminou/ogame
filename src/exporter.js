@@ -120,6 +120,7 @@
       if (g('debrisFactorDef')) sv.push(`Installations de défense dans le champ de débris +${Math.round(parseFloat(g('debrisFactorDef')) * 100)} %`);
       if (g('deuteriumInDebris') === '1') sv.push('Deutérium dans les champs de débris');
       if (g('galaxies')) sv.push(`Nombre de galaxies: ${g('galaxies')}`);
+      const fp = g('speedFleetPeaceful') || g('speedFleet'); if (fp) sv.push(`Vitesse de flotte des unités pacifiques : x${fp}`);
       parts.push(sv.join('\n'));
     } catch (e) { diag.push('serverData : ' + e.message); }
 

@@ -151,6 +151,7 @@ details.howto ol{margin:6px 0 6px;padding-left:22px}details.howto li{margin:4px 
   </section>
 
   <section id="view-vue" class="hidden">
+    <div id="vueTransports"></div>
     <h2 style="margin:0 0 12px">À construire maintenant</h2>
     <div class="tops" id="vueTops"></div>
     <h2 style="margin:22px 0 12px">Niveaux par planète</h2>
@@ -334,7 +335,7 @@ function settings(){ return { speed:+$("speed").value||8, fillHours:+$('fill').v
 function recLi(r, tag){
   return `<li><span class="tag ${tag||r.type}">${TAGS[tag||r.type]}</span><span class="t">${esc(r.title)}</span>
   ${r.cost ? `<div class="cost">${esc(OG.fmtCost(r.cost))}</div>` : ''}
-  <div class="why">${r.missing && !r.affordable ? `<div class="warnc" style="margin-bottom:4px">Il manque ${esc(OG.fmtCost(r.missing))} sur la planète.</div>` : ''}${esc(r.why)}</div>${r.alt && r.alt.length ? `<div class="alt">Autres options : ${esc(r.alt.join(' · '))}</div>` : ''}</li>`;
+  <div class="why">${r.missing && !r.affordable ? `<div class="warnc" style="margin-bottom:4px">Il manque ${esc(OG.fmtCost(r.missing))} sur la planète.</div>` : ''}${r.transport ? `<div class="ok" style="margin-bottom:4px">Transport conseillé : ${r.transport.legs.map(l => esc(legText(l))).join('<br>')}${r.transport.covered ? '' : `<br>Reste à produire sur place : ${esc(OG.fmtCost(r.transport.left))}`}</div>` : ''}${esc(r.why)}</div>${r.alt && r.alt.length ? `<div class="alt">Autres options : ${esc(r.alt.join(' · '))}</div>` : ''}</li>`;
 }
 
 // iOS may store text starting with "Planete:" as a URL: spaces and newlines come back as %20 / %0A
@@ -384,6 +385,9 @@ function lvlRows(rows, b, recs, keepZero){
     return `<div class="lvr${rk ? ' hl' : ''}"><span title="${esc(full)}">${esc(lab)}</span><b>${rk ? `<span class="pill">${rk}</span>` : ''}${b[k] || 0}</b></div>`;
   }).join('');
 }
+function fmtDur(h){ const mins = Math.max(1, Math.round(h * 60)); return mins < 60 ? mins + ' min' : h < 48 ? Math.floor(mins / 60) + ' h ' + String(mins % 60).padStart(2, '0') : (h / 24).toFixed(1).replace('.', ',') + ' j'; }
+function legText(l){ const ships = [l.lc ? l.lc + ' GT' : '', l.sc ? l.sc + ' PT' : ''].filter(Boolean).join(' + ') || 'aucun transporteur';
+  return `${l.from} → ${OG.fmtCost(l.carry)} · ${ships} · ${fmtDur(l.h)} de vol · ${OG.fmt(l.fuel)} D${l.shortShips ? ` · il manque ${l.shortShips} GT sur ${l.from}` : ''}`; }
 function waitText(r){
   if (r.affordable === true) return { ok: true, txt: '✓ faisable' };
   if (!r.missing) return null;
@@ -405,9 +409,11 @@ function planetCard(x, S){
   const fh = (k, r) => { const h = c.fillLeft ? c.fillLeft[r] : c.fill[r]; return c.full && c.full[r] ? `<span class="red"><b class="red">${k} plein</b></span>` : `<span class="${h < S.fillHours ? 'red' : ''}">${k} ${OG.fmtH(h)}</span>`; };
   const pct = r => c.stockNow && c.stockNow[r] != null ? Math.min(100, Math.round(c.stockNow[r] / c.cap[r] * 100)) : null;
   const stockLine = c.stockNow ? `<span>Stock <b>${f(c.stockNow.m || 0)}</b> M (${pct('m')} %) · <b>${f(c.stockNow.c || 0)}</b> C (${pct('c')} %) · <b>${f(c.stockNow.d || 0)}</b> D (${pct('d')} %)</span>` + (x.p.stock && x.p.stock.pop != null ? `<span>Population <b>${f(x.p.stock.pop)}</b>${x.p.stock.food != null ? ` · Nourriture <b>${f(x.p.stock.food)}</b>` : ''}</span>` : '') : '';
-  const afford = r => { const w = waitText(r); return w ? `<span class="${w.ok ? 'ok' : 'warnc'}" style="font-size:11px;white-space:nowrap"${w.title ? ` title="${esc(w.title)}"` : ''}>${esc(w.txt)}</span>` : ''; };
+  const afford = r => { const w = waitText(r); if (!w) return '';
+    const tr = r.transport ? `<span class="ok" style="font-size:11px;white-space:nowrap">ou transport : ${r.transport.covered ? fmtDur(r.transport.arriveH) : 'en partie'}</span>` : '';
+    return `<span class="${w.ok ? 'ok' : 'warnc'}" style="font-size:11px;white-space:nowrap"${w.title ? ` title="${esc(w.title)}"` : ''}>${esc(w.txt)}</span>${tr}`; };
   const lf = lvlRows(rock ? LF_ROCK : LF_HUM, b, recs, []) || '<div class="note">Aucun bâtiment</div>';
-  const top = recs.slice(0, 3).map((r, i) => `<li><details><summary><span class="rk${i === 0 ? ' first' : ''}">${i + 1}</span><span class="tt">${esc(r.title)}</span><span style="display:flex;flex-direction:column;align-items:flex-end;gap:1px"><span class="cc">${r.cost ? esc(OG.fmtCost(r.cost)) : ''}</span>${afford(r)}</span></summary><div class="why">${r.missing && !r.affordable ? `<div class="warnc" style="margin-bottom:4px">Il manque ${esc(OG.fmtCost(r.missing))} sur la planète.</div>` : ''}${esc(r.why)}${r.alt && r.alt.length ? `<div class="alt">Autres options : ${esc(r.alt.join(' · '))}</div>` : ''}</div></details></li>`).join('') || '<li class="note" style="padding:8px 0">Rien en attente.</li>';
+  const top = recs.slice(0, 3).map((r, i) => `<li><details><summary><span class="rk${i === 0 ? ' first' : ''}">${i + 1}</span><span class="tt">${esc(r.title)}</span><span style="display:flex;flex-direction:column;align-items:flex-end;gap:1px"><span class="cc">${r.cost ? esc(OG.fmtCost(r.cost)) : ''}</span>${afford(r)}</span></summary><div class="why">${r.missing && !r.affordable ? `<div class="warnc" style="margin-bottom:4px">Il manque ${esc(OG.fmtCost(r.missing))} sur la planète.</div>` : ''}${r.transport ? `<div class="ok" style="margin-bottom:4px">Transport conseillé : ${r.transport.legs.map(l => esc(legText(l))).join('<br>')}${r.transport.covered ? '' : `<br>Reste à produire sur place : ${esc(OG.fmtCost(r.transport.left))}`}</div>` : ''}${esc(r.why)}${r.alt && r.alt.length ? `<div class="alt">Autres options : ${esc(r.alt.join(' · '))}</div>` : ''}</div></details></li>`).join('') || '<li class="note" style="padding:8px 0">Rien en attente.</li>';
   return `<article class="card">
     <header><h3>${esc(x.p.name)}</h3><small>[${esc(x.p.coords || '?')}] · ~${Math.round(c.t)} °C · ${esc(race)}</small></header>
     <div class="pstat"><span>Production/h <b>${f(c.prod.m)}</b> M · <b>${f(c.prod.c)}</b> C · <b>${f(c.prod.d)}</b> D</span><span>Énergie <b class="${e < 0 || c.factor < 0.999 ? 'red' : e < 100 ? '' : 'ok'}">${e >= 0 ? '+' : ''}${e}</b></span>${stockLine}<span>${c.stockNow ? 'Plein dans' : 'Hangars pleins'} : ${fh('M', 'm')} · ${fh('C', 'c')} · ${fh('D', 'd')}</span></div>
@@ -418,6 +424,10 @@ function planetCard(x, S){
 }
 function renderVue(res){
   const P = res.planets, f = OG.fmt;
+  const T = res.transports || [];
+  $('vueTransports').innerHTML = T.length ? `<div class="panel"><h2>Transports conseillés</h2><p class="note" style="margin:4px 0 8px">Pour lancer tout de suite la construction n°1 d'une planète, avec le stock de tes autres planètes. Chaque planète garde de quoi lancer sa propre construction n°1.</p><ul class="recs" style="padding:0">${T.map(p => `<li><span class="tag eco">Transport</span><span class="t">${esc(p.to)} : ${esc(p.build)}</span>
+    <div class="why">${p.legs.map(l => esc(legText(l))).join('<br>')}</div>
+    <div class="alt">${p.covered ? `Faisable dans ${fmtDur(p.arriveH)} au lieu de ${isFinite(p.waitH) ? fmtDur(p.waitH) : 'jamais'} en attendant la production.` : `Couvre une partie du manque ; reste à produire sur place : ${esc(OG.fmtCost(p.left))}.`} Mission « Transporter ».</div></li>`).join('')}</ul></div>` : (P.some(x => x.c.stockNow) ? '<div class="panel"><h2>Transports conseillés</h2><p class="note">Aucun transport utile pour l\'instant : tes constructions n°1 sont faisables sur place, ou la production les rattrape plus vite qu\'un transport.</p></div>' : '');
   $('vueTops').innerHTML = P.map(x => `<div class="topc"><h3>${esc(x.p.name)}</h3>${x.recs.slice(0, 3).map((r, i) => `<div class="it"><span class="rk${i === 0 ? ' first' : ''}">${i + 1}</span><span style="min-width:0"><b>${esc(r.title)}</b>${r.cost ? `<br><span class="cost">${esc(OG.fmtCost(r.cost))}</span>` : ''}${(w => w ? `<br><span class="${w.ok ? 'ok' : 'warnc'}" style="font-size:11px">${esc(w.txt)}</span>` : '')(waitText(r))}</span></div>`).join('') || '<div class="note">Rien en attente.</div>'}</div>`).join('');
   const head = `<thead><tr><th style="text-align:left"></th>${P.map(x => `<th>${esc(x.p.name)}<small>[${esc(x.p.coords || '?')}]</small></th>`).join('')}</tr></thead>`;
   const line = (label, vals) => `<tr><td>${esc(label)}</td>${vals.join('')}</tr>`;
