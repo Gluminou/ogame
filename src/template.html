@@ -78,6 +78,7 @@ table.t td,table.t th{padding:5px 6px;border-bottom:1px solid var(--line);text-a
 table.t td:first-child,table.t th:first-child{text-align:left}
 table.t th{color:var(--mut);font-weight:500}
 .hidden{display:none}
+.tg-cards{display:none}@media (max-width:759px){.tg-cards{display:block}.tg-wide{display:none!important}}
 .tgc{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:10px;font-size:13px}
 .tgc .hd{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
 .tgc .hd b{font-size:15px}.tgc .grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:8px 0}
@@ -771,8 +772,7 @@ function renderTargets(){
   rows.sort((a, b) => ((b.e.ok ? 2 : b.e.unknown ? 1 : 0) - (a.e.ok ? 2 : a.e.unknown ? 1 : 0)) || (b.e.perH || 0) - (a.e.perH || 0));
   const f = OG.fmt, now = Date.now();
   const age = at => { const m = Math.round((now - at) / 60000); return m < 60 ? m + ' min' : m < 2880 ? Math.round(m / 60) + ' h' : Math.round(m / 1440) + ' j'; };
-  if (window.innerWidth < 760) {
-    $('tgOut').innerHTML = rows.map(({ tg, e }, i) => {
+  const cardsHtml = '<div class="tg-cards">' + rows.map(({ tg, e }, i) => {
       const old = now - tg.at > 3600000; const act = e.r.activity != null ? ` · activité ${e.r.activity} min` : '';
       const head = `<div class="hd"><div><b>${esc(e.r.player || '?')}</b> <span class="note">[${esc(e.r.coords)}]${e.r.isMoon ? ' lune' : ''}</span><br><span class="${old ? 'warnc' : 'note'}" style="font-size:11px">rapport il y a ${age(tg.at)}${act}</span></div>
         <div class="btns">${e.unknown ? '' : `<button class="ghost" style="padding:4px 8px;font-size:12px" data-sim="${i}">Simuler</button>`}<button class="ghost" style="padding:4px 8px;font-size:12px" data-del="${esc(tg.key)}" aria-label="Supprimer">✕</button></div></div>`;
@@ -781,13 +781,12 @@ function renderTargets(){
         <div class="fl">${e.ok ? '' : '<span class="red">Trop défendue pour ta flotte. Meilleur essai : </span>'}<b>${esc(fleetTxt(e.ch.units))}</b>${e.ok && e.lcShort ? `<br><span class="warnc" style="font-size:12px">manque ${e.lcShort} GT pour tout le butin</span>` : ''}</div>
         <div class="grid3"><div><span>Butin</span>${f(e.lootWant)}</div><div><span>Défense</span>${e.defVal ? f(e.defVal) : '<span class="ok">aucune</span>'}</div><div><span>Vol A/R</span>${fmtDur(e.round)} · ${f(e.fuel)} D</div>
         <div><span>Victoire</span><b class="${e.ok ? 'ok' : 'red'}">${Math.round(e.ch.win * 100)} %</b>${e.ch.loss > 0 ? ` · pertes ${f(e.ch.loss)}` : ''}</div><div><span>Gain net</span><b class="${e.gain >= 0 ? 'ok' : 'red'}">${e.gain >= 0 ? '+' : ''}${f(e.gain)}</b></div><div><span>Gain / h</span>${e.ok ? f(e.perH) : '–'}</div></div></div>`;
-    }).join('');
-  } else
-  $('tgOut').innerHTML = `<div class="panel" style="padding:0;overflow-x:auto"><table class="mx" style="font-size:12.5px"><thead><tr><th style="text-align:left">Cible</th><th>Butin</th><th>Défense</th><th style="text-align:left">Flotte à envoyer</th><th>Vol A/R</th><th>Victoire</th><th>Gain net</th><th>Gain / h</th><th></th></tr></thead><tbody>${rows.map(({ tg, e }, i) => {
+    }).join('') + '</div>';
+  $('tgOut').innerHTML = cardsHtml + `<div class="panel tg-wide" style="padding:0;overflow-x:auto"><table class="mx" style="font-size:12.5px"><thead><tr><th style="text-align:left">Cible</th><th>Butin</th><th>Défense</th><th style="text-align:left">Flotte à envoyer</th><th>Vol A/R</th><th>Victoire</th><th>Gain net</th><th>Gain / h</th><th></th></tr></thead><tbody>${rows.map(({ tg, e }, i) => {
     const old = now - tg.at > 3600000; const act = e.r.activity != null ? `activité ${e.r.activity} min` : '';
     if (e.unknown) return `<tr><td style="text-align:left;color:var(--txt)"><b>${esc(e.r.player || '?')}</b> <span class="note">[${esc(e.r.coords)}]${e.r.isMoon ? ' lune' : ''}</span><br><span class="${old ? 'warnc' : 'note'}" style="font-size:11px">rapport il y a ${age(tg.at)}${act ? ' · ' + act : ''}</span></td>
       <td>${f(e.lootWant)}</td><td class="warnc">${!e.r.defKnown ? 'non visible' : (e.defVal ? f(e.defVal) : 'aucune')}${!e.r.defKnown && e.r.summary && e.r.summary.def ? `<br><span class="note" style="font-size:11px">≈ ${f(e.r.summary.def)}</span>` : ''}</td>
-      <td colspan="5" style="text-align:left;white-space:normal" class="warnc"><b>À resonder.</b> ${esc(e.warn)}</td>
+      <td colspan="5" style="text-align:left;white-space:normal;font-size:12px" class="warnc"><b>À resonder.</b> ${esc(e.warn)}</td>
       <td style="white-space:nowrap"><button class="ghost" style="padding:4px 8px;font-size:12px" data-del="${esc(tg.key)}" aria-label="Supprimer">✕</button></td></tr>`;
     return `<tr><td style="text-align:left;color:var(--txt)"><b>${esc(e.r.player || '?')}</b> <span class="note">[${esc(e.r.coords)}]${e.r.isMoon ? ' lune' : ''}</span><br><span class="${old ? 'warnc' : 'note'}" style="font-size:11px">rapport il y a ${age(tg.at)}${act ? ' · ' + act : ''}</span></td>
       <td>${f(e.lootWant)}</td><td>${e.defVal ? f(e.defVal) : '<span class="ok">aucune</span>'}</td>
@@ -1014,7 +1013,6 @@ function init(){
   $('tgPaste').onclick = async () => { try { const s = await navigator.clipboard.readText(); tgAdd(s); } catch(e){ $('tgIn').focus(); $('tgMsg').textContent = 'Collage automatique refusé : colle dans la case puis « Ajouter ».'; } };
   $('tgClear').onclick = () => { TG.list = []; tgSave(); renderTargets(); };
   ['tgFrom','tgMinWin','tgDebris'].forEach(id => $(id).addEventListener('change', renderTargets));
-  let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { if (location.hash === '#cibles') renderTargets(); }, 300); });
   ['exTop1','exFrom','exMult','exSlots'].forEach(id => $(id).addEventListener('change', () => { store.set('og_exp', JSON.stringify({ top1: $('exTop1').value, mult: $('exMult').value, slots: $('exSlots').value })); renderExpe(); }));
   try { const ex = JSON.parse(store.get('og_exp') || 'null'); if (ex) { $('exTop1').value = ex.top1 || ''; $('exMult').value = ex.mult || 1; $('exSlots').value = ex.slots || ''; } } catch(e){}
   hiLoad();
