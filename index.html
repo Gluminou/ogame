@@ -77,6 +77,9 @@ table.t td,table.t th{padding:5px 6px;border-bottom:1px solid var(--line);text-a
 table.t td:first-child,table.t th:first-child{text-align:left}
 table.t th{color:var(--mut);font-weight:500}
 .hidden{display:none}
+details.howto{border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin:12px 0;background:var(--panel2)}
+details.howto>summary{cursor:pointer;font-weight:600;font-size:16px}
+details.howto ol{margin:6px 0 6px;padding-left:22px}details.howto li{margin:4px 0}
 </style>
 </head>
 <body>
@@ -129,18 +132,50 @@ table.t th{color:var(--mut);font-weight:500}
     <div class="panel">
       <h2>Export automatique depuis OGame</h2>
       <p>Un favori spécial lit tes planètes directement dans le jeu (bâtiments, formes de vie, recherches, flotte, défense, paramètres du serveur) et prépare l'export pour l'onglet Planètes. Tu n'as plus rien à recopier.</p>
-      <div class="sub2">Installation (une seule fois, sur ordinateur)</div>
-      <ol>
-        <li>Affiche la barre de favoris de Chrome (Ctrl+Maj+B).</li>
-        <li>Fais glisser ce bouton dans la barre de favoris : <a id="bmLink" href="#" style="display:inline-block;background:var(--acc);color:#1a1200;font-weight:700;padding:6px 14px;border-radius:8px;text-decoration:none;cursor:grab">Export OGame</a></li>
-        <li>Si le glisser-déposer ne marche pas : crée un favori à la main, nomme-le « Export OGame » et colle ce code comme adresse. <button class="ghost" id="bmCopy">Copier le code du favori</button> <span class="note" id="bmMsg"></span></li>
-      </ol>
-      <div class="sub2">Utilisation</div>
-      <ol>
-        <li>Connecte-toi à OGame et ouvre n'importe quelle page du jeu.</li>
-        <li>Clique sur le favori « Export OGame ». Il lit tes pages une par une (une quinzaine de secondes pour 5 planètes).</li>
-        <li>Clique sur « Ouvrir dans le conseiller » : l'application s'ouvre avec tes données à jour. Tu peux aussi cliquer sur « Copier » et coller l'export ici ou dans la conversation avec Claude.</li>
-      </ol>
+      <details class="howto" open>
+        <summary>Sur ordinateur (Chrome)</summary>
+        <div class="sub2">Installation, une seule fois</div>
+        <ol>
+          <li>Affiche la barre de favoris de Chrome (Ctrl+Maj+B).</li>
+          <li>Fais glisser ce bouton dans la barre de favoris : <a id="bmLink" href="#" style="display:inline-block;background:var(--acc);color:#1a1200;font-weight:700;padding:6px 14px;border-radius:8px;text-decoration:none;cursor:grab">Export OGame</a></li>
+          <li>Si le glisser-déposer ne marche pas : crée un favori à la main, nomme-le « Export OGame » et colle le code comme adresse.</li>
+        </ol>
+        <div class="sub2">Utilisation</div>
+        <ol>
+          <li>Connecte-toi à OGame et ouvre n'importe quelle page du jeu.</li>
+          <li>Clique sur le favori « Export OGame » (une quinzaine de secondes pour 5 planètes).</li>
+          <li>Clique sur « Ouvrir dans le conseiller ». Tes données sont à jour.</li>
+        </ol>
+      </details>
+      <details class="howto">
+        <summary>Sur iPhone (Safari)</summary>
+        <p class="note">Passe par Safari : l'application installée sur l'écran d'accueil et Chrome sur iPhone n'ont pas accès aux favoris. Si tu es dans l'application, ouvre ≡ puis « Ouvrir dans Safari ».</p>
+        <div class="sub2">Installation, une seule fois</div>
+        <ol>
+          <li>Dans Safari, ouvre cette page (gluminou.github.io/ogame), onglet Export auto.</li>
+          <li>Appuie sur <b>Copier le code du favori</b> (bouton ci-dessous).</li>
+          <li>Appuie sur l'icône <b>≡</b> à gauche de l'adresse, puis sur <b>Partager</b>.</li>
+          <li>Choisis <b>Ajouter aux favoris</b>, puis <b>Enregistrer</b>.</li>
+          <li>Appuie sur la barre d'adresse : tes favoris apparaissent en icônes.</li>
+          <li>Garde le doigt appuyé sur l'icône « OGame : conseiller… », puis choisis <b>Modifier</b>.</li>
+          <li>Renomme-le <b>Export OGame</b>.</li>
+          <li>Efface l'adresse, garde le doigt appuyé dans le champ vide et choisis <b>Coller</b>. Valide avec <b>OK</b>.</li>
+        </ol>
+        <div class="sub2">Utilisation</div>
+        <ol>
+          <li>Dans Safari, ouvre OGame et connecte-toi.</li>
+          <li>Sur une page du jeu, appuie sur la barre d'adresse, puis sur le favori <b>Export OGame</b>.</li>
+          <li>Attends « Export prêt », puis appuie sur <b>Ouvrir dans le conseiller</b>.</li>
+        </ol>
+      </details>
+      <div class="row"><button id="bmCopy">Copier le code du favori</button><span class="note" id="bmMsg"></span></div>
+      <div class="sub2">Si quelque chose cloche</div>
+      <ul>
+        <li><b>« Liste des planètes introuvable »</b> : lance le favori depuis une page du jeu (Vue d'ensemble), pas depuis l'écran de connexion.</li>
+        <li><b>« À vérifier : … rien lu »</b> : une page n'a pas pu être lue. Envoie une capture à Claude.</li>
+        <li><b>Rien ne se passe</b> : vérifie que l'adresse du favori commence bien par « javascript: ». Sur iPhone, recopie le code et recolle-le.</li>
+        <li>Si l'application change le favori, un message te le dira ici : il faudra recoller le code.</li>
+      </ul>
       <p class="note">Le favori ne fait que lire tes propres pages, avec ta session, une page à la fois. Il n'envoie rien ailleurs que vers cette application, et seulement quand tu cliques sur « Ouvrir ». Les flottes en vol au moment de l'export ne sont pas comptées.</p>
     </div>
   </section>
@@ -653,7 +688,7 @@ if (typeof module !== 'undefined') module.exports = CB;
 
 </script>
 <script>
-const APP_VERSION="202611160341";
+const APP_VERSION="202611160402";
 async function checkVersion(){
   if (location.protocol === 'file:') return;
   try { const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' }); if (!r.ok) return; const j = await r.json();
