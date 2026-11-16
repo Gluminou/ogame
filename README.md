@@ -30,6 +30,14 @@ boucliers, rapidfire, explosion sous 70 % de coque.
 Résultat : chances de victoire, pertes, butin, champ de débris, gain net,
 nombre de grands transporteurs et de recycleurs à envoyer.
 
+## Onglet Export auto
+
+Un favori (bookmarklet) à glisser dans la barre de favoris. Cliqué sur
+une page d'OGame, il lit les pages de chaque planète (ressources,
+installations, formes de vie, chantier spatial, défense), les recherches
+et `/api/serverData.xml`, puis produit l'export et l'ouvre dans
+l'application (`#import=`). Code source : `src/exporter.js`.
+
 ## Données
 
 Rien n'est envoyé nulle part. Le dernier export collé est gardé dans le
