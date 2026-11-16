@@ -118,6 +118,9 @@ details.howto ol{margin:6px 0 6px;padding-left:22px}details.howto li{margin:4px 
       <label class="chk"><input type="checkbox" id="col" checked> Classe Collecteur</label>
       <label class="chk"><input type="checkbox" id="geo"> Officier Géologue</label>
       <label class="chk"><input type="checkbox" id="eng"> Officier Ingénieur</label>
+      <label class="chk"><input type="checkbox" id="ally"> Classe d'alliance Marchands (+5 %)</label>
+      <label>Bonus supplémentaires sur les mines (%)<input type="number" id="extra" value="0" step="1"></label>
+      <label class="chk"><input type="checkbox" id="nocalib"> Ne pas caler sur les chiffres du jeu</label>
     </div>
     <div class="row">
       <button id="pasteData">Coller mon export</button>
@@ -340,7 +343,7 @@ const store = { get(k){ try { return localStorage.getItem(k); } catch(e){ return
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const TAGS = { urgent:'Urgent', important:'Important', eco:'Production', infra:'Infrastructure', lf:'Formes de vie', def:'Défense', res:'Recherche' };
 
-function settings(){ return { speed:+$("speed").value||8, fillHours:+$('fill').value||24, ratioC:+$('rc').value||1.5, ratioD:+$('rd').value||3, collector:$('col').checked, geologist:$('geo').checked, engineer:$('eng').checked, planDays:+$('planDays').value||3 }; }
+function settings(){ return { speed:+$("speed").value||8, fillHours:+$('fill').value||24, ratioC:+$('rc').value||1.5, ratioD:+$('rd').value||3, collector:$('col').checked, geologist:$('geo').checked, engineer:$('eng').checked, allyTrader:$('ally').checked, extraPct:+$('extra').value||0, noCalib:$('nocalib').checked, planDays:+$('planDays').value||3 }; }
 
 function recLi(r, tag){
   return `<li><span class="tag ${tag||r.type}">${TAGS[tag||r.type]}</span><span class="t">${esc(r.title)}</span>
@@ -363,7 +366,10 @@ function run(){
   try { res = OG.analyse(text, S); } catch(e){ $('err').textContent = 'Impossible de lire les données : ' + e.message; return; }
   try { CS.parsed = OG.parse(text); buildCombatForm(); } catch(e){}
   if (!res.planets.length){ $('err').textContent = text.trim() ? 'Aucune planète trouvée. Chaque planète doit commencer par une ligne « Planete: Nom ».' : 'Colle ton export de planètes pour commencer (bouton « Copier un modèle vide » pour le format).'; $('inputPanel').open = true; return; }
-  if (res.server && res.server.speed) { $('speed').value = res.server.speed; $('speedNote').textContent = 'Vitesse x' + res.server.speed + ' lue dans tes paramètres de serveur' + (res.server.researchSpeed ? ' (recherche x' + res.server.researchSpeed + ')' : '') + '.'; } else $('speedNote').textContent = '';
+  if (res.officers) { $('geo').checked = res.officers.includes('geologist'); $('eng').checked = res.officers.includes('engineer'); }
+  const nCal = res.planets.filter(x => x.c.calib && Object.keys(x.c.calib).length).length;
+  const calNote = (nCal ? ` Production calée sur les chiffres du jeu pour ${nCal}/${res.planets.length} planète${res.planets.length > 1 ? 's' : ''}.` : '') + (res.officers ? ` Officiers détectés : ${res.officers.filter(o => o !== 'aucun').map(o => ({ geologist: 'Géologue', engineer: 'Ingénieur', commander: 'Commandant', admiral: 'Amiral', technocrat: 'Technocrate' }[o] || o)).join(', ') || 'aucun'}.` : '');
+  if (res.server && res.server.speed) { $('speed').value = res.server.speed; $('speedNote').textContent = 'Vitesse x' + res.server.speed + ' lue dans tes paramètres de serveur' + (res.server.researchSpeed ? ' (recherche x' + res.server.researchSpeed + ')' : '') + '.' + calNote; } else $('speedNote').textContent = calNote.trim();
   const t = res.totals, f = OG.fmt;
   const nb = res.planets.length, maxPl = 1 + Math.ceil((res.R.rAstro||0)/2);
   $('kpis').innerHTML = [
@@ -413,6 +419,11 @@ function waitText(r){
   const when = sameDay ? 'à ' + hm : tomorrow ? 'demain ' + hm : at.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' }) + ' ' + hm;
   return { ok: false, txt: 'dans ' + dur + ' (' + when + ')', title: miss };
 }
+function calLine(c){
+  const cal = c.calib || {}; const ks = Object.keys(cal); if (!ks.length) return '';
+  const dev = ks.filter(k => Math.abs(cal[k] - 1) > 0.02).map(k => `${{ m: 'M', c: 'C', d: 'D' }[k]} ${cal[k] > 1 ? '+' : ''}${Math.round((cal[k] - 1) * c.modelBon[k] * 100)} %`);
+  return `<span class="ok" title="Production lue dans le jeu">✓ calé sur le jeu</span>${dev.length ? `<span class="warnc" title="Écart entre le jeu et les bonus connus (objets, recherches de formes de vie, événements…)">bonus non identifiés : ${esc(dev.join(' · '))}</span>` : ''}`;
+}
 function planetCard(x, S){
   const b = x.p.b, c = x.c, f = OG.fmt, recs = x.recs;
   const rock = isRock(b), race = rock ? "Rock'tal" : (b.lfRes ? 'Humains' : 'sans forme de vie');
@@ -427,7 +438,7 @@ function planetCard(x, S){
   const top = recs.slice(0, 3).map((r, i) => `<li><details><summary><span class="rk${i === 0 ? ' first' : ''}">${i + 1}</span><span class="tt">${esc(r.title)}</span><span style="display:flex;flex-direction:column;align-items:flex-end;gap:1px"><span class="cc">${r.cost ? esc(OG.fmtCost(r.cost)) : ''}</span>${afford(r)}</span></summary><div class="why">${r.missing && !r.affordable ? `<div class="warnc" style="margin-bottom:4px">Il manque ${esc(OG.fmtCost(r.missing))} sur la planète.</div>` : ''}${r.transport ? `<div class="ok" style="margin-bottom:4px">Transport conseillé : ${r.transport.legs.map(l => esc(legText(l))).join('<br>')}${r.transport.covered ? '' : `<br>Reste à produire sur place : ${esc(OG.fmtCost(r.transport.left))}`}</div>` : ''}${esc(r.why)}${r.alt && r.alt.length ? `<div class="alt">Autres options : ${esc(r.alt.join(' · '))}</div>` : ''}</div></details></li>`).join('') || '<li class="note" style="padding:8px 0">Rien en attente.</li>';
   return `<article class="card">
     <header><h3>${esc(x.p.name)}</h3><small>[${esc(x.p.coords || '?')}] · ~${Math.round(c.t)} °C · ${esc(race)}</small></header>
-    <div class="pstat"><span>Production/h <b>${f(c.prod.m)}</b> M · <b>${f(c.prod.c)}</b> C · <b>${f(c.prod.d)}</b> D</span><span>Énergie <b class="${e < 0 || c.factor < 0.999 ? 'red' : e < 100 ? '' : 'ok'}">${e >= 0 ? '+' : ''}${e}</b></span>${stockLine}<span>${c.stockNow ? 'Plein dans' : 'Hangars pleins'} : ${fh('M', 'm')} · ${fh('C', 'c')} · ${fh('D', 'd')}</span></div>
+    <div class="pstat"><span>Production/h <b>${f(c.prod.m)}</b> M · <b>${f(c.prod.c)}</b> C · <b>${f(c.prod.d)}</b> D</span><span>Énergie <b class="${e < 0 || c.factor < 0.999 ? 'red' : e < 100 ? '' : 'ok'}">${e >= 0 ? '+' : ''}${e}</b></span>${calLine(c)}${stockLine}<span>${c.stockNow ? 'Plein dans' : 'Hangars pleins'} : ${fh('M', 'm')} · ${fh('C', 'c')} · ${fh('D', 'd')}</span></div>
     <div class="lv3"><div><div class="lvh">Ressources</div>${lvlRows(RES_ROWS, b, recs, ['metal','crystal','deut','solar','stM','stC','stD'])}</div><div><div class="lvh">Formes de vie</div>${lf}</div><div><div class="lvh">Installations</div>${lvlRows(INST_ROWS, b, recs, ['robots','shipyard','lab'])}</div></div>
     <div class="lvh" style="padding:4px 14px 0">À construire</div>
     <ol class="top3">${top}</ol>
@@ -599,9 +610,9 @@ function init(){
   $('bmLink').onclick = e => { e.preventDefault(); $('bmMsg').textContent = 'Fais glisser le bouton dans ta barre de favoris (un clic ici ne fait rien).'; };
   $('bmCopy').onclick = async () => { try { await navigator.clipboard.writeText(BOOKMARKLET); $('bmMsg').textContent = 'Code copié.'; } catch(e){ $('bmMsg').textContent = 'Copie refusée par le navigateur.'; } };
   const saved = store.get('og_data_v4'); $('data').value = saved || DEFAULT_DATA; if (!$('data').value.trim()) { $('inputPanel').open = true; }
-  try { const s = JSON.parse(store.get('og_settings_v2')||'null'); if (s){ $('speed').value=s.speed; $('fill').value=s.fillHours; $('rc').value=s.ratioC; $('rd').value=s.ratioD; $('col').checked=s.collector; $('geo').checked=s.geologist; $('eng').checked=s.engineer; if (s.planDays) $('planDays').value=s.planDays; } } catch(e){}
+  try { const s = JSON.parse(store.get('og_settings_v2')||'null'); if (s){ $('speed').value=s.speed; $('fill').value=s.fillHours; $('rc').value=s.ratioC; $('rd').value=s.ratioD; $('col').checked=s.collector; $('geo').checked=s.geologist; $('eng').checked=s.engineer; if (s.planDays) $('planDays').value=s.planDays; $('ally').checked=!!s.allyTrader; $('extra').value=s.extraPct||0; $('nocalib').checked=!!s.noCalib; } } catch(e){}
   $('go').onclick = run;
-  ['speed','fill','rc','rd','col','geo','eng','planDays'].forEach(id => $(id).addEventListener('change', run));
+  ['speed','fill','rc','rd','col','geo','eng','ally','extra','nocalib','planDays'].forEach(id => $(id).addEventListener('change', run));
   $('copyTpl').onclick = async () => { try { await navigator.clipboard.writeText(TEMPLATE); $('copyMsg').textContent = 'Modèle copié.'; } catch(e){ $('data').value = TEMPLATE; $('copyMsg').textContent = 'Copie refusée : le modèle a été placé dans la zone de texte.'; $('inputPanel').open = true; } };
   $('aPlanet').addEventListener('change', fillAttFleet);
   $('aClear').onclick = () => CB.ATTACK_SHIPS.forEach(k => $('aU_'+k).value = 0);

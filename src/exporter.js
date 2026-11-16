@@ -78,6 +78,16 @@
           if (v == null) { const rm = html.match(new RegExp('"' + ids[0] + '"\\s*:\\s*\\{[^}]*?"amount"\\s*:\\s*(-?[\\d.]+)')); if (rm) v = rm[1]; }
           if (v != null && v !== '') st[k] = Math.floor(parseFloat(v));
         }
+        // real production and storage from the resource bar tooltips (title or data-tooltip-title)
+        const num = s => { const m = String(s).replace(/<[^>]+>/g, ' ').match(/[-+]?\d[\d.,]*/); return m ? parseInt(m[0].replace(/[.,]/g, ''), 10) : null; };
+        for (const [k, id] of [['m', 'metal'], ['c', 'crystal'], ['d', 'deuterium'], ['e', 'energy']]) {
+          const box = doc.getElementById(id + '_box') || doc.querySelector('[id^="' + id + '_box"]');
+          const tip = box ? (box.getAttribute('title') || box.getAttribute('data-tooltip-title') || '') : '';
+          const cells = [...tip.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/gi)].map(m => num(m[1])).filter(v => v != null);
+          if (k === 'e') { if (cells.length >= 3) { st.eProd = cells[1]; st.eUse = Math.abs(cells[2]); } }
+          else if (cells.length >= 3) { st['cap' + k] = cells[1]; st['prod' + k] = cells[2]; }
+          else { const rm = html.match(new RegExp('"' + id + '"\\s*:\\s*\\{[^}]*?"production"\\s*:\\s*(-?[\\d.]+)')); if (rm && k !== 'e') st['prodps' + k] = parseFloat(rm[1]); }
+        }
         out.__stock = st;
         if (!Object.keys(st).length) diag.push('stock@' + cp + ' : rien lu');
       }
@@ -99,7 +109,7 @@
       const all = Object.assign({}, sup, shp);
       const s = [`Planete: ${p.name}`, `Coordonnees: ${p.coords}`];
       if (p.tmax != null) s.push(`Temperature max: ${p.tmax}`);
-      const SL = { m: 'Metal', c: 'Cristal', d: 'Deuterium', e: 'Energie', pop: 'Population', food: 'Nourriture' };
+      const SL = { m: 'Metal', c: 'Cristal', d: 'Deuterium', e: 'Energie', pop: 'Population', food: 'Nourriture', prodm: 'Production metal', prodc: 'Production cristal', prodd: 'Production deuterium', capm: 'Capacite metal', capc: 'Capacite cristal', capd: 'Capacite deuterium', eProd: 'Production energie', eUse: 'Consommation energie', prodpsm: 'Production metal par seconde', prodpsc: 'Production cristal par seconde', prodpsd: 'Production deuterium par seconde' };
       if (Object.keys(stock).length) s.push('', 'Stock:', Object.keys(SL).filter(k => stock[k] != null).map(k => `${SL[k]}: ${stock[k]}`).join('\n'));
       s.push('', 'Ressources', block(all, [...RES, 212, 217]), '', 'Forme de vie', others(lfb, []), '', 'Recherche Forme de vie:', others(lfr, []),
         '', 'Installations', others(fac, []), '', 'Defense:', others(def, []), '', 'Flotte:', others(shp, [212, 217]), '');
@@ -124,7 +134,9 @@
       parts.push(sv.join('\n'));
     } catch (e) { diag.push('serverData : ' + e.message); }
 
-    const text = 'Date export: ' + Date.now() + '\n\n' + parts.join('\n');
+    const offs = [...document.querySelectorAll('#officers a')].filter(a => /\bon\b/.test(a.className)).map(a => (a.className.match(/\b(commander|admiral|engineer|geologist|technocrat)\b/) || [])[1]).filter(Boolean);
+    const head = 'Date export: ' + Date.now() + '\n' + (document.querySelector('#officers') ? 'Officiers actifs: ' + (offs.join(', ') || 'aucun') + '\n' : '');
+    const text = head + '\n' + parts.join('\n');
     q('[data-out]').value = text;
     msg(`Export prêt : ${planets.length} planètes, ${done} pages lues.` + (diag.length ? ' À vérifier : ' + diag.join(' ; ') : ''));
     const cb = q('[data-copy]'), ob = q('[data-open]'); cb.disabled = ob.disabled = false;

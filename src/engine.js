@@ -51,7 +51,7 @@ const OG = (() => {
   };
 
   function parse(text) {
-    const planets = []; const research = {}; const server = {}; let cur = null; let sec = ''; let exportedAt = null;
+    const planets = []; const research = {}; const server = {}; let cur = null; let sec = ''; let exportedAt = null; let officers = null;
     for (const raw of text.split(/\r?\n/)) {
       const line = raw.trim(); if (!line) continue;
       const m = line.match(/^([^:]+?)\s*:\s*(.*)$/);
@@ -61,6 +61,7 @@ const OG = (() => {
         else if (nl.startsWith('installations de defense dans le champ de debris') && pc != null) server.dfDef = +pc; } continue; } // header line without colon
       const label = norm(m[1]); const val = m[2].trim();
       if (label === 'date export') { exportedAt = +val || Date.parse(val) || null; continue; }
+      if (label === 'officiers actifs') { officers = val.toLowerCase().split(/[,\s]+/).filter(Boolean); continue; }
       if (label === 'planete') { cur = { name: val, coords: null, pos: 8, b: {}, lfr: {} }; planets.push(cur); sec = ''; continue; }
       if (label === 'coordonnees') { if (cur) { cur.coords = val; const p = val.split(':').map(Number); cur.pos = p[2] || 8; cur.gal = p[0]; cur.sys = p[1]; } continue; }
       if (label === 'recherche' && !val) { sec = 'research'; continue; }
@@ -79,13 +80,14 @@ const OG = (() => {
       if (!val) { sec = label; continue; } // "Defense:", "Flotte:" headers
       const num = parseInt(val.replace(/[^\d-]/g, ''), 10); if (isNaN(num)) continue;
       if (sec === 'lfr') { if (cur) cur.lfr[label] = num; continue; }
-      if (sec === 'stock') { const SK = { metal: 'm', cristal: 'c', deuterium: 'd', energie: 'e', population: 'pop', nourriture: 'food' }[label]; if (cur && SK) { cur.stock = cur.stock || {}; cur.stock[SK] = num; } continue; }
+      if (sec === 'stock') { const SK = { metal: 'm', cristal: 'c', deuterium: 'd', energie: 'e', population: 'pop', nourriture: 'food', 'production metal': 'prodm', 'production cristal': 'prodc', 'production deuterium': 'prodd', 'capacite metal': 'capm', 'capacite cristal': 'capc', 'capacite deuterium': 'capd', 'production energie': 'eProd', 'consommation energie': 'eUse', 'production metal par seconde': 'prodpsm', 'production cristal par seconde': 'prodpsc', 'production deuterium par seconde': 'prodpsd' }[label];
+        if (cur && SK) { cur.stock = cur.stock || {}; cur.stock[SK] = /par seconde/.test(label) ? parseFloat(val.replace(',', '.')) : num; } continue; }
       if (sec === 'forme de vie' || sec === 'formes de vie') { const lk = LF_LOOKUP[label]; if (cur && lk) cur.b[lk] = num; continue; }
       const key = LOOKUP[label]; if (!key) continue;
       if (/^r[A-Z]/.test(key)) research[key] = num;
       else if (cur && sec !== 'research') cur.b[key] = num;
     }
-    return { planets, research, server, exportedAt };
+    return { planets, research, server, exportedAt, officers };
   }
 
   const POS_TEMP = { 1: 240, 2: 190, 3: 140, 4: 90, 5: 80, 6: 70, 7: 60, 8: 50, 9: 40, 10: 30, 11: 20, 12: 10, 13: -30, 14: -70, 15: -110 };
@@ -122,7 +124,7 @@ const OG = (() => {
   function planetCalc(p, R, S) {
     const b = p.b; const t = b.tempMax != null ? b.tempMax : POS_TEMP[p.pos] ?? 50;
     const sp = S.speed;
-    const collector = S.collector ? 0.25 : 0; const geo = S.geologist ? 0.10 : 0;
+    const collector = S.collector ? 0.25 : 0; const geo = (S.geologist ? 0.10 : 0) + (S.allyTrader ? 0.05 : 0) + (S.extraPct || 0) / 100;
     const plasma = R.rPlasma || 0;
     const lfProd = Object.entries(p.lfr || {}).reduce((a, [k, v]) => a + ((LFR[k] && LFR[k].eff) || 0) * v, 0);
     const crawlerBonus = Math.min((b.crawlers || 0) * (S.collector ? 0.0003 : 0.0002), 0.5);
@@ -146,7 +148,29 @@ const OG = (() => {
     };
     const cap = { m: storageCap(b.stM || 0), c: storageCap(b.stC || 0), d: storageCap(b.stD || 0) };
     const fill = { m: cap.m / Math.max(prod.m, 1), c: cap.c / Math.max(prod.c, 1), d: prod.d > 0 ? cap.d / prod.d : Infinity };
-    return { lfProd, t, bonM, bonC, bonD, eProd, eUse, factor, prod, cap, fill, satE, solarE, plantBonus, fusionDeut };
+    // calibrate on the game's real numbers when the export has them
+    const st = p.stock || {}; const calib = {};
+    const realProd = r => st['prod' + r] != null ? st['prod' + r] : (st['prodps' + r] != null ? st['prodps' + r] * 3600 : null);
+    let bm = bonM, bc = bonC, bd = bonD;
+    if (!S.noCalib) {
+      const rm = realProd('m'), rc = realProd('c'), rd = realProd('d');
+      const mm = mineBase.metal(b.metal || 0) * factor * bonM * sp, mc = mineBase.crystal(b.crystal || 0) * factor * bonC * sp, md = mineBase.deut(b.deut || 0, t) * factor * bonD * sp;
+      const fit = (real, base, model) => { if (real == null || model <= 0) return null; const u = (real - base) / model; return u > 0.5 && u < 3 ? u : null; };
+      const um = fit(rm, 30 * sp, mm), uc = fit(rc, 15 * sp, mc), ud = fit(rd != null ? rd + fusionDeut : null, 0, md);
+      if (um) { bm = bonM * um; prod.m = rm; calib.m = um; }
+      if (uc) { bc = bonC * uc; prod.c = rc; calib.c = uc; }
+      if (ud) { bd = bonD * ud; prod.d = rd; calib.d = ud; }
+    }
+    if (p.calibFixed) { // used by the plan simulation: keep the calibration found on the real planet
+      const cf = p.calibFixed;
+      if (cf.m) { bm = bonM * cf.m; prod.m = (30 + mineBase.metal(b.metal || 0) * factor * bm) * sp; calib.m = cf.m; }
+      if (cf.c) { bc = bonC * cf.c; prod.c = (15 + mineBase.crystal(b.crystal || 0) * factor * bc) * sp; calib.c = cf.c; }
+      if (cf.d) { bd = bonD * cf.d; prod.d = mineBase.deut(b.deut || 0, t) * factor * bd * sp - fusionDeut; calib.d = cf.d; }
+    }
+    const capRatio = p.capRatio || {};
+    for (const r of ['m', 'c', 'd']) { if (st['cap' + r]) { capRatio[r] = st['cap' + r] / cap[r]; cap[r] = st['cap' + r]; } else if (p.capRatio && p.capRatio[r]) cap[r] = Math.round(cap[r] * p.capRatio[r]); }
+    const fill2 = { m: cap.m / Math.max(prod.m, 1), c: cap.c / Math.max(prod.c, 1), d: prod.d > 0 ? cap.d / prod.d : Infinity };
+    return { lfProd, t, bonM: bm, bonC: bc, bonD: bd, eProd, eUse, factor, prod, cap, fill: fill2, satE, solarE, plantBonus, fusionDeut, calib, capRatio, modelBon: { m: bonM, c: bonC, d: bonD } };
   }
 
   const fmt = n => { const a = Math.abs(n); if (a >= 1e6) return (n / 1e6).toFixed(a >= 1e7 ? 1 : 2).replace('.', ',') + ' M'; if (a >= 1e3) return Math.round(n / 1e3) + 'k'; return Math.round(n).toString(); };
@@ -158,7 +182,8 @@ const OG = (() => {
   // ---------- multi-day build plan (per planet, buildings queue) ----------
   function simulatePlan(p0, R, S, startStock, hours, firstKey) {
     const msu = c => c[0] + c[1] * S.ratioC + c[2] * S.ratioD;
-    const p = { name: p0.name, pos: p0.pos, coords: p0.coords, b: Object.assign({}, p0.b), lfr: p0.lfr };
+    const c0 = planetCalc(p0, R, S);
+    const p = { name: p0.name, pos: p0.pos, coords: p0.coords, b: Object.assign({}, p0.b), lfr: p0.lfr, calibFixed: c0.calib, capRatio: c0.capRatio };
     let stock = { m: startStock.m || 0, c: startStock.c || 0, d: startStock.d || 0 };
     const K = ['m', 'c', 'd']; const steps = []; let t = 0; let guard = 0;
     const NAMES = { metal: 'Mine de métal', crystal: 'Mine de cristal', deut: 'Synthétiseur de deutérium', solar: 'Centrale solaire', fusion: 'Centrale de fusion', stM: 'Hangar de métal', stC: 'Hangar de cristal', stD: 'Réservoir de deutérium', robots: 'Usine de robots' };
@@ -204,7 +229,7 @@ const OG = (() => {
       steps.push({ start, end: start + bt, key: pick, name: `${NAMES[pick]} ${lvl}`, cost: cc });
       p.b[pick] = lvl; t = start + bt;
     }
-    const before = planetCalc(p0, R, S), after = planetCalc(p, R, S);
+    const before = c0, after = planetCalc(p, R, S);
     return { steps, before: before.prod, after: after.prod, levels: p.b };
   }
 
@@ -267,10 +292,11 @@ const OG = (() => {
   }
 
   function analyse(text, S) {
-    const { planets, research: R, server, exportedAt } = parse(text);
+    const { planets, research: R, server, exportedAt, officers } = parse(text);
     if (server.speed) S = Object.assign({}, S, { speed: server.speed });
+    if (officers) S = Object.assign({}, S, { geologist: officers.includes('geologist'), engineer: officers.includes('engineer') });
     const msu = c => c[0] + c[1] * S.ratioC + c[2] * S.ratioD; // metal standard units
-    const out = { planets: [], research: [], warnings: [], R, server, speedUsed: S.speed, exportedAt };
+    const out = { planets: [], research: [], warnings: [], R, server, speedUsed: S.speed, exportedAt, officers };
     const calcs = planets.map(p => planetCalc(p, R, S));
     // live stock: exported amount + production since the export, capped by storage
     const elapsedH = exportedAt ? Math.max(0, ((S.now || Date.now()) - exportedAt) / 3600000) : 0;

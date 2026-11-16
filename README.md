@@ -4,6 +4,15 @@ Application personnelle pour OGame (univers FR s285, classe Collecteur).
 Un seul fichier HTML autonome, sans serveur ni installation. Elle tourne
 dans le navigateur et s'installe sur l'écran d'accueil du téléphone.
 
+## Calage sur le jeu
+
+Le favori lit aussi, pour chaque planète, la production réelle par heure et
+la capacité des hangars affichées par OGame, ainsi que les officiers
+actifs. L'application ajuste ses bonus pour retomber sur ces chiffres et
+affiche l'écart (« bonus non identifiés ») : objets, recherches de formes
+de vie, niveau de l'espèce, événements. Réglages manuels : classe
+d'alliance Marchands, bonus supplémentaires, ou désactiver le calage.
+
 ## Onglet Planètes
 
 On colle un export texte de ses planètes (bâtiments, formes de vie,
