@@ -125,7 +125,7 @@
       const g = t => x.querySelector(t)?.textContent;
       const sv = ['Parametres de serveur:'];
       if (g('speed')) sv.push(`Vitesse de développement : x${g('speed')}`);
-      if (g('researchDurationDivisor')) sv.push(`Vitesse de recherche : x${g('researchDurationDivisor')}`);
+      if (g('researchDurationDivisor')) sv.push(`Vitesse de recherche : x${(+g('speed') || 1) * (+g('researchDurationDivisor') || 1)}`);
       if (g('debrisFactor')) sv.push(`Flotte dans le champ de débris +${Math.round(parseFloat(g('debrisFactor')) * 100)} %`);
       if (g('debrisFactorDef')) sv.push(`Installations de défense dans le champ de débris +${Math.round(parseFloat(g('debrisFactorDef')) * 100)} %`);
       if (g('deuteriumInDebris') === '1') sv.push('Deutérium dans les champs de débris');
@@ -141,7 +141,15 @@
     q('[data-out]').value = text;
     msg(`Export prêt : ${planets.length} planètes, ${done} pages lues.` + (diag.length ? ' À vérifier : ' + diag.join(' ; ') : ''));
     const cb = q('[data-copy]'), ob = q('[data-open]'); cb.disabled = ob.disabled = false;
-    cb.onclick = async () => { try { await navigator.clipboard.writeText(text); q('[data-note]').textContent = 'Copié !'; } catch (e) { q('[data-out]').select(); document.execCommand('copy'); q('[data-note]').textContent = 'Copié.'; } };
+    cb.onclick = () => {
+      const ta = q('[data-out]'); let ok = false;
+      // iOS: select an editable textarea with setSelectionRange, then execCommand inside the tap
+      try { ta.readOnly = false; ta.focus(); ta.setSelectionRange(0, ta.value.length); ok = document.execCommand('copy'); } catch (e) {}
+      ta.readOnly = true; ta.blur();
+      if (ok) { q('[data-note]').textContent = 'Copié ! Ouvre l\'application et appuie sur « Coller mon export ».'; return; }
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(() => { q('[data-note]').textContent = 'Copié !'; }, () => { q('[data-note]').textContent = 'Copie bloquée : appuie longuement dans le texte, « Tout sélectionner », puis « Copier ».'; ta.readOnly = false; ta.focus(); ta.setSelectionRange(0, ta.value.length); });
+      else q('[data-note]').textContent = 'Copie bloquée : appuie longuement dans le texte, « Tout sélectionner », puis « Copier ».';
+    };
     ob.onclick = () => { const b64 = btoa(unescape(encodeURIComponent(text))); window.open(APP + '#import=' + encodeURIComponent(b64), '_blank'); };
   } catch (e) { msg('Erreur : ' + e.message); }
   window.__ogExportRunning = false;

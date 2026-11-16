@@ -737,8 +737,12 @@ function init(){
   $('pasteData').onclick = () => { $('inputPanel').open = true; pasteInto('data', run, 'copyMsg'); };
   $('pasteTop').onclick = async () => {
     try { const txt = await navigator.clipboard.readText();
-      if (!/Planete\s*:/i.test(txt)) { $('dataStamp').textContent = 'Le presse-papiers ne contient pas un export OGame. Dans le jeu : favori Export OGame, puis « Copier ».'; return; }
-      $('data').value = txt; run(); window.scrollTo({ top: 0, behavior: 'smooth' });
+      const clip = fixExport(txt);
+      if (!/Planete\s*:/i.test(clip)) { $('dataStamp').textContent = 'Le presse-papiers ne contient pas un export OGame. Dans le jeu : favori Export OGame, puis « Copier ».'; return; }
+      const dOf = s => { const m = s.match(/Date export\s*:\s*(\d{10,})/); return m ? +m[1] : 0; };
+      const newD = dOf(clip), curD = dOf($('data').value);
+      if (newD && curD && newD <= curD) { $('dataStamp').innerHTML = `<span class="warnc">Le presse-papiers contient le même export (ou un plus ancien) que celui déjà chargé, du ${new Date(newD).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}. La copie depuis le jeu n'a sans doute pas marché : dans la fenêtre d'export, appuie longuement dans le texte, « Tout sélectionner », « Copier », puis réessaie.</span>`; return; }
+      $('data').value = clip; run(); window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch(e){ $('inputPanel').open = true; $('data').focus(); $('dataStamp').textContent = 'Collage automatique refusé : colle l\'export dans la case « Mes données » (appui long, Coller).'; }
   };
   let rt; $('report').addEventListener('input', () => { clearTimeout(rt); rt = setTimeout(() => { if ($('report').value.trim().length > 30 && readReport()) runSim(); }, 400); });
