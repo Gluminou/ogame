@@ -25,9 +25,13 @@ chaque planète :
 - le temps avant que chaque hangar soit plein
 - le temps de remboursement de chaque mine
 
-Puis elle classe quoi construire : urgences (énergie, hangars), meilleure
-mine, infrastructure, formes de vie, défense. Elle propose aussi les
-prochaines recherches.
+Puis elle classe quoi construire. Les trois constructions affichées sont
+les trois premières étapes de l'onglet Plan : une seule règle décide de la
+file de construction (énergie manquante, robots jusqu'à 4, hangar qui
+déborderait avant de pouvoir payer la suite, infrastructure si elle coûte
+moins que la meilleure mine, sinon la mine la plus rentable). Les formes de
+vie et la défense, qui ont leur propre file, sont listées à part. Elle
+propose aussi les prochaines recherches.
 
 ## Transports conseillés (Vue générale)
 

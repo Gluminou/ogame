@@ -503,6 +503,7 @@ function planetCard(x, S){
     <div class="lv3"><div><div class="lvh">Ressources</div>${lvlRows(RES_ROWS, b, recs, ['metal','crystal','deut','solar','stM','stC','stD'])}</div><div><div class="lvh">Formes de vie</div>${lf}</div><div><div class="lvh">Installations</div>${lvlRows(INST_ROWS, b, recs, ['robots','shipyard','lab'])}</div></div>
     <div class="lvh" style="padding:4px 14px 0">À construire</div>
     <ol class="top3">${top}</ol>
+    ${x.parallel && x.parallel.length ? `<div class="note" style="padding:0 14px 12px;font-size:12px">En parallèle, sur leur propre file : ${x.parallel.slice(0, 3).map(r => esc(r.title)).join(' · ')}</div>` : ''}
   </article>`;
 }
 function renderVue(res){
