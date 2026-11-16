@@ -337,7 +337,13 @@ function recLi(r, tag){
   <div class="why">${esc(r.why)}</div>${r.alt && r.alt.length ? `<div class="alt">Autres options : ${esc(r.alt.join(' · '))}</div>` : ''}</li>`;
 }
 
+// iOS may store text starting with "Planete:" as a URL: spaces and newlines come back as %20 / %0A
+function fixExport(s){
+  if (!s || /\n/.test(s.trim()) || !/%0A/i.test(s)) return s;
+  try { return decodeURIComponent(s); } catch(e){ return s.replace(/%0A/gi, '\n').replace(/%20/g, ' '); }
+}
 function run(){
+  const fixed = fixExport($('data').value); if (fixed !== $('data').value) $('data').value = fixed;
   const text = $('data').value; const S = settings();
   if (text !== store.get('og_data_v4')) store.set('og_data_time', String(Date.now()));
   store.set('og_data_v4', text); store.set('og_settings_v2', JSON.stringify(S));
