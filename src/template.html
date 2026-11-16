@@ -185,7 +185,7 @@ details.howto ol{margin:6px 0 6px;padding-left:22px}details.howto li{margin:4px 
       </div>
     </div>
     <div id="tgOut"></div>
-    <p class="note">Pour chaque cible, l'application essaie plusieurs escortes prises dans la flotte de la planète de départ (aucune, croiseurs, croiseurs + vaisseaux de bataille, toute la flotte) et garde la moins coûteuse qui atteint la victoire minimale. Gain net = butin × chance de victoire + débris − pertes − deutérium, en équivalent métal. Les technologies cachées sont supposées égales aux tiennes.</p>
+    <p class="note">Pour chaque cible, l'application cherche la flotte optimale dans la planète de départ : la moins coûteuse (pertes + deutérium) qui atteint la victoire minimale, avec les grands transporteurs nécessaires au butin. Gain net = butin × chance de victoire + débris − pertes − deutérium, en équivalent métal. Les technologies cachées sont supposées égales aux tiennes.</p>
   </section>
 
   <section id="view-export" class="hidden">
@@ -276,8 +276,9 @@ details.howto ol{margin:6px 0 6px;padding-left:22px}details.howto li{margin:4px 
         <label>Défenses dans le champ de débris (%)<input type="number" id="dfDef" value="0"></label>
         <label class="chk"><input type="checkbox" id="dfDeut" checked> Deutérium dans les débris</label>
       </div>
-      <div class="row"><button id="simulate">Simuler le combat</button><span class="note" id="simMsg"></span></div>
+      <div class="row"><button id="simulate">Simuler le combat</button><button class="ghost" id="optimize">Flotte optimale</button><label class="note">Victoire minimale <input type="number" id="optWin" value="95" min="50" max="100" style="width:64px"> %</label><span class="note" id="simMsg"></span></div>
     </div>
+    <div id="optOut"></div>
     <div id="simOut"></div>
     <p class="note">Règles OGame : 6 rounds, boucliers rechargés à chaque round, tirs sans effet sous 1 % du bouclier, explosion possible sous 70 % de coque, rapidfire. Les bonus de formes de vie, de classe et d'alliance sur les vaisseaux ne sont pas comptés : vérifie avec une marge si le défenseur est Rock'tal.</p>
   </section>
@@ -560,6 +561,58 @@ function readReport(auto){
   $('readMsg').textContent = msgs.join(' ');
   return true;
 }
+
+// shared: cost of a fleet trip (fuel both ways, metal units) from a planet to coords
+function tripCost(units, srcP, coords, R, S, server){
+  if (!srcP || !coords) return { fuel: 0, h: 0, msu: 0 };
+  const [g, s, p] = coords.split(':').map(Number);
+  const v = Math.min(...Object.keys(units).map(k => CB.shipSpeed(k, R, S.collector)));
+  const f = OG.flight(srcP, { gal: g, sys: s, pos: p }, v, (server && server.speedWar) || 1);
+  const fuel = Math.round(1 + Object.entries(units).reduce((a, [k, n]) => a + n * (CB.FUEL[k] || 0), 0) * f.d / 35000 * 4) * 2;
+  return { fuel, h: 2 * f.h, msu: fuel * S.ratioD };
+}
+function bestFleet(avail, def, srcP, coords, R, S, server, minWin, runs, maxEvals){
+  const hyper = 1 + 0.05 * (R.rHyper || 0), capLC = 25000 * hyper * (S.collector ? 1.25 : 1);
+  const lootPct = def.lootPct ?? 0.5;
+  const lootWant = ((def.res.m || 0) + (def.res.c || 0) + (def.res.d || 0)) * lootPct;
+  const lc = Math.min(avail.LC || 0, Math.ceil(lootWant / capLC));
+  const opts = { lootPct, dfShips: ((server && server.dfShips) ?? 40) / 100, dfDef: ((server && server.dfDef) ?? 0) / 100, dfDeut: !(server && server.dfDeut === false), hyperA: R.rHyper || 0, attackerCollector: S.collector };
+  const res = CB.optimize(avail, { weap: R.rWeap || 0, shield: R.rShield || 0, armour: R.rArmour || 0 }, def, opts,
+    { minWin, fixed: lc ? { LC: lc } : {}, ratioC: S.ratioC, ratioD: S.ratioD, runs: runs || 100, maxEvals: maxEvals || 120, cost: u => tripCost(u, srcP, coords, R, S, server).msu });
+  if (!res) return null;
+  const b = res.best; const trip = tripCost(b.units, srcP, coords, R, S, server);
+  const lootExp = b.st.lootExpected[0] + b.st.lootExpected[1] * S.ratioC + b.st.lootExpected[2] * S.ratioD;
+  const debris = b.st.debris[0] + b.st.debris[1] * S.ratioC + b.st.debris[2] * S.ratioD;
+  return { ...res, best: b, lc, lootWant, lcShort: Math.max(0, Math.ceil((lootWant - b.st.cargo) / capLC)), trip, lootExp, debris };
+}
+const fleetTxt = u => Object.entries(u).filter(([, n]) => n > 0).map(([k, n]) => `${n} ${CB.U[k][0].replace('Vaisseau de bataille', 'VB').replace('Grand transporteur', 'GT')}`).join(', ');
+function runOptimize(){
+  const res = CS.parsed || { planets: [], research: {}, server: {} }; const S = settings();
+  const p = res.planets[+$('aPlanet').value];
+  if (!p){ $('simMsg').textContent = 'Choisis la planète de départ (il faut ton export de planètes).'; return; }
+  const avail = {}; CB.ATTACK_SHIPS.forEach(k => avail[k] = p.b[SHIPKEY[k]] || 0);
+  const r = CB.parseReport($('report').value);
+  const def = { units: {}, tech: { weap: val('dT_weap'), shield: val('dT_shield'), armour: val('dT_armour') }, res: { m: val('dR_m'), c: val('dR_c'), d: val('dR_d') }, lootPct: val('lootPct') / 100 };
+  [...CB.SHIPS, ...CB.DEFS].forEach(k => { const n = val('dU_' + k); if (n) def.units[k] = n; });
+  const minWin = Math.min(1, Math.max(0.5, val('optWin') / 100));
+  $('simMsg').textContent = 'Recherche de la flotte optimale…';
+  setTimeout(() => {
+    const t0 = performance.now(); const o = bestFleet(avail, def, p, r.coords, res.research || {}, S, res.server || {}, minWin, 100, 140);
+    $('simMsg').textContent = o ? `${o.evals} flottes testées en ${Math.round(performance.now() - t0)} ms.` : '';
+    if (!o){ $('optOut').innerHTML = ''; return; }
+    const b = o.best, f = OG.fmt;
+    $('optOut').innerHTML = `<div class="panel"><h2>${o.impossible ? '<span class="red">Aucune flotte de ' + esc(p.name) + ' n\'atteint ' + Math.round(minWin * 100) + ' % de victoire</span>' : 'Flotte optimale depuis ' + esc(p.name)}</h2>
+      <p style="margin:8px 0;font-size:15px"><b>${esc(fleetTxt(b.units))}</b></p>
+      <div class="kpis"><div class="kpi"><small>Victoire</small><b class="${b.win >= minWin ? 'ok' : 'red'}">${Math.round(b.win * 100)} %</b><small>sur ${b.st.n} combats</small></div>
+      <div class="kpi"><small>Pertes moyennes</small><b class="${b.loss > 0 ? 'red' : 'ok'}">${f(b.loss)}</b><small>équivalent métal</small></div>
+      <div class="kpi"><small>Vol aller-retour</small><b>${o.trip.h ? fmtDur(o.trip.h) : '–'}</b><small>${f(o.trip.fuel)} deutérium</small></div>
+      <div class="kpi"><small>Gain net attendu</small><b class="ok">${f(o.lootExp + o.debris - b.loss - o.trip.msu)}</b><small>butin + débris − pertes − deut</small></div></div>
+      ${o.lcShort ? `<div class="warn">Il manque ${o.lcShort} grands transporteurs sur ${esc(p.name)} pour emporter tout le butin (${f(o.lootWant)}).</div>` : ''}
+      <div class="row"><button id="useOpt">Utiliser cette flotte</button></div>
+      <p class="note">Méthode : départ de toute la flotte disponible (et de chaque type de vaisseau seul), puis retrait de vaisseaux tant que la victoire reste au-dessus du seuil et que le coût (pertes + deutérium) ne remonte pas. Les grands transporteurs nécessaires au butin sont ajoutés d'office.</p></div>`;
+    $('useOpt').onclick = () => { CB.ATTACK_SHIPS.forEach(k => { const el = $('aU_' + k); if (el) el.value = b.units[k] || 0; }); runSim(); };
+  }, 20);
+}
 function runSim(){
   const att = { units: {}, tech: { weap: val('aT_weap'), shield: val('aT_shield'), armour: val('aT_armour') } };
   CB.ATTACK_SHIPS.forEach(k => { const n = val('aU_'+k); if (n) att.units[k] = n; });
@@ -631,44 +684,13 @@ function evalTarget(tg, src, R, S, server, minWin){
   const r = CB.parseReport(tg.text); const p = src.p; const avail = {}; CB.ATTACK_SHIPS.forEach(k => avail[k] = p.b[SHIPKEY[k]] || 0);
   const myTech = { weap: R.rWeap || 0, shield: R.rShield || 0, armour: R.rArmour || 0 };
   const defTech = r.tech.weap != null ? { weap: r.tech.weap || 0, shield: r.tech.shield || 0, armour: r.tech.armour || 0 } : myTech;
-  const def = { units: r.units, tech: defTech, res: r.res };
-  const fighters = Object.keys(r.units).filter(k => r.units[k] > 0 && !['EP'].includes(k));
-  const lootPct = (r.lootPct || 50) / 100; const hyper = 1 + 0.05 * (R.rHyper || 0);
-  const capLC = 25000 * hyper * (S.collector ? 1.25 : 1);
-  const lootWant = ((r.res.m || 0) + (r.res.c || 0) + (r.res.d || 0)) * lootPct;
-  const pick = (o) => Object.fromEntries(Object.entries(o).filter(([k, v]) => v > 0));
-  const combat = ['LF','HF','Cr','BS','BC','Bo','De','RIP','Re','PF'];
-  const opts = [];
-  if (!fighters.length) opts.push({ label: 'Sans escorte', esc: {} });
-  if (avail.Cr) opts.push({ label: 'Croiseurs', esc: { Cr: avail.Cr } });
-  if (avail.Cr || avail.BS) opts.push({ label: 'Croiseurs + 5 VB', esc: pick({ Cr: avail.Cr, BS: Math.min(5, avail.BS) }) });
-  if (avail.BS) opts.push({ label: 'Croiseurs + tous les VB', esc: pick({ Cr: avail.Cr, BS: avail.BS }) });
-  opts.push({ label: 'Toute la flotte', esc: pick(Object.fromEntries(combat.map(k => [k, avail[k]]))) });
-  const dedup = []; const seen = new Set(); opts.forEach(o => { const k = JSON.stringify(o.esc); if (!seen.has(k)) { seen.add(k); dedup.push(o); } });
-  const tp = { gal: +r.coords.split(':')[0], sys: +r.coords.split(':')[1], pos: +r.coords.split(':')[2] };
-  let best = null, fallback = null;
-  for (const o of dedup) {
-    const escCargo = Object.entries(o.esc).reduce((a, [k, n]) => a + n * CB.U[k][6] * hyper, 0);
-    const lc = Math.min(avail.LC, Math.max(0, Math.ceil((lootWant - escCargo) / capLC)));
-    const units = Object.assign({}, o.esc); if (lc) units.LC = lc;
-    if (!Object.keys(units).length) continue;
-    const st = CB.simulate({ units, tech: myTech }, def, { runs: 120, lootPct, dfShips: (server.dfShips ?? 40) / 100, dfDef: (server.dfDef ?? 0) / 100, dfDeut: server.dfDeut !== false, hyperA: R.rHyper || 0, attackerCollector: S.collector });
-    const loss = st.costA[0] + st.costA[1] * S.ratioC + st.costA[2] * S.ratioD;
-    const v = Math.min(...Object.keys(units).map(k => CB.shipSpeed(k, R, S.collector)));
-    const f = OG.flight(p, tp, v, server.speedWar || 1);
-    const fuel = Math.round(1 + Object.entries(units).reduce((a, [k, n]) => a + n * (CB.FUEL[k] || 0), 0) * f.d / 35000 * 4) * 2;
-    const lootExp = st.lootExpected[0] + st.lootExpected[1] * S.ratioC + st.lootExpected[2] * S.ratioD;
-    const debris = $('tgDebris').checked ? st.debris[0] + st.debris[1] * S.ratioC + st.debris[2] * S.ratioD : 0;
-    const gain = lootExp + debris - loss - fuel * S.ratioD;
-    const cand = { o, units, lc, st, loss, win: st.A / st.n, f, fuel, gain };
-    if (cand.win >= minWin && (!best || cand.gain > best.gain)) best = cand;
-    if (!fallback || cand.win > fallback.win) fallback = cand;
-  }
-  const ch = best || fallback; if (!ch) return { r, none: true };
-  const f = ch.f, fuel = ch.fuel, gain = ch.gain;
+  const def = { units: r.units, tech: defTech, res: r.res, lootPct: (r.lootPct || 50) / 100 };
+  const o = bestFleet(avail, def, p, r.coords, R, S, server, minWin, 60, 60);
+  if (!o) return { r, none: true };
+  const b = o.best; const debris = $('tgDebris').checked ? o.debris : 0;
+  const gain = o.lootExp + debris - b.loss - o.trip.msu;
   const defVal = Object.entries(r.units).reduce((a, [k, n]) => a + n * (CB.U[k] ? CB.U[k][1] + CB.U[k][2] + CB.U[k][3] : 0), 0);
-  const lcShort = Math.max(0, Math.ceil((lootWant - ch.st.cargo) / capLC));
-  return { r, ch, ok: !!best, f, round: 2 * f.h, fuel, gain, perH: gain / Math.max(2 * f.h, 1 / 60), lootWant, defVal, lcShort };
+  return { r, ch: { units: b.units, win: b.win, loss: b.loss }, ok: !o.impossible, round: o.trip.h, fuel: o.trip.fuel, gain, perH: gain / Math.max(o.trip.h, 1 / 60), lootWant: o.lootWant, defVal, lcShort: o.lcShort };
 }
 function renderTargets(){
   if (!$('tgOut')) return;
@@ -680,11 +702,17 @@ function renderTargets(){
   if (!res || !srcs.length){ $('tgOut').innerHTML = '<div class="panel note">Colle d\'abord ton export de planètes (onglet Planètes) pour connaître ta flotte.</div>'; return; }
   const src = srcs.find(x => String(x.i) === sel.value) || srcs[0];
   const minWin = Math.min(1, Math.max(0.5, (+$('tgMinWin').value || 95) / 100));
-  const rows = TG.list.map(tg => ({ tg, e: evalTarget(tg, src, res.research, S, res.server || {}, minWin) })).filter(x => !x.e.none);
+  const sig = JSON.stringify([src.i, minWin, $('tgDebris').checked, S.ratioC, S.ratioD, S.collector, CS.sig]);
+  TG.cache = TG.cache || {};
+  const todo = TG.list.filter(tg => !TG.cache[tg.key + tg.at + sig]);
+  if (todo.length && !TG.busy) { TG.busy = true; $('tgMsg').textContent = `Calcul des flottes optimales… 0/${todo.length}`;
+    (async () => { let i = 0; for (const tg of todo) { TG.cache[tg.key + tg.at + sig] = evalTarget(tg, src, res.research, S, res.server || {}, minWin); i++; $('tgMsg').textContent = `Calcul des flottes optimales… ${i}/${todo.length}`; await new Promise(r => setTimeout(r, 0)); }
+      TG.busy = false; $('tgMsg').textContent = ''; renderTargets(); })(); return; }
+  if (TG.busy) return;
+  const rows = TG.list.map(tg => ({ tg, e: TG.cache[tg.key + tg.at + sig] })).filter(x => x.e && !x.e.none);
   rows.sort((a, b) => (b.e.ok - a.e.ok) || b.e.perH - a.e.perH);
   const f = OG.fmt, now = Date.now();
   const age = at => { const m = Math.round((now - at) / 60000); return m < 60 ? m + ' min' : m < 2880 ? Math.round(m / 60) + ' h' : Math.round(m / 1440) + ' j'; };
-  const fleetTxt = u => Object.entries(u).map(([k, n]) => `${n} ${CB.U[k][0].replace('Vaisseau de bataille', 'VB').replace('Grand transporteur', 'GT')}`).join(', ');
   $('tgOut').innerHTML = `<div class="panel" style="padding:0;overflow-x:auto"><table class="mx" style="font-size:12.5px"><thead><tr><th style="text-align:left">Cible</th><th>Butin</th><th>Défense</th><th style="text-align:left">Flotte à envoyer</th><th>Vol A/R</th><th>Victoire</th><th>Gain net</th><th>Gain / h</th><th></th></tr></thead><tbody>${rows.map(({ tg, e }, i) => {
     const old = now - tg.at > 3600000; const act = e.r.activity != null ? `activité ${e.r.activity} min` : '';
     return `<tr><td style="text-align:left;color:var(--txt)"><b>${esc(e.r.player || '?')}</b> <span class="note">[${esc(e.r.coords)}]${e.r.isMoon ? ' lune' : ''}</span><br><span class="${old ? 'warnc' : 'note'}" style="font-size:11px">rapport il y a ${age(tg.at)}${act ? ' · ' + act : ''}</span></td>
@@ -747,6 +775,7 @@ function init(){
   };
   let rt; $('report').addEventListener('input', () => { clearTimeout(rt); rt = setTimeout(() => { if ($('report').value.trim().length > 30 && readReport()) runSim(); }, 400); });
   $('simulate').onclick = runSim;
+  $('optimize').onclick = runOptimize;
   tgLoad();
   $('tgAdd').onclick = () => { tgAdd($('tgIn').value); $('tgIn').value = ''; };
   $('tgPaste').onclick = async () => { try { const s = await navigator.clipboard.readText(); tgAdd(s); } catch(e){ $('tgIn').focus(); $('tgMsg').textContent = 'Collage automatique refusé : colle dans la case puis « Ajouter ».'; } };

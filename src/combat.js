@@ -157,6 +157,57 @@ const CB = (() => {
     return stat;
   }
 
+
+  // Smallest-cost fleet reaching minWin: start from everything available, remove ships while the cost
+  // (expected losses + fuel, in metal units) does not go up. cfg: {minWin, fixed, cost(units)->extra, ratioC, ratioD, runs, maxEvals}
+  function optimize(avail, tech, def, opts, cfg) {
+    const combat = ['LF','HF','Cr','BS','BC','Bo','De','RIP','Re','PF'];
+    const types = combat.filter(k => (avail[k] || 0) > 0);
+    const fixed = cfg.fixed || {}; let evals = 0; const cache = new Map();
+    const evalU = u => {
+      const all = Object.assign({}, u); for (const k in fixed) all[k] = (all[k] || 0) + fixed[k];
+      Object.keys(all).forEach(k => { if (!all[k]) delete all[k]; });
+      const key = JSON.stringify(all); if (cache.has(key)) return cache.get(key);
+      if (!Object.keys(all).length) return null;
+      evals++;
+      const st = simulate({ units: all, tech }, def, Object.assign({}, opts, { runs: cfg.runs || 100 }));
+      const loss = st.costA[0] + st.costA[1] * cfg.ratioC + st.costA[2] * cfg.ratioD;
+      const extra = cfg.cost ? cfg.cost(all) : 0;
+      const r = { units: all, esc: Object.assign({}, u), st, win: st.A / st.n, loss, obj: loss + extra, value: Object.entries(all).reduce((a, [k, n]) => a + n * (U[k][1] + U[k][2] + U[k][3]), 0) };
+      cache.set(key, r); return r;
+    };
+    const descend = (start, budget) => {
+      let best = evalU(start); if (!best || best.win < cfg.minWin) return best;
+      const limit = evals + budget; let improved = true;
+      while (improved && evals < limit) {
+        improved = false;
+        for (const f of fracs) {
+          for (const k of types) {
+            if (!best.esc[k]) continue;
+            const n = best.esc[k]; const drop = f === 0 ? 1 : Math.max(1, Math.floor(n * f));
+            const e = evalU(Object.assign({}, best.esc, { [k]: n - drop })); if (better(e, best)) { best = e; improved = true; }
+            if (evals >= limit) break;
+          }
+          if (improved) break;
+        }
+      }
+      return best;
+    };
+    const better = (a, b) => a && a.win >= cfg.minWin && (a.obj < b.obj - 1 || (a.obj <= b.obj + Math.max(50, b.obj * 0.01) && a.value < b.value));
+    const fracs = [1, 0.5, 0.25, 0.1, 0];
+    const full = {}; types.forEach(k => full[k] = avail[k]);
+    const fullE = evalU(full); if (!fullE) return null;
+    if (fullE.win < cfg.minWin) return { impossible: true, best: fullE, evals };
+    // several starting points (whole fleet, then each type alone and the main pairs) to avoid a local optimum
+    const starts = [full];
+    types.forEach(k => starts.push({ [k]: avail[k] }));
+    for (let i = 0; i < types.length; i++) for (let j = i + 1; j < types.length; j++) starts.push({ [types[i]]: avail[types[i]], [types[j]]: avail[types[j]] });
+    const total = cfg.maxEvals || 120; const per = Math.max(8, Math.floor(total / starts.length));
+    let best = fullE;
+    for (const s of starts) { if (evals >= total) break; const r = descend(s, per); if (r && r.win >= cfg.minWin && (r.obj < best.obj - 1 || (r.obj <= best.obj + Math.max(50, best.obj * 0.01) && r.value < best.value))) best = r; }
+    return { best, evals };
+  }
+
   // split a paste holding several spy reports
   function splitReports(text) {
     const parts = text.split(/(?=Rapport d.espionnage de)/i).map(s => s.trim()).filter(s => s.length > 40);
@@ -171,6 +222,6 @@ const CB = (() => {
     const per = drv === 'comb' ? 0.1 : drv === 'imp' ? 0.2 : 0.3;
     return base * (1 + per * lvl + (collector && (k === 'SC' || k === 'LC') ? 1 : 0));
   }
-  return { U, SHIPS, ATTACK_SHIPS, DEFS, RF, parseReport, splitReports, simulate, buildSide, num, shipSpeed, FUEL };
+  return { U, SHIPS, ATTACK_SHIPS, DEFS, RF, parseReport, splitReports, simulate, optimize, buildSide, num, shipSpeed, FUEL };
 })();
 if (typeof module !== 'undefined') module.exports = CB;

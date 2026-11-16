@@ -57,6 +57,15 @@ boucliers, rapidfire, explosion sous 70 % de coque.
 Résultat : chances de victoire, pertes, butin, champ de débris, gain net,
 nombre de grands transporteurs et de recycleurs à envoyer.
 
+## Flotte optimale (onglets Combat et Cibles)
+
+Recherche locale à partir de toute la flotte disponible sur la planète de
+départ, de chaque type de vaisseau seul et des paires de types : on retire
+des vaisseaux (moitié, quart, dixième, un par un) tant que la victoire
+reste au-dessus du seuil et que le coût (pertes moyennes + deutérium
+aller-retour, en équivalent métal) ne remonte pas. Les grands
+transporteurs nécessaires au butin sont ajoutés d'office.
+
 ## Onglet Cibles
 
 On colle un ou plusieurs rapports d'espionnage ; ils restent enregistrés
