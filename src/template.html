@@ -580,6 +580,19 @@ function fillAttFleet(){
   }).join('');
 }
 const val = id => Math.max(0, +($(id)?.value) || 0);
+function probeAdvice(r){
+  const R = (CS.parsed && CS.parsed.research) || {}; const mine = R.rEsp || 0;
+  const need = !r.fleetKnown ? 2 : 3; const what = !r.fleetKnown ? 'sa flotte et sa défense' : 'sa défense';
+  if (r.tech && r.tech.esp != null) { const d = mine - r.tech.esp; const n = d >= 0 ? Math.max(1, need - d * d) : need + d * d;
+    return `Pour voir ${what}, envoie au moins ${n} sonde${n > 1 ? 's' : ''} (ton espionnage ${mine}, le sien ${r.tech.esp}).`; }
+  return `Pour voir ${what}, renvoie plus de sondes : au moins ${need} si vous avez le même niveau d'espionnage, beaucoup plus s'il est au-dessus de toi (chaque écart de niveau compte au carré). Ton espionnage : ${mine}.`;
+}
+function hiddenWarning(r){
+  if (r.fleetKnown && r.defKnown) return '';
+  const parts = []; if (!r.fleetKnown) parts.push('la flotte'); if (!r.defKnown) parts.push('la défense');
+  const sum = []; if (!r.fleetKnown && r.summary && r.summary.fleet) sum.push(`flotte ≈ ${OG.fmt(r.summary.fleet)}`); if (!r.defKnown && r.summary && r.summary.def) sum.push(`défense ≈ ${OG.fmt(r.summary.def)}`);
+  return `Ta sonde n'a pas pu voir ${parts.join(' ni ')} : le rapport ne dit pas qu'il n'y en a pas.${sum.length ? ' Le résumé du rapport indique ' + sum.join(', ') + ' (en ressources).' : ''} ${probeAdvice(r)}`;
+}
 function readReport(auto){
   const r = CB.parseReport($('report').value);
   if (!r.found){ $('readMsg').textContent = 'Rien reconnu dans ce texte.'; return false; }
@@ -592,6 +605,7 @@ function readReport(auto){
     msgs.push('Ses recherches ne sont pas visibles : j\'ai mis ses technologies au niveau des tiennes, par prudence. Envoie plus de sondes pour les voir.');
   } else ['weap','shield','armour'].forEach(k => $('dT_'+k).value = r.tech[k] || 0);
   if (r.res.m == null) msgs.push('Ressources non trouvées.');
+  CS.lastReport = r; const hw = hiddenWarning(r); if (hw) msgs.push('ATTENTION : ' + hw);
   if (r.activity != null && r.activity < 60) msgs.push(`Activité il y a ${r.activity} min : le joueur est peut-être connecté et peut mettre sa flotte et ses ressources à l'abri.`);
   $('readMsg').textContent = msgs.join(' ');
   return true;
@@ -677,6 +691,7 @@ function renderSim(st, att, def, opts){
   if (debrisTot > 0) tips.push(`Envoie ${Math.ceil(debrisTot/recCap)} recycleur${Math.ceil(debrisTot/recCap)>1?'s':''} pour récupérer le champ de débris (${f(recCap)} chacun).`);
   $('simOut').innerHTML = `
   <div class="panel">
+    ${CS.lastReport && hiddenWarning(CS.lastReport) ? `<div class="warn" style="margin-bottom:10px"><b>Résultat incomplet.</b> ${esc(hiddenWarning(CS.lastReport))}</div>` : ''}
     <div class="verdict ${verdict[1]}">${verdict[0]}</div>
     <div class="bar"><i style="width:${pa}%;background:var(--eco)"></i><i style="width:${pn}%;background:var(--imp)"></i><i style="width:${pd}%;background:var(--urg)"></i></div>
     <div class="note">Victoire ${pa.toFixed(0)} % · Match nul ${pn.toFixed(0)} % · Défaite ${pd.toFixed(0)} % · ${st.rounds.toFixed(1).replace('.',',')} rounds en moyenne</div>
@@ -720,6 +735,8 @@ function evalTarget(tg, src, R, S, server, minWin){
   const myTech = { weap: R.rWeap || 0, shield: R.rShield || 0, armour: R.rArmour || 0 };
   const defTech = r.tech.weap != null ? { weap: r.tech.weap || 0, shield: r.tech.shield || 0, armour: r.tech.armour || 0 } : myTech;
   const def = { units: r.units, tech: defTech, res: r.res, lootPct: (r.lootPct || 50) / 100 };
+  const lootWant0 = ((r.res.m || 0) + (r.res.c || 0) + (r.res.d || 0)) * def.lootPct;
+  if (!r.fleetKnown || !r.defKnown) return { r, unknown: true, lootWant: lootWant0, warn: hiddenWarning(r) };
   const o = bestFleet(avail, def, p, r.coords, R, S, server, minWin, 60, 60);
   if (!o) return { r, none: true };
   const b = o.best; const debris = $('tgDebris').checked ? o.debris : 0;
@@ -745,11 +762,15 @@ function renderTargets(){
       TG.busy = false; $('tgMsg').textContent = ''; renderTargets(); })(); return; }
   if (TG.busy) return;
   const rows = TG.list.map(tg => ({ tg, e: TG.cache[tg.key + tg.at + sig] })).filter(x => x.e && !x.e.none);
-  rows.sort((a, b) => (b.e.ok - a.e.ok) || b.e.perH - a.e.perH);
+  rows.sort((a, b) => ((b.e.ok ? 2 : b.e.unknown ? 1 : 0) - (a.e.ok ? 2 : a.e.unknown ? 1 : 0)) || (b.e.perH || 0) - (a.e.perH || 0));
   const f = OG.fmt, now = Date.now();
   const age = at => { const m = Math.round((now - at) / 60000); return m < 60 ? m + ' min' : m < 2880 ? Math.round(m / 60) + ' h' : Math.round(m / 1440) + ' j'; };
   $('tgOut').innerHTML = `<div class="panel" style="padding:0;overflow-x:auto"><table class="mx" style="font-size:12.5px"><thead><tr><th style="text-align:left">Cible</th><th>Butin</th><th>Défense</th><th style="text-align:left">Flotte à envoyer</th><th>Vol A/R</th><th>Victoire</th><th>Gain net</th><th>Gain / h</th><th></th></tr></thead><tbody>${rows.map(({ tg, e }, i) => {
     const old = now - tg.at > 3600000; const act = e.r.activity != null ? `activité ${e.r.activity} min` : '';
+    if (e.unknown) return `<tr><td style="text-align:left;color:var(--txt)"><b>${esc(e.r.player || '?')}</b> <span class="note">[${esc(e.r.coords)}]${e.r.isMoon ? ' lune' : ''}</span><br><span class="${old ? 'warnc' : 'note'}" style="font-size:11px">rapport il y a ${age(tg.at)}${act ? ' · ' + act : ''}</span></td>
+      <td>${f(e.lootWant)}</td><td class="warnc">${!e.r.defKnown ? 'non visible' : (e.defVal ? f(e.defVal) : 'aucune')}${!e.r.defKnown && e.r.summary && e.r.summary.def ? `<br><span class="note" style="font-size:11px">≈ ${f(e.r.summary.def)}</span>` : ''}</td>
+      <td colspan="5" style="text-align:left;white-space:normal" class="warnc"><b>À resonder.</b> ${esc(e.warn)}</td>
+      <td style="white-space:nowrap"><button class="ghost" style="padding:4px 8px;font-size:12px" data-del="${esc(tg.key)}" aria-label="Supprimer">✕</button></td></tr>`;
     return `<tr><td style="text-align:left;color:var(--txt)"><b>${esc(e.r.player || '?')}</b> <span class="note">[${esc(e.r.coords)}]${e.r.isMoon ? ' lune' : ''}</span><br><span class="${old ? 'warnc' : 'note'}" style="font-size:11px">rapport il y a ${age(tg.at)}${act ? ' · ' + act : ''}</span></td>
       <td>${f(e.lootWant)}</td><td>${e.defVal ? f(e.defVal) : '<span class="ok">aucune</span>'}</td>
       <td style="text-align:left;white-space:normal;min-width:160px">${e.ok ? '' : '<span class="red" style="font-size:11px">Trop défendue pour ta flotte</span><br><span class="note" style="font-size:11px">meilleur essai : </span>'}${esc(fleetTxt(e.ch.units))}${e.ok && e.lcShort ? `<br><span class="warnc" style="font-size:11px">manque ${e.lcShort} GT pour tout le butin</span>` : ''}</td>
@@ -952,7 +973,7 @@ function init(){
   $('copyTpl').onclick = async () => { try { await navigator.clipboard.writeText(TEMPLATE); $('copyMsg').textContent = 'Modèle copié.'; } catch(e){ $('data').value = TEMPLATE; $('copyMsg').textContent = 'Copie refusée : le modèle a été placé dans la zone de texte.'; $('inputPanel').open = true; } };
   $('aPlanet').addEventListener('change', fillAttFleet);
   $('aClear').onclick = () => CB.ATTACK_SHIPS.forEach(k => $('aU_'+k).value = 0);
-  $('dClear').onclick = () => { [...CB.SHIPS, ...CB.DEFS].forEach(k => $('dU_'+k).value = 0); ['dR_m','dR_c','dR_d','dT_weap','dT_shield','dT_armour'].forEach(id => $(id).value = 0); $('report').value=''; $('readMsg').textContent=''; };
+  $('dClear').onclick = () => { [...CB.SHIPS, ...CB.DEFS].forEach(k => $('dU_'+k).value = 0); ['dR_m','dR_c','dR_d','dT_weap','dT_shield','dT_armour'].forEach(id => $(id).value = 0); $('report').value=''; $('readMsg').textContent=''; CS.lastReport = null; };
   $('readReport').onclick = () => { if (readReport()) runSim(); };
   const pasteInto = async (id, after, msgId) => { try { const txt = await navigator.clipboard.readText(); if (!txt.trim()) throw new Error('vide'); $(id).value = txt; after(); } catch(e){ $(id).focus(); $(msgId).textContent = 'Collage automatique refusé par le navigateur : colle le texte dans la case (appui long ou Ctrl+V).'; } };
   $('pasteReport').onclick = () => pasteInto('report', () => { if (readReport()) runSim(); }, 'readMsg');

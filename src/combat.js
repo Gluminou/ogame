@@ -56,7 +56,7 @@ const CB = (() => {
     const out = { units: {}, tech: {}, res: {}, found: 0 };
     const grab = alias => { const re = new RegExp('(?:^|[^a-z])' + alias.replace(/ /g, '\\s+') + '\\s*:?\\s*' + NUM, 'g'); let m, v = null; while ((m = re.exec(t))) v = num(m[1]); return v; };
     for (const [k, u] of Object.entries(U)) for (const a of u[8]) { const v = grab(a); if (v != null) { out.units[k] = v; out.found++; break; } }
-    const TECH = { weap: ['technologie armes', 'technologie des armes'], shield: ['technologie bouclier', 'technologie des boucliers', 'technologie de bouclier'], armour: ['technologie protection des vaisseaux spatiaux', 'technologie de protection des vaisseaux spatiaux', 'protection des vaisseaux spatiaux'], hyper: ['technologie hyperespace'] };
+    const TECH = { esp: ['technologie espionnage', 'technologie d espionnage'], weap: ['technologie armes', 'technologie des armes'], shield: ['technologie bouclier', 'technologie des boucliers', 'technologie de bouclier'], armour: ['technologie protection des vaisseaux spatiaux', 'technologie de protection des vaisseaux spatiaux', 'protection des vaisseaux spatiaux'], hyper: ['technologie hyperespace'] };
     for (const [k, arr] of Object.entries(TECH)) for (const a of arr) { const v = grab(a); if (v != null) { out.tech[k] = v; out.found++; break; } }
     const RES = { m: '(?<!de\\s)metal', c: '(?<!de\\s)cristal', d: '(?<!de\\s)(?<!en\\s)deuterium' };
     for (const [k, a] of Object.entries(RES)) { const re = new RegExp('(?:^|[^a-z])' + a + '\\s*:?\\s*' + NUM, 'g'); let m, v = null; while ((m = re.exec(t))) v = num(m[1]); if (v != null) { out.res[k] = v; out.found++; } }
@@ -67,6 +67,21 @@ const CB = (() => {
     const dm = text.match(/(\d{2})\.(\d{2})\.(\d{4})\s+(\d{2}):(\d{2}):(\d{2})/); if (dm) out.date = { y: +dm[3], mo: +dm[2], d: +dm[1], h: +dm[4], mi: +dm[5], s: +dm[6] };
     const nm = text.match(/(?:Planète|Lune)\s*\n?\s*([^\[\n]*?)\s*\[\d+:\d+:\d+\]/i); if (nm) out.planetName = nm[1].trim();
     out.isMoon = /de\s+Lune/i.test(text);
+    // which sections the probes could read: 'shown', 'hidden' (espionage level too low) or 'missing'
+    const L = text.split(/\r?\n/).map(l => /:/.test(l) ? '#' + norm(l) : norm(l).replace(/[.]+$/, '').trim()); // lines with ':' are summaries, not section headers
+    const sec = {}; const HEAD = { fleet: ['flottes', 'flotte', 'vaisseaux'], def: ['defense', 'defenses'], build: ['batiment', 'batiments'], lfb: ['batiments des formes de vie'], research: ['recherche', 'recherches'], lfr: ['recherche des formes de vie'] };
+    for (const [k, names] of Object.entries(HEAD)) {
+      const i = L.findIndex(l => names.includes(l)); if (i < 0) { sec[k] = 'missing'; continue; }
+      const next = L.slice(i + 1).find(l => l.length) || '';
+      sec[k] = /aucune donnee fiable|niveau d.espionnage trop|trop faible/.test(next) ? 'hidden' : 'shown';
+    }
+    // sections are cumulative: a later one shown means the earlier ones were readable too
+    const order = ['fleet', 'def', 'build', 'research'];
+    for (let i = order.length - 1; i > 0; i--) if (sec[order[i]] === 'shown') for (let j = 0; j < i; j++) if (sec[order[j]] !== 'shown') sec[order[j]] = 'shown';
+    out.sections = sec;
+    out.fleetKnown = sec.fleet === 'shown'; out.defKnown = sec.def === 'shown';
+    const sv = (re) => { const m = text.match(re); return m ? num(norm(m[1])) : null; };
+    out.summary = { fleet: sv(/Flottes?\s*:\s*\n?\s*([0-9][0-9.,]*\s*[kKmM]?)/), def: sv(/D[ée]fenses?\s*:\s*\n?\s*([0-9][0-9.,]*\s*[kKmM]?)/) };
     const jm = text.match(/Joueur\s*:\s*([^\n]+)/i); if (jm) out.player = jm[1].trim();
     const am = t.match(/activite sur cette planete dans les (\d+) dernieres minutes/); if (am) out.activity = +am[1];
     return out;
