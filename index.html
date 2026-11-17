@@ -66,9 +66,10 @@ input[type=number],select{background:#0a0f1e;color:var(--txt);border:1px solid v
 .tabs a.on{background:var(--acc);border-color:var(--acc);color:#1a1200}
 .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px}
 .ugrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px 10px;margin-top:8px}
-.ugrid label{display:flex;justify-content:space-between;align-items:center;gap:6px;font-size:13px;color:#c3cbe3}
-.ugrid input{width:78px;text-align:right}
-.ugrid.wide{grid-template-columns:repeat(auto-fill,minmax(190px,1fr))}.ugrid.wide input{width:120px}
+.ugrid label{display:flex;justify-content:space-between;align-items:center;gap:6px;font-size:13px;color:#c3cbe3;min-width:0}
+.ugrid label>span{flex:1;min-width:0;line-height:1.25;overflow-wrap:break-word;hyphens:auto}.ugrid label small{display:block;color:var(--mut);font-size:11px}
+.ugrid input{width:58px;flex:0 0 58px;text-align:right;padding-left:4px;padding-right:6px}
+.ugrid.wide{grid-template-columns:repeat(auto-fill,minmax(190px,1fr))}.ugrid.wide input{width:120px;flex-basis:120px}
 .sub2{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--acc);margin:14px 0 2px}
 .verdict{font-family:Rajdhani;font-size:26px;font-weight:700}
 .bar{display:flex;height:12px;border-radius:6px;overflow:hidden;margin:8px 0;background:#0e1529}
@@ -1087,7 +1088,7 @@ if (typeof module !== 'undefined') module.exports = CB;
 
 </script>
 <script>
-const APP_VERSION="202611170013";
+const APP_VERSION="202611170016";
 async function checkVersion(){
   if (location.protocol === 'file:') return;
   try { const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' }); if (!r.ok) return; const j = await r.json();
@@ -1312,7 +1313,7 @@ function renderPlan(res){
 
 // ---------- Combat tab ----------
 const CS = { parsed: null };
-function numInput(id, label, val){ return `<label>${esc(label)}<input type="number" min="0" id="${id}" value="${val||0}"></label>`; }
+function numInput(id, label, val){ return `<label><span>${esc(label)}</span><input type="number" min="0" id="${id}" value="${val||0}"></label>`; }
 function buildCombatForm(){
   const res = CS.parsed || { planets: [], research: {}, server: {} };
   const R = res.research || {};
@@ -1341,7 +1342,7 @@ function fillAttFleet(){
   $('aShips').innerHTML = CB.ATTACK_SHIPS.map(k => {
     const have = p ? (p.b[SHIPKEY[k]] || 0) : 0; let v = have;
     if (k === 'EP' || k === 'Col' || k === 'Rec') v = 0; // not sent into battle by default
-    return `<label>${esc(CB.U[k][0])}${p ? ` <span class="note" style="font-size:11px">(${OG.fmt(have)} dispo)</span>` : ''}<input type="number" min="0" id="aU_${k}" value="${v || 0}"></label>`;
+    return `<label><span>${esc(CB.U[k][0])}${p ? `<small>${OG.fmt(have)} dispo</small>` : ''}</span><input type="number" min="0" id="aU_${k}" value="${v || 0}"></label>`;
   }).join('');
   attSource(null);
 }
