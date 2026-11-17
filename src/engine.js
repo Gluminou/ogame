@@ -117,7 +117,44 @@ const OG = (() => {
     rWeap: n => [800 * 2 ** (n - 1), 200 * 2 ** (n - 1), 0],
     rShield: n => [200 * 2 ** (n - 1), 600 * 2 ** (n - 1), 0],
     rArmour: n => [1000 * 2 ** (n - 1), 0, 0],
+    rEsp: n => [200 * 2 ** (n - 1), 1000 * 2 ** (n - 1), 200 * 2 ** (n - 1)],
+    rHyper: n => [0, 4000 * 2 ** (n - 1), 2000 * 2 ** (n - 1)],
+    rComb: n => [400 * 2 ** (n - 1), 0, 600 * 2 ** (n - 1)],
+    rImp: n => [2000 * 2 ** (n - 1), 4000 * 2 ** (n - 1), 600 * 2 ** (n - 1)],
+    rHD: n => [10000 * 2 ** (n - 1), 20000 * 2 ** (n - 1), 6000 * 2 ** (n - 1)],
+    rLaser: n => [200 * 2 ** (n - 1), 100 * 2 ** (n - 1), 0],
+    rIon: n => [1000 * 2 ** (n - 1), 300 * 2 ** (n - 1), 100 * 2 ** (n - 1)],
   };
+  // ---------- research: names, requirements (lab level + other research), and the targets for your stage ----------
+  const RNAMES = { rEsp: 'Technologie espionnage', rComp: 'Technologie ordinateur', rWeap: 'Technologie armes', rShield: 'Technologie bouclier', rArmour: 'Technologie protection des vaisseaux', rEnergy: 'Technologie énergétique', rHyper: 'Technologie hyperespace', rComb: 'Réacteur à combustion', rImp: 'Réacteur à impulsion', rHD: 'Propulsion hyperespace', rLaser: 'Technologie laser', rIon: 'Technologie à ions', rPlasma: 'Technologie plasma', rIRN: 'Réseau de recherche intergalactique', rAstro: 'Astrophysique' };
+  const RREQ = { rEsp: { lab: 3 }, rComp: { lab: 1 }, rWeap: { lab: 4 }, rShield: { lab: 6, rEnergy: 3 }, rArmour: { lab: 2 }, rEnergy: { lab: 1 }, rHyper: { lab: 7, rEnergy: 5, rShield: 5 }, rComb: { lab: 1, rEnergy: 1 }, rImp: { lab: 2, rEnergy: 1 }, rHD: { lab: 7, rHyper: 3 }, rLaser: { lab: 1, rEnergy: 2 }, rIon: { lab: 4, rLaser: 5, rEnergy: 4 }, rPlasma: { lab: 4, rEnergy: 8, rLaser: 10, rIon: 5 }, rIRN: { lab: 10, rComp: 8, rHyper: 8 }, rAstro: { lab: 3, rEsp: 4, rImp: 3 } };
+  // [target level, weight (lower = sooner for the same cost), why]
+  const RTARGET = {
+    rAstro: [null, 0.5, 'une planète de plus (nouvelle file de construction et de production)'],
+    rPlasma: [null, 0.6, 'production de tout l\'empire'],
+    rComp: [10, 0.8, '+1 flotte en vol par niveau ; le niveau 10 débloque l\'usine de nanites'],
+    rEsp: [10, 0.8, 'voir flotte et défense des joueurs mieux équipés que toi'],
+    rHyper: [8, 0.9, 'prérequis du Réseau de recherche, +5 % de soute par niveau'],
+    rIRN: [1, 0.6, 'relie un 2e laboratoire niveau 10 : recherches plus rapides'],
+    rWeap: [10, 1, 'dégâts de ta flotte et de ta défense'], rShield: [10, 1, 'boucliers de ta flotte et de ta défense'], rArmour: [10, 1, 'coque de ta flotte et de ta défense'],
+    rEnergy: [10, 1, 'centrales à fusion, prérequis'], rComb: [10, 1.2, 'vitesse des transporteurs et chasseurs légers'], rImp: [7, 1.2, 'vitesse des croiseurs et chasseurs lourds'],
+    rHD: [7, 1.2, 'vitesse des vaisseaux de bataille, destructeurs'], rLaser: [12, 1.3, 'prérequis du traqueur'], rIon: [5, 1.3, 'prérequis'],
+  };
+  // ctx: { lab, plasmaPayback(level) -> hours, minePayback } ; returns the next research for levels R, or null
+  function researchPick(R, ctx) {
+    const msu = c => c[0] + c[1] * ctx.ratioC + c[2] * ctx.ratioD; let best = null;
+    for (const k of Object.keys(RTARGET)) {
+      const lvl = (R[k] || 0) + 1; let [target, w, why] = RTARGET[k];
+      if (k === 'rAstro') target = (R.rAstro || 0) % 2 ? (R.rAstro || 0) + 2 : (R.rAstro || 0) + 1;
+      if (k === 'rPlasma') { const pb = ctx.plasmaPayback(lvl); if (!(pb <= 3 * ctx.minePayback)) continue; target = lvl; why = `production de tout l'empire, amortie en ${fmtH(pb)}`; }
+      if (lvl > target) continue;
+      if (!Object.entries(RREQ[k]).every(([q, l]) => (q === 'lab' ? ctx.lab : (R[q] || 0)) >= l)) continue;
+      const cc = cost[k](lvl); if (ctx.filter && !ctx.filter(cc)) continue; const score = msu(cc) * w * (k === 'rAstro' && lvl % 2 === 0 ? 0.5 : 1);
+      if (!best || score < best.score) best = { key: k, lvl, cost: cc, score, name: `${RNAMES[k]} ${lvl}`, why };
+    }
+    return best;
+  }
+
 
   const storageCap = n => 5000 * Math.floor(2.5 * Math.exp(20 * n / 33));
   const mineBase = { metal: n => 30 * n * 1.1 ** n, crystal: n => 20 * n * 1.1 ** n, deut: (n, t) => 10 * n * 1.1 ** n * (1.44 - 0.004 * t) };
@@ -183,7 +220,7 @@ const OG = (() => {
 
   // ---------- multi-day build plan (per planet, buildings queue) ----------
   // ---------- one rule set for the building queue: used by the plan AND by the Planètes tab ----------
-  const QNAMES = { metal: 'Mine de métal', crystal: 'Mine de cristal', deut: 'Synthétiseur de deutérium', solar: 'Centrale solaire', fusion: 'Centrale de fusion', stM: 'Hangar de métal', stC: 'Hangar de cristal', stD: 'Réservoir de deutérium', robots: 'Usine de robots', shipyard: 'Chantier spatial', nanite: 'Usine de nanites' };
+  const QNAMES = { lab: 'Laboratoire de recherche', metal: 'Mine de métal', crystal: 'Mine de cristal', deut: 'Synthétiseur de deutérium', solar: 'Centrale solaire', fusion: 'Centrale de fusion', stM: 'Hangar de métal', stC: 'Hangar de cristal', stD: 'Réservoir de deutérium', robots: 'Usine de robots', shipyard: 'Chantier spatial', nanite: 'Usine de nanites' };
   const SAT_N = 10;
   // returns the next build for planet p (state c, stock) and why, in priority order
   function pickNext(p, c, stock, R, S) {
@@ -212,6 +249,7 @@ const OG = (() => {
     if (rob >= 4 && rob < 10 && (b.metal || 0) >= 12) infra.push('robots');
     if ((b.shipyard || 0) < 2 && (b.metal || 0) >= 10) infra.push('shipyard');
     if (rob >= 10 && (R.rComp || 0) >= 10 && (b.nanite || 0) < 1) infra.push('nanite');
+    if (p.labTarget && (b.lab || 0) < p.labTarget) infra.push('lab'); // research planet: lab 10 for the Intergalactic Research Network
     const mineMsu = msu(cands[0].cc);
     if (!base) for (const k of infra) if (msu(cost[k]((b[k] || 0) + 1)) <= mineMsu) { pick = { key: k, why: 'infra' }; break; }
     const cc = pick.key === 'sats' ? [0, 2000 * SAT_N, 500 * SAT_N] : cost[pick.key]((b[pick.key] || 0) + 1);
@@ -224,30 +262,75 @@ const OG = (() => {
     return pick;
   }
 
-  function simulatePlan(p0, R, S, startStock, hours) {
-    const c0 = planetCalc(p0, R, S);
-    const p = { name: p0.name, pos: p0.pos, coords: p0.coords, temp: p0.temp, b: Object.assign({}, p0.b), lfr: p0.lfr, calibFixed: c0.calib, capRatio: c0.capRatio };
-    let stock = { m: startStock.m || 0, c: startStock.c || 0, d: startStock.d || 0 };
-    const K = ['m', 'c', 'd']; const steps = []; let t = 0; let guard = 0;
+  // opt.share: part of stock and production kept for research (sent to the research planet); opt.labTarget; opt.defense: { name, cost } paid first (shipyard queue)
+  function simulatePlan(p0, R0, S, startStock, hours, opt = {}) {
+    const c0 = planetCalc(p0, R0, S); const R = Object.assign({}, R0);
+    const p = { name: p0.name, pos: p0.pos, coords: p0.coords, temp: p0.temp, b: Object.assign({}, p0.b), lfr: p0.lfr, calibFixed: c0.calib, capRatio: c0.capRatio, labTarget: opt.labTarget || 0 };
+    const keep = 1 - (opt.share || 0); const stock = { m: (startStock.m || 0) * keep, c: (startStock.c || 0) * keep, d: (startStock.d || 0) * keep };
+    const K = ['m', 'c', 'd']; const steps = []; const pending = []; let T = 0; let guard = 0;
+    let bFree = 0; let defLeft = opt.defense ? opt.defense.cost.slice() : null;
     const buildH = (cst, b) => (cst[0] + cst[1]) / (2500 * (1 + (b.robots || 0)) * Math.pow(2, b.nanite || 0) * S.speed);
-    while (t < hours && guard++ < 200) {
-      const c = planetCalc(p, R, S); const b = p.b;
-      const pk = pickNext(p, c, stock, R, S); const key = pk.key;
-      const isSat = key === 'sats'; const lvl = isSat ? (b.sats || 0) + SAT_N : (b[key] || 0) + 1;
-      const cc = isSat ? [0, 2000 * SAT_N, 500 * SAT_N] : cost[key](lvl);
-      const name = isSat ? `${SAT_N} satellites solaires` : `${QNAMES[key]} ${lvl}`;
-      let wait = 0, blocked = false;
-      K.forEach((r, j) => { const miss = cc[j] - stock[r]; if (miss > 0) { if (c.prod[r] <= 0 || cc[j] > c.cap[r]) blocked = true; else wait = Math.max(wait, miss / c.prod[r]); } });
-      if (blocked) { steps.push({ t, name, key, why: pk.why, blocked: true }); break; }
-      const grow = h => K.forEach(r => { stock[r] = Math.min(Math.max(stock[r], c.cap[r]), stock[r] + c.prod[r] * h); if (stock[r] < 0) stock[r] = 0; });
-      grow(wait); const start = t + wait; if (start > hours) break;
-      K.forEach((r, j) => { stock[r] -= cc[j]; });
-      const bt = isSat ? 0 : buildH(cc, b); grow(bt); // satellites use the shipyard, not the building queue
-      steps.push({ start, end: start + bt, key, why: pk.why, name, cost: cc });
-      if (isSat) b.sats = lvl; else p.b[key] = lvl; t = start + bt;
+    // move the clock to `to`, producing with the levels of the moment and applying the builds that finish on the way
+    const advance = to => {
+      while (T < to - 1e-9) {
+        pending.sort((x, y) => x.at - y.at); const nx = pending[0] && pending[0].at <= to ? pending[0] : null;
+        const seg = nx ? Math.max(T, nx.at) : to; const c = planetCalc(p, R, S); const h = seg - T;
+        K.forEach(r => { if (stock[r] < c.cap[r]) stock[r] = Math.min(c.cap[r], stock[r] + c.prod[r] * keep * h); });
+        T = seg; if (nx) { pending.shift(); nx.apply(); }
+      }
+      while (pending.length && pending[0].at <= T + 1e-9) pending.shift().apply();
+    };
+    const waitFor = (cc, c) => { let w = 0; for (const [j, r] of K.entries()) { const miss = cc[j] - stock[r]; if (miss > 0) { if (c.prod[r] <= 0 || cc[j] > c.cap[r]) return Infinity; w = Math.max(w, miss / (c.prod[r] * keep)); } } return w; };
+    const pay = cc => K.forEach((r, j) => { stock[r] = Math.max(0, stock[r] - cc[j]); });
+    while (guard++ < 400) {
+      const c = planetCalc(p, R, S);
+      // 1. defence first: everything that can be paid now goes to it, the rest when produced
+      if (defLeft) {
+        const w = waitFor(defLeft, c);
+        if (!isFinite(w)) { steps.push({ start: T, name: opt.defense.name, kind: 'defense', blocked: true }); defLeft = null; continue; }
+        if (T + w > hours) { steps.push({ start: T + w, name: opt.defense.name, kind: 'defense', late: true, cost: opt.defense.cost }); break; }
+        advance(T + w); pay(defLeft); steps.push({ start: T, end: T, name: opt.defense.name, kind: 'defense', cost: opt.defense.cost }); defLeft = null; continue;
+      }
+      // 2. building queue and research queue: whichever can start first
+      const cand = [];
+      { const b = p.b; const pk = pickNext(p, c, stock, R, S); const key = pk.key;
+        const isSat = key === 'sats'; const lvl = isSat ? (b.sats || 0) + SAT_N : (b[key] || 0) + 1;
+        const cc = isSat ? [0, 2000 * SAT_N, 500 * SAT_N] : cost[key](lvl);
+        cand.push({ kind: 'build', key, lvl, cc, isSat, why: pk.why, name: isSat ? `${SAT_N} satellites solaires` : `${QNAMES[key]} ${lvl}`, start: Math.max(bFree, T + waitFor(cc, c)) }); }
+      cand.sort((x, y) => x.start - y.start);
+      const pk = cand[0];
+      if (!isFinite(pk.start)) { if (pk.kind === 'build') steps.push({ t: T, name: pk.name, key: pk.key, kind: 'build', why: pk.why, blocked: true }); break; }
+      if (pk.start > hours) break;
+      advance(pk.start); pay(pk.cc);
+      if (pk.kind === 'build') {
+        const bt = pk.isSat ? 0 : buildH(pk.cc, p.b);
+        steps.push({ start: T, end: T + bt, key: pk.key, kind: 'build', why: pk.why, name: pk.name, cost: pk.cc });
+        if (pk.isSat) { p.b.sats = pk.lvl; } // shipyard queue: does not hold the building queue
+        else { bFree = T + bt; p.b[pk.key] = pk.lvl; } // level counted from the start, as in the game's queue view
+      }
     }
-    const before = c0, after = planetCalc(p, R, S);
-    return { steps, before: before.prod, after: after.prod, levels: p.b };
+    const after = planetCalc(p, R, S);
+    return { steps, before: c0.prod, after: after.prod, levels: p.b, research: R };
+  }
+
+  // research queue on the research planet, paid from a pot: a share of the empire's stock and production, shipped there
+  // labAt(t) -> lab level at time t (from the research planet's building plan)
+  function simulateResearch(R0, ctx, pot0, potProd, labAt, speed, hours) {
+    const R = Object.assign({}, R0); const pot = pot0.slice(); const steps = []; let t = 0; let guard = 0;
+    const wait = cc => { let w = 0; for (let j = 0; j < 3; j++) { const miss = cc[j] - pot[j]; if (miss > 0) { if (potProd[j] <= 0) return Infinity; w = Math.max(w, miss / potProd[j]); } } return w; };
+    while (t < hours && guard++ < 100) {
+      const rp = researchPick(R, Object.assign({}, ctx, { lab: labAt(t), filter: cc => wait(cc) <= 48 }));
+      if (!rp) { // nothing affordable within two days yet: look again in 6 hours
+        const any = researchPick(R, Object.assign({}, ctx, { lab: labAt(t) })); if (!any) break;
+        t += 6; for (let j = 0; j < 3; j++) pot[j] += potProd[j] * 6; continue; }
+      const w = wait(rp.cost); const start = t + w; if (start > hours) break;
+      for (let j = 0; j < 3; j++) pot[j] += potProd[j] * w - rp.cost[j];
+      const dur = (rp.cost[0] + rp.cost[1]) / (1000 * (1 + labAt(start))) / speed;
+      for (let j = 0; j < 3; j++) pot[j] += potProd[j] * dur;
+      steps.push({ start, end: start + dur, key: rp.key, lvl: rp.lvl, name: rp.name, why: rp.why, cost: rp.cost, kind: 'research' });
+      R[rp.key] = rp.lvl; t = start + dur;
+    }
+    return { steps, levels: R };
   }
 
   // ---------- transports between planets ----------
@@ -484,11 +567,31 @@ const OG = (() => {
       out.research.push(pr);
     }
     const H = (S.planDays || 3) * 24;
-    out.plan = planets.map((p, i) => ({ planet: p, hasStock: !!calcs[i].stockNow, ...simulatePlan(p, R, S, calcs[i].stockNow || {}, H) }));
+    // research runs on one planet (the one with the best lab, or the one chosen), until the Intergalactic Research Network
+    const hostIdx = Math.max(0, S.researchPlanet ? planets.findIndex(p => p.name === S.researchPlanet) : planets.reduce((bi, p, i) => (p.b.lab || 0) > (planets[bi].b.lab || 0) ? i : bi, 0));
+    // research speed: the server page may give the full speed (x16) or only the extra factor over the economy speed (x2)
+    const rs = server.researchSpeed; const rSpeed = (rs ? (rs >= S.speed ? rs : S.speed * rs) : S.speed) / ((officers || []).includes('technocrat') ? 0.75 : 1);
+    const rctx = { ratioC: S.ratioC, ratioD: S.ratioD, minePayback: bestMine, plasmaPayback: l => msu(cost.rPlasma(l)) / plGain };
+    const share = Math.min(0.9, Math.max(0, (S.researchShare ?? 20) / 100));
+    out.plan = planets.map((p, i) => {
+      const dz = S.defense && S.defense[p.name]; const opt = { share };
+      if (i === hostIdx) opt.labTarget = 10;
+      if (dz && dz.cost && dz.cost.some(v => v > 0)) opt.defense = dz;
+      return { planet: p, hasStock: !!calcs[i].stockNow, ...simulatePlan(p, R, S, calcs[i].stockNow || {}, H, opt) };
+    });
+    // research pot: the share of every planet's stock and production
+    const pot0 = [0, 0, 0], potProd = [0, 0, 0];
+    planets.forEach((p, i) => { const c = calcs[i]; ['m', 'c', 'd'].forEach((k, j) => { pot0[j] += ((c.stockNow || {})[k] || 0) * share; potProd[j] += (c.prod[k] || 0) * share; }); });
+    const hostSteps = (out.plan[hostIdx] || { steps: [] }).steps; const lab0 = planets[hostIdx] ? planets[hostIdx].b.lab || 0 : 0;
+    const labAt = t => hostSteps.filter(s => s.key === 'lab' && s.kind === 'build' && s.end <= t).reduce((l, s) => Math.max(l, +s.name.match(/\d+$/)[0]), lab0);
+    const rsim = planets.length ? simulateResearch(R, rctx, pot0, potProd, labAt, rSpeed, H) : { steps: [] };
+    out.researchHost = planets[hostIdx] ? { name: planets[hostIdx].name, lab: lab0, speed: rSpeed, irn: R.rIRN || 0, share, potProd, pot0 } : null;
+    out.researchSteps = rsim.steps;
     // the Planètes tab shows the same building order as the plan: first steps of the plan, with the explanations of the matching recommendations
     const WHY = { mine: 'Meilleure rentabilité de la planète après les étapes précédentes.', storage: 'Le hangar sera plein avant que tu aies de quoi lancer la suite : monte-le pour ne pas perdre de production.', 'storage-size': 'La construction suivante coûte plus que ce que le hangar peut contenir.', energy: 'La construction précédente consomme plus d\'énergie que tu n\'en produis.', robots: 'Presque gratuit à ce niveau et accélère toutes les constructions de la colonie.', infra: 'Coûte moins que la prochaine mine et accélère toutes les constructions suivantes.' };
     out.planets.forEach((x, i) => {
-      const steps = out.plan[i].steps; const old = x.recs; const used = new Set(); const q = [];
+      const defStep = out.plan[i].steps.find(s => s.kind === 'defense' && !s.blocked);
+      const steps = out.plan[i].steps.filter(s => s.kind === 'build'); const old = x.recs; const used = new Set(); const q = [];
       steps.slice(0, 3).forEach((s, si) => {
         const m = old.find(r => r.title === s.name && !used.has(r)); if (m) used.add(m);
         const r = m ? Object.assign({}, m) : { prio: 3, type: s.why === 'infra' || s.why === 'robots' ? 'infra' : 'eco', title: s.name, cost: s.cost || null, why: WHY[s.why] || '' };
@@ -497,6 +600,7 @@ const OG = (() => {
         r.planEnd = s.end;
         if (s.blocked) { r.affordable = false; r.waitH = Infinity; r.waitBlock = 'prod'; r.missing = r.missing || [0, 0, 0]; }
         else if (si > 0) { r.planStart = s.start; r.planEnd = s.end; r.affordable = s.start <= 0.001; r.missing = r.missing || [0, 0, 0]; r.waitH = s.start; r.waitBlock = null; r.why = (r.why ? r.why + ' ' : '') + 'Étape ' + (si + 1) + ' du plan.'; }
+        else if (defStep && s.start > 0.01) { r.affordable = false; r.missing = [0, 0, 0]; r.waitH = s.start; r.waitBlock = null; r.why = (r.why ? r.why + ' ' : '') + 'Lancée après la défense conseillée, payée en premier.'; }
         else if (calcs[i].stockNow) { const c = calcs[i]; const miss = ['m', 'c', 'd'].map((k, j) => Math.max(0, r.cost[j] - (c.stockNow[k] ?? Infinity))); r.missing = miss; r.affordable = miss.every(v => v <= 0); if (!r.affordable) { r.waitH = s.start; r.waitBlock = null; } }
         q.push(r);
       });

@@ -113,7 +113,7 @@ details.howto ol{margin:6px 0 6px;padding-left:22px}details.howto li{margin:4px 
   <h1>OGame <span>·</span> Conseiller de construction</h1>
   <p class="sub">Colle ton export de planètes : l'outil calcule production, énergie, stockage et rentabilité, et te dit quoi construire ensuite sur chaque planète.</p>
 
-  <nav class="tabs" style="flex-wrap:wrap"><a href="#export" id="tab-export">Export</a><a href="#vue" id="tab-vue">Vue générale</a><a href="#planetes" id="tab-planetes">Planètes</a><a href="#plan" id="tab-plan">Plan</a><a href="#combat" id="tab-combat">Combat</a><a href="#cibles" id="tab-cibles">Cibles</a><a href="#expe" id="tab-expe">Expéditions</a><a href="#histo" id="tab-histo">Historique</a></nav>
+  <nav class="tabs" style="flex-wrap:wrap"><a href="#export" id="tab-export">Export</a><a href="#vue" id="tab-vue">Vue générale</a><a href="#planetes" id="tab-planetes">Planètes</a><a href="#plan" id="tab-plan">Plan</a><a href="#recherche" id="tab-recherche">Recherche</a><a href="#combat" id="tab-combat">Combat</a><a href="#cibles" id="tab-cibles">Cibles</a><a href="#expe" id="tab-expe">Expéditions</a><a href="#histo" id="tab-histo">Historique</a></nav>
   <section id="view-planetes">
   <div class="note" style="display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;margin:0 0 14px"><span id="dataStamp2">Aucune donnée pour l'instant.</span><a href="#export" style="color:var(--acc);font-weight:600">Mettre à jour</a></div>
   <div class="panel">
@@ -123,10 +123,6 @@ details.howto ol{margin:6px 0 6px;padding-left:22px}details.howto li{margin:4px 
     <div id="warns"></div>
   </div>
 
-  <div class="panel">
-    <h2>Recherche : prochaines étapes</h2>
-    <ul class="recs" id="research" style="padding:6px 0 0"></ul>
-  </div>
 
   <div style="display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between;margin:22px 0 12px"><h2>Planètes</h2><span class="note">Les pastilles <span class="pill">1</span> repèrent dans les niveaux les bâtiments à construire, dans l'ordre. Touche une construction pour voir pourquoi.</span></div>
   <div class="grid" id="planets"></div>
@@ -141,7 +137,20 @@ details.howto ol{margin:6px 0 6px;padding-left:22px}details.howto li{margin:4px 
     </div>
     <div id="planSummary"></div>
     <div class="grid" id="planOut"></div>
-    <p class="note">Hypothèses : une construction à la fois par planète, avec le stock de l'export comme point de départ. Les transports, recherches, bâtiments de formes de vie, défenses et vaisseaux ne sont pas pris en compte : ils décalent le plan, qui se recale à chaque nouvel export. Les choix suivent ton taux d'échange (onglet Export, « Mes données et réglages »).</p>
+    <p class="note">Hypothèses : une construction à la fois par planète, avec le stock de l'export comme point de départ, moins la part réservée à la recherche (onglet Recherche). La défense conseillée est payée en premier (réglable dans l'onglet Export). Les transports, bâtiments de formes de vie et vaisseaux ne sont pas pris en compte : ils décalent le plan, qui se recale à chaque nouvel export. Les choix suivent ton taux d'échange (onglet Export, « Mes données et réglages »).</p>
+  </section>
+
+  <section id="view-recherche" class="hidden">
+    <div class="panel">
+      <h2>Recherche</h2>
+      <div class="settings" style="margin-top:8px">
+        <label>Planète de recherche<select id="rplanet"></select></label>
+        <label>Part de la production pour la recherche (%)<input type="number" id="rshare" min="0" max="90" step="5" value="20"></label>
+      </div>
+      <p class="note" id="rHost" style="margin:10px 0 0"></p>
+    </div>
+    <div class="panel" style="padding:0"><div id="rOut"></div></div>
+    <p class="note">Ordre choisi : l'astrophysique jusqu'à la prochaine planète, la technologie plasma quand elle s'amortit à peu près aussi vite que tes mines, puis, de la moins chère à la plus chère (avec un léger avantage aux plus utiles), ordinateur 10, espionnage 10, hyperespace 8 et le Réseau de recherche, armes, bouclier et protection 10, énergie 10, réacteurs, laser 12. Une recherche n'est lancée que si le pot peut la payer en moins de 2 jours. Le laboratoire de la planète de recherche monte jusqu'au niveau 10 dans son plan de construction (prérequis du Réseau). Les effets des recherches sur la production ne sont pas recalculés dans le plan.</p>
   </section>
 
   <section id="view-vue" class="hidden">
@@ -228,6 +237,8 @@ details.howto ol{margin:6px 0 6px;padding-left:22px}details.howto li{margin:4px 
       <label class="chk"><input type="checkbox" id="ally"> Classe d'alliance Marchands (+5 %)</label>
       <label>Bonus supplémentaires sur les mines (%)<input type="number" id="extra" value="0" step="1"></label>
       <label class="chk"><input type="checkbox" id="nocalib"> Ne pas caler sur les chiffres du jeu</label>
+      <label>Défense : attaquant jusqu'à X fois ta flotte<input type="number" id="threat" min="0.5" max="20" step="0.5" value="2"></label>
+      <label class="chk"><input type="checkbox" id="defFirst" checked> Payer la défense avant les bâtiments dans le plan</label>
     </div>
     <div class="row">
       <button id="pasteData">Coller mon export</button>
@@ -455,7 +466,44 @@ const OG = (() => {
     rWeap: n => [800 * 2 ** (n - 1), 200 * 2 ** (n - 1), 0],
     rShield: n => [200 * 2 ** (n - 1), 600 * 2 ** (n - 1), 0],
     rArmour: n => [1000 * 2 ** (n - 1), 0, 0],
+    rEsp: n => [200 * 2 ** (n - 1), 1000 * 2 ** (n - 1), 200 * 2 ** (n - 1)],
+    rHyper: n => [0, 4000 * 2 ** (n - 1), 2000 * 2 ** (n - 1)],
+    rComb: n => [400 * 2 ** (n - 1), 0, 600 * 2 ** (n - 1)],
+    rImp: n => [2000 * 2 ** (n - 1), 4000 * 2 ** (n - 1), 600 * 2 ** (n - 1)],
+    rHD: n => [10000 * 2 ** (n - 1), 20000 * 2 ** (n - 1), 6000 * 2 ** (n - 1)],
+    rLaser: n => [200 * 2 ** (n - 1), 100 * 2 ** (n - 1), 0],
+    rIon: n => [1000 * 2 ** (n - 1), 300 * 2 ** (n - 1), 100 * 2 ** (n - 1)],
   };
+  // ---------- research: names, requirements (lab level + other research), and the targets for your stage ----------
+  const RNAMES = { rEsp: 'Technologie espionnage', rComp: 'Technologie ordinateur', rWeap: 'Technologie armes', rShield: 'Technologie bouclier', rArmour: 'Technologie protection des vaisseaux', rEnergy: 'Technologie énergétique', rHyper: 'Technologie hyperespace', rComb: 'Réacteur à combustion', rImp: 'Réacteur à impulsion', rHD: 'Propulsion hyperespace', rLaser: 'Technologie laser', rIon: 'Technologie à ions', rPlasma: 'Technologie plasma', rIRN: 'Réseau de recherche intergalactique', rAstro: 'Astrophysique' };
+  const RREQ = { rEsp: { lab: 3 }, rComp: { lab: 1 }, rWeap: { lab: 4 }, rShield: { lab: 6, rEnergy: 3 }, rArmour: { lab: 2 }, rEnergy: { lab: 1 }, rHyper: { lab: 7, rEnergy: 5, rShield: 5 }, rComb: { lab: 1, rEnergy: 1 }, rImp: { lab: 2, rEnergy: 1 }, rHD: { lab: 7, rHyper: 3 }, rLaser: { lab: 1, rEnergy: 2 }, rIon: { lab: 4, rLaser: 5, rEnergy: 4 }, rPlasma: { lab: 4, rEnergy: 8, rLaser: 10, rIon: 5 }, rIRN: { lab: 10, rComp: 8, rHyper: 8 }, rAstro: { lab: 3, rEsp: 4, rImp: 3 } };
+  // [target level, weight (lower = sooner for the same cost), why]
+  const RTARGET = {
+    rAstro: [null, 0.5, 'une planète de plus (nouvelle file de construction et de production)'],
+    rPlasma: [null, 0.6, 'production de tout l\'empire'],
+    rComp: [10, 0.8, '+1 flotte en vol par niveau ; le niveau 10 débloque l\'usine de nanites'],
+    rEsp: [10, 0.8, 'voir flotte et défense des joueurs mieux équipés que toi'],
+    rHyper: [8, 0.9, 'prérequis du Réseau de recherche, +5 % de soute par niveau'],
+    rIRN: [1, 0.6, 'relie un 2e laboratoire niveau 10 : recherches plus rapides'],
+    rWeap: [10, 1, 'dégâts de ta flotte et de ta défense'], rShield: [10, 1, 'boucliers de ta flotte et de ta défense'], rArmour: [10, 1, 'coque de ta flotte et de ta défense'],
+    rEnergy: [10, 1, 'centrales à fusion, prérequis'], rComb: [10, 1.2, 'vitesse des transporteurs et chasseurs légers'], rImp: [7, 1.2, 'vitesse des croiseurs et chasseurs lourds'],
+    rHD: [7, 1.2, 'vitesse des vaisseaux de bataille, destructeurs'], rLaser: [12, 1.3, 'prérequis du traqueur'], rIon: [5, 1.3, 'prérequis'],
+  };
+  // ctx: { lab, plasmaPayback(level) -> hours, minePayback } ; returns the next research for levels R, or null
+  function researchPick(R, ctx) {
+    const msu = c => c[0] + c[1] * ctx.ratioC + c[2] * ctx.ratioD; let best = null;
+    for (const k of Object.keys(RTARGET)) {
+      const lvl = (R[k] || 0) + 1; let [target, w, why] = RTARGET[k];
+      if (k === 'rAstro') target = (R.rAstro || 0) % 2 ? (R.rAstro || 0) + 2 : (R.rAstro || 0) + 1;
+      if (k === 'rPlasma') { const pb = ctx.plasmaPayback(lvl); if (!(pb <= 3 * ctx.minePayback)) continue; target = lvl; why = `production de tout l'empire, amortie en ${fmtH(pb)}`; }
+      if (lvl > target) continue;
+      if (!Object.entries(RREQ[k]).every(([q, l]) => (q === 'lab' ? ctx.lab : (R[q] || 0)) >= l)) continue;
+      const cc = cost[k](lvl); if (ctx.filter && !ctx.filter(cc)) continue; const score = msu(cc) * w * (k === 'rAstro' && lvl % 2 === 0 ? 0.5 : 1);
+      if (!best || score < best.score) best = { key: k, lvl, cost: cc, score, name: `${RNAMES[k]} ${lvl}`, why };
+    }
+    return best;
+  }
+
 
   const storageCap = n => 5000 * Math.floor(2.5 * Math.exp(20 * n / 33));
   const mineBase = { metal: n => 30 * n * 1.1 ** n, crystal: n => 20 * n * 1.1 ** n, deut: (n, t) => 10 * n * 1.1 ** n * (1.44 - 0.004 * t) };
@@ -521,7 +569,7 @@ const OG = (() => {
 
   // ---------- multi-day build plan (per planet, buildings queue) ----------
   // ---------- one rule set for the building queue: used by the plan AND by the Planètes tab ----------
-  const QNAMES = { metal: 'Mine de métal', crystal: 'Mine de cristal', deut: 'Synthétiseur de deutérium', solar: 'Centrale solaire', fusion: 'Centrale de fusion', stM: 'Hangar de métal', stC: 'Hangar de cristal', stD: 'Réservoir de deutérium', robots: 'Usine de robots', shipyard: 'Chantier spatial', nanite: 'Usine de nanites' };
+  const QNAMES = { lab: 'Laboratoire de recherche', metal: 'Mine de métal', crystal: 'Mine de cristal', deut: 'Synthétiseur de deutérium', solar: 'Centrale solaire', fusion: 'Centrale de fusion', stM: 'Hangar de métal', stC: 'Hangar de cristal', stD: 'Réservoir de deutérium', robots: 'Usine de robots', shipyard: 'Chantier spatial', nanite: 'Usine de nanites' };
   const SAT_N = 10;
   // returns the next build for planet p (state c, stock) and why, in priority order
   function pickNext(p, c, stock, R, S) {
@@ -550,6 +598,7 @@ const OG = (() => {
     if (rob >= 4 && rob < 10 && (b.metal || 0) >= 12) infra.push('robots');
     if ((b.shipyard || 0) < 2 && (b.metal || 0) >= 10) infra.push('shipyard');
     if (rob >= 10 && (R.rComp || 0) >= 10 && (b.nanite || 0) < 1) infra.push('nanite');
+    if (p.labTarget && (b.lab || 0) < p.labTarget) infra.push('lab'); // research planet: lab 10 for the Intergalactic Research Network
     const mineMsu = msu(cands[0].cc);
     if (!base) for (const k of infra) if (msu(cost[k]((b[k] || 0) + 1)) <= mineMsu) { pick = { key: k, why: 'infra' }; break; }
     const cc = pick.key === 'sats' ? [0, 2000 * SAT_N, 500 * SAT_N] : cost[pick.key]((b[pick.key] || 0) + 1);
@@ -562,30 +611,75 @@ const OG = (() => {
     return pick;
   }
 
-  function simulatePlan(p0, R, S, startStock, hours) {
-    const c0 = planetCalc(p0, R, S);
-    const p = { name: p0.name, pos: p0.pos, coords: p0.coords, temp: p0.temp, b: Object.assign({}, p0.b), lfr: p0.lfr, calibFixed: c0.calib, capRatio: c0.capRatio };
-    let stock = { m: startStock.m || 0, c: startStock.c || 0, d: startStock.d || 0 };
-    const K = ['m', 'c', 'd']; const steps = []; let t = 0; let guard = 0;
+  // opt.share: part of stock and production kept for research (sent to the research planet); opt.labTarget; opt.defense: { name, cost } paid first (shipyard queue)
+  function simulatePlan(p0, R0, S, startStock, hours, opt = {}) {
+    const c0 = planetCalc(p0, R0, S); const R = Object.assign({}, R0);
+    const p = { name: p0.name, pos: p0.pos, coords: p0.coords, temp: p0.temp, b: Object.assign({}, p0.b), lfr: p0.lfr, calibFixed: c0.calib, capRatio: c0.capRatio, labTarget: opt.labTarget || 0 };
+    const keep = 1 - (opt.share || 0); const stock = { m: (startStock.m || 0) * keep, c: (startStock.c || 0) * keep, d: (startStock.d || 0) * keep };
+    const K = ['m', 'c', 'd']; const steps = []; const pending = []; let T = 0; let guard = 0;
+    let bFree = 0; let defLeft = opt.defense ? opt.defense.cost.slice() : null;
     const buildH = (cst, b) => (cst[0] + cst[1]) / (2500 * (1 + (b.robots || 0)) * Math.pow(2, b.nanite || 0) * S.speed);
-    while (t < hours && guard++ < 200) {
-      const c = planetCalc(p, R, S); const b = p.b;
-      const pk = pickNext(p, c, stock, R, S); const key = pk.key;
-      const isSat = key === 'sats'; const lvl = isSat ? (b.sats || 0) + SAT_N : (b[key] || 0) + 1;
-      const cc = isSat ? [0, 2000 * SAT_N, 500 * SAT_N] : cost[key](lvl);
-      const name = isSat ? `${SAT_N} satellites solaires` : `${QNAMES[key]} ${lvl}`;
-      let wait = 0, blocked = false;
-      K.forEach((r, j) => { const miss = cc[j] - stock[r]; if (miss > 0) { if (c.prod[r] <= 0 || cc[j] > c.cap[r]) blocked = true; else wait = Math.max(wait, miss / c.prod[r]); } });
-      if (blocked) { steps.push({ t, name, key, why: pk.why, blocked: true }); break; }
-      const grow = h => K.forEach(r => { stock[r] = Math.min(Math.max(stock[r], c.cap[r]), stock[r] + c.prod[r] * h); if (stock[r] < 0) stock[r] = 0; });
-      grow(wait); const start = t + wait; if (start > hours) break;
-      K.forEach((r, j) => { stock[r] -= cc[j]; });
-      const bt = isSat ? 0 : buildH(cc, b); grow(bt); // satellites use the shipyard, not the building queue
-      steps.push({ start, end: start + bt, key, why: pk.why, name, cost: cc });
-      if (isSat) b.sats = lvl; else p.b[key] = lvl; t = start + bt;
+    // move the clock to `to`, producing with the levels of the moment and applying the builds that finish on the way
+    const advance = to => {
+      while (T < to - 1e-9) {
+        pending.sort((x, y) => x.at - y.at); const nx = pending[0] && pending[0].at <= to ? pending[0] : null;
+        const seg = nx ? Math.max(T, nx.at) : to; const c = planetCalc(p, R, S); const h = seg - T;
+        K.forEach(r => { if (stock[r] < c.cap[r]) stock[r] = Math.min(c.cap[r], stock[r] + c.prod[r] * keep * h); });
+        T = seg; if (nx) { pending.shift(); nx.apply(); }
+      }
+      while (pending.length && pending[0].at <= T + 1e-9) pending.shift().apply();
+    };
+    const waitFor = (cc, c) => { let w = 0; for (const [j, r] of K.entries()) { const miss = cc[j] - stock[r]; if (miss > 0) { if (c.prod[r] <= 0 || cc[j] > c.cap[r]) return Infinity; w = Math.max(w, miss / (c.prod[r] * keep)); } } return w; };
+    const pay = cc => K.forEach((r, j) => { stock[r] = Math.max(0, stock[r] - cc[j]); });
+    while (guard++ < 400) {
+      const c = planetCalc(p, R, S);
+      // 1. defence first: everything that can be paid now goes to it, the rest when produced
+      if (defLeft) {
+        const w = waitFor(defLeft, c);
+        if (!isFinite(w)) { steps.push({ start: T, name: opt.defense.name, kind: 'defense', blocked: true }); defLeft = null; continue; }
+        if (T + w > hours) { steps.push({ start: T + w, name: opt.defense.name, kind: 'defense', late: true, cost: opt.defense.cost }); break; }
+        advance(T + w); pay(defLeft); steps.push({ start: T, end: T, name: opt.defense.name, kind: 'defense', cost: opt.defense.cost }); defLeft = null; continue;
+      }
+      // 2. building queue and research queue: whichever can start first
+      const cand = [];
+      { const b = p.b; const pk = pickNext(p, c, stock, R, S); const key = pk.key;
+        const isSat = key === 'sats'; const lvl = isSat ? (b.sats || 0) + SAT_N : (b[key] || 0) + 1;
+        const cc = isSat ? [0, 2000 * SAT_N, 500 * SAT_N] : cost[key](lvl);
+        cand.push({ kind: 'build', key, lvl, cc, isSat, why: pk.why, name: isSat ? `${SAT_N} satellites solaires` : `${QNAMES[key]} ${lvl}`, start: Math.max(bFree, T + waitFor(cc, c)) }); }
+      cand.sort((x, y) => x.start - y.start);
+      const pk = cand[0];
+      if (!isFinite(pk.start)) { if (pk.kind === 'build') steps.push({ t: T, name: pk.name, key: pk.key, kind: 'build', why: pk.why, blocked: true }); break; }
+      if (pk.start > hours) break;
+      advance(pk.start); pay(pk.cc);
+      if (pk.kind === 'build') {
+        const bt = pk.isSat ? 0 : buildH(pk.cc, p.b);
+        steps.push({ start: T, end: T + bt, key: pk.key, kind: 'build', why: pk.why, name: pk.name, cost: pk.cc });
+        if (pk.isSat) { p.b.sats = pk.lvl; } // shipyard queue: does not hold the building queue
+        else { bFree = T + bt; p.b[pk.key] = pk.lvl; } // level counted from the start, as in the game's queue view
+      }
     }
-    const before = c0, after = planetCalc(p, R, S);
-    return { steps, before: before.prod, after: after.prod, levels: p.b };
+    const after = planetCalc(p, R, S);
+    return { steps, before: c0.prod, after: after.prod, levels: p.b, research: R };
+  }
+
+  // research queue on the research planet, paid from a pot: a share of the empire's stock and production, shipped there
+  // labAt(t) -> lab level at time t (from the research planet's building plan)
+  function simulateResearch(R0, ctx, pot0, potProd, labAt, speed, hours) {
+    const R = Object.assign({}, R0); const pot = pot0.slice(); const steps = []; let t = 0; let guard = 0;
+    const wait = cc => { let w = 0; for (let j = 0; j < 3; j++) { const miss = cc[j] - pot[j]; if (miss > 0) { if (potProd[j] <= 0) return Infinity; w = Math.max(w, miss / potProd[j]); } } return w; };
+    while (t < hours && guard++ < 100) {
+      const rp = researchPick(R, Object.assign({}, ctx, { lab: labAt(t), filter: cc => wait(cc) <= 48 }));
+      if (!rp) { // nothing affordable within two days yet: look again in 6 hours
+        const any = researchPick(R, Object.assign({}, ctx, { lab: labAt(t) })); if (!any) break;
+        t += 6; for (let j = 0; j < 3; j++) pot[j] += potProd[j] * 6; continue; }
+      const w = wait(rp.cost); const start = t + w; if (start > hours) break;
+      for (let j = 0; j < 3; j++) pot[j] += potProd[j] * w - rp.cost[j];
+      const dur = (rp.cost[0] + rp.cost[1]) / (1000 * (1 + labAt(start))) / speed;
+      for (let j = 0; j < 3; j++) pot[j] += potProd[j] * dur;
+      steps.push({ start, end: start + dur, key: rp.key, lvl: rp.lvl, name: rp.name, why: rp.why, cost: rp.cost, kind: 'research' });
+      R[rp.key] = rp.lvl; t = start + dur;
+    }
+    return { steps, levels: R };
   }
 
   // ---------- transports between planets ----------
@@ -822,11 +916,31 @@ const OG = (() => {
       out.research.push(pr);
     }
     const H = (S.planDays || 3) * 24;
-    out.plan = planets.map((p, i) => ({ planet: p, hasStock: !!calcs[i].stockNow, ...simulatePlan(p, R, S, calcs[i].stockNow || {}, H) }));
+    // research runs on one planet (the one with the best lab, or the one chosen), until the Intergalactic Research Network
+    const hostIdx = Math.max(0, S.researchPlanet ? planets.findIndex(p => p.name === S.researchPlanet) : planets.reduce((bi, p, i) => (p.b.lab || 0) > (planets[bi].b.lab || 0) ? i : bi, 0));
+    // research speed: the server page may give the full speed (x16) or only the extra factor over the economy speed (x2)
+    const rs = server.researchSpeed; const rSpeed = (rs ? (rs >= S.speed ? rs : S.speed * rs) : S.speed) / ((officers || []).includes('technocrat') ? 0.75 : 1);
+    const rctx = { ratioC: S.ratioC, ratioD: S.ratioD, minePayback: bestMine, plasmaPayback: l => msu(cost.rPlasma(l)) / plGain };
+    const share = Math.min(0.9, Math.max(0, (S.researchShare ?? 20) / 100));
+    out.plan = planets.map((p, i) => {
+      const dz = S.defense && S.defense[p.name]; const opt = { share };
+      if (i === hostIdx) opt.labTarget = 10;
+      if (dz && dz.cost && dz.cost.some(v => v > 0)) opt.defense = dz;
+      return { planet: p, hasStock: !!calcs[i].stockNow, ...simulatePlan(p, R, S, calcs[i].stockNow || {}, H, opt) };
+    });
+    // research pot: the share of every planet's stock and production
+    const pot0 = [0, 0, 0], potProd = [0, 0, 0];
+    planets.forEach((p, i) => { const c = calcs[i]; ['m', 'c', 'd'].forEach((k, j) => { pot0[j] += ((c.stockNow || {})[k] || 0) * share; potProd[j] += (c.prod[k] || 0) * share; }); });
+    const hostSteps = (out.plan[hostIdx] || { steps: [] }).steps; const lab0 = planets[hostIdx] ? planets[hostIdx].b.lab || 0 : 0;
+    const labAt = t => hostSteps.filter(s => s.key === 'lab' && s.kind === 'build' && s.end <= t).reduce((l, s) => Math.max(l, +s.name.match(/\d+$/)[0]), lab0);
+    const rsim = planets.length ? simulateResearch(R, rctx, pot0, potProd, labAt, rSpeed, H) : { steps: [] };
+    out.researchHost = planets[hostIdx] ? { name: planets[hostIdx].name, lab: lab0, speed: rSpeed, irn: R.rIRN || 0, share, potProd, pot0 } : null;
+    out.researchSteps = rsim.steps;
     // the Planètes tab shows the same building order as the plan: first steps of the plan, with the explanations of the matching recommendations
     const WHY = { mine: 'Meilleure rentabilité de la planète après les étapes précédentes.', storage: 'Le hangar sera plein avant que tu aies de quoi lancer la suite : monte-le pour ne pas perdre de production.', 'storage-size': 'La construction suivante coûte plus que ce que le hangar peut contenir.', energy: 'La construction précédente consomme plus d\'énergie que tu n\'en produis.', robots: 'Presque gratuit à ce niveau et accélère toutes les constructions de la colonie.', infra: 'Coûte moins que la prochaine mine et accélère toutes les constructions suivantes.' };
     out.planets.forEach((x, i) => {
-      const steps = out.plan[i].steps; const old = x.recs; const used = new Set(); const q = [];
+      const defStep = out.plan[i].steps.find(s => s.kind === 'defense' && !s.blocked);
+      const steps = out.plan[i].steps.filter(s => s.kind === 'build'); const old = x.recs; const used = new Set(); const q = [];
       steps.slice(0, 3).forEach((s, si) => {
         const m = old.find(r => r.title === s.name && !used.has(r)); if (m) used.add(m);
         const r = m ? Object.assign({}, m) : { prio: 3, type: s.why === 'infra' || s.why === 'robots' ? 'infra' : 'eco', title: s.name, cost: s.cost || null, why: WHY[s.why] || '' };
@@ -835,6 +949,7 @@ const OG = (() => {
         r.planEnd = s.end;
         if (s.blocked) { r.affordable = false; r.waitH = Infinity; r.waitBlock = 'prod'; r.missing = r.missing || [0, 0, 0]; }
         else if (si > 0) { r.planStart = s.start; r.planEnd = s.end; r.affordable = s.start <= 0.001; r.missing = r.missing || [0, 0, 0]; r.waitH = s.start; r.waitBlock = null; r.why = (r.why ? r.why + ' ' : '') + 'Étape ' + (si + 1) + ' du plan.'; }
+        else if (defStep && s.start > 0.01) { r.affordable = false; r.missing = [0, 0, 0]; r.waitH = s.start; r.waitBlock = null; r.why = (r.why ? r.why + ' ' : '') + 'Lancée après la défense conseillée, payée en premier.'; }
         else if (calcs[i].stockNow) { const c = calcs[i]; const miss = ['m', 'c', 'd'].map((k, j) => Math.max(0, r.cost[j] - (c.stockNow[k] ?? Infinity))); r.missing = miss; r.affordable = miss.every(v => v <= 0); if (!r.affordable) { r.waitH = s.start; r.waitBlock = null; } }
         q.push(r);
       });
@@ -1098,13 +1213,74 @@ const CB = (() => {
     const per = drv === 'comb' ? 0.1 : drv === 'imp' ? 0.2 : 0.3;
     return base * (1 + per * lvl + (collector && (k === 'SC' || k === 'LC') ? 1 : 0));
   }
-  return { U, SHIPS, ATTACK_SHIPS, DEFS, RF, parseReport, splitReports, simulate, optimize, buildSide, num, shipSpeed, FUEL };
+  // ---------- defence planner: enough defence that raiding the planet no longer pays for an attacker of your level ----------
+  const DEF_REQ = { RL: { sy: 1 }, LL: { sy: 2, rEnergy: 1, rLaser: 3 }, HL: { sy: 4, rEnergy: 3, rLaser: 6 }, GC: { sy: 6, rEnergy: 6, rWeap: 3, rShield: 1 }, IC: { sy: 4, rIon: 4 }, PT: { sy: 8, rPlasma: 7 }, SS: { sy: 1, rShield: 2 }, LS: { sy: 6, rShield: 6 } };
+  const DEF_SHARE = { RL: 0.30, LL: 0.25, HL: 0.15, GC: 0.20, PT: 0.10 }; // share of the budget, by cost: cheap fodder + heavy guns
+  // cfg: { have:{RL..LS}, sy, R, stock:{m,c,d}, ratioC, ratioD, dfShips, dfDef, dfDeut, lootPct, attackers:[...], threatMsu }
+  function planDefense(cfg) {
+    const rc = cfg.ratioC, rd = cfg.ratioD, R = cfg.R || {};
+    const msuOf = k => U[k][1] + U[k][2] * rc + U[k][3] * rd;
+    const ok = k => Object.entries(DEF_REQ[k]).every(([q, l]) => (q === 'sy' ? cfg.sy || 0 : R[q] || 0) >= l);
+    const avail = Object.keys(DEF_SHARE).filter(ok); const tot = avail.reduce((a, k) => a + DEF_SHARE[k], 0);
+    const stock = cfg.stock || {}; const lootPct = cfg.lootPct ?? 0.5;
+    const lootMsu = ((stock.m || 0) + (stock.c || 0) * rc + (stock.d || 0) * rd) * lootPct;
+    const tech = { weap: R.rWeap || 0, shield: R.rShield || 0, armour: R.rArmour || 0 };
+    const opts = { dfShips: cfg.dfShips ?? 0.3, dfDef: cfg.dfDef ?? 0, dfDeut: cfg.dfDeut ?? true, lootPct, hyperA: R.rHyper || 0, rnd: mulberry(777) };
+    const capLC = 25000 * (1 + 0.05 * (R.rHyper || 0));
+    const lc = Math.ceil(lootMsu / capLC) || 0; // the attacker brings the cargo for the loot
+    const attackers = (cfg.attackers || ['Cr', 'BS', 'Bo']);
+    const val = v => v[0] + v[1] * rc + v[2] * rd;
+    const defRes = { m: stock.m || 0, c: stock.c || 0, d: stock.d || 0 };
+    // best gain an attacker can make with one ship type (+ cargo) against these defences
+    function worst(defUnits) {
+      const units = {}; Object.entries(defUnits).forEach(([k, n]) => { if (n > 0) units[k] = n; });
+      if (!Object.keys(units).length) return { gain: lootMsu, by: null, n: 1 };
+      const def = { units, tech, res: defRes };
+      let w = { gain: -Infinity, by: null, n: 0 };
+      for (const a of attackers) {
+        // an attacker of your level: his fleet is worth at most threatMsu (default: no limit but 20x the loot)
+        const cap = Math.max(1, Math.floor(Math.min(20 * Math.max(lootMsu, 1e5), cfg.threatMsu || Infinity) / msuOf(a)));
+        const sim = (n, runs) => simulate({ units: lc ? { [a]: n, LC: lc } : { [a]: n }, tech }, def, Object.assign({}, opts, { runs, rnd: mulberry(99) }));
+        const wins = n => { const s = sim(n, 10); return s.A / s.n >= 0.9; };
+        let hi = 1; while (hi <= cap && !wins(hi)) hi *= 2;
+        if (hi > cap) { if (!wins(cap)) continue; hi = cap; }
+        let lo = Math.floor(hi / 2); for (let i = 0; i < 6 && hi - lo > 1; i++) { const m = (lo + hi) >> 1; if (wins(m)) hi = m; else lo = m; }
+        for (const f of [1, 1.5, 2.5]) {
+          const n = Math.min(cap, Math.ceil(hi * f)); if (f > 1 && n === hi) continue; const s = sim(n, 14);
+          const gain = val(s.lootIfWin) * (s.A / s.n) + val(s.debris) - val(s.costA);
+          if (gain > w.gain) w = { gain, by: a, n };
+        }
+      }
+      return w;
+    }
+    const plus = k => { // additions for a budget of k (metal units)
+      const add = {}; if (k <= 0) return add;
+      avail.forEach(t => { const n = Math.floor(k * DEF_SHARE[t] / tot / msuOf(t)); if (n > 0) add[t] = n; });
+      if (ok('SS') && !(cfg.have.SS > 0)) add.SS = 1;
+      if (ok('LS') && !(cfg.have.LS > 0) && k >= 3 * msuOf('LS')) add.LS = 1;
+      return add;
+    };
+    const merged = add => { const u = Object.assign({}, cfg.have); Object.entries(add).forEach(([k, n]) => { u[k] = (u[k] || 0) + n; }); return u; };
+    const costOf = add => { const c = [0, 0, 0]; Object.entries(add).forEach(([k, n]) => { c[0] += n * U[k][1]; c[1] += n * U[k][2]; c[2] += n * U[k][3]; }); return c; };
+    const now = worst(cfg.have);
+    if (now.gain <= 0) return { safe: true, add: {}, cost: [0, 0, 0], lootMsu, before: now, after: now };
+    if (!avail.length) return { safe: false, noShipyard: true, add: {}, cost: [0, 0, 0], lootMsu, before: now, after: now };
+    let k = Math.max(2e4, lootMsu * 0.1), w = worst(merged(plus(k))); const kMax = 10 * Math.max(lootMsu, 1e5);
+    while (w.gain > 0 && k < kMax) { k *= 2; w = worst(merged(plus(k))); }
+    if (w.gain > 0) return { safe: false, tooBig: true, add: plus(k), cost: costOf(plus(k)), lootMsu, before: now, after: w };
+    let lo = k / 2, hi = k, wHi = w;
+    for (let i = 0; i < 5; i++) { const m = (lo + hi) / 2; const wm = worst(merged(plus(m))); if (wm.gain <= 0) { hi = m; wHi = wm; } else lo = m; }
+    const add = plus(hi);
+    return { safe: false, add, cost: costOf(add), lootMsu, before: now, after: wHi };
+  }
+
+  return { U, SHIPS, ATTACK_SHIPS, DEFS, RF, parseReport, planDefense, DEF_REQ, splitReports, simulate, optimize, buildSide, num, shipSpeed, FUEL };
 })();
 if (typeof module !== 'undefined') module.exports = CB;
 
 </script>
 <script>
-const APP_VERSION="202611171358";
+const APP_VERSION="202611172348";
 async function checkVersion(){
   if (location.protocol === 'file:') return;
   try { const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' }); if (!r.ok) return; const j = await r.json();
@@ -1174,7 +1350,7 @@ const store = { get(k){ try { return localStorage.getItem(k); } catch(e){ return
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const TAGS = { urgent:'Urgent', important:'Important', eco:'Production', infra:'Infrastructure', lf:'Formes de vie', def:'Défense', res:'Recherche' };
 
-function settings(){ return { speed:+$("speed").value||8, fillHours:+$('fill').value||24, ratioC:+$('rc').value||1.5, ratioD:+$('rd').value||3, collector:$('col').checked, geologist:$('geo').checked, engineer:$('eng').checked, allyTrader:$('ally').checked, extraPct:+$('extra').value||0, noCalib:$('nocalib').checked, planDays:+$('planDays').value||3 }; }
+function settings(){ return { speed:+$("speed").value||8, fillHours:+$('fill').value||24, ratioC:+$('rc').value||1.5, ratioD:+$('rd').value||3, collector:$('col').checked, geologist:$('geo').checked, engineer:$('eng').checked, allyTrader:$('ally').checked, extraPct:+$('extra').value||0, noCalib:$('nocalib').checked, planDays:+$('planDays').value||3, researchShare: $('rshare').value === '' ? 20 : +$('rshare').value, researchPlanet: $('rplanet').value || store.get('og_rplanet') || '', threat:+$('threat').value||2, defFirst:$('defFirst').checked }; }
 
 function recLi(r, tag){
   return `<li><span class="tag ${tag||r.type}">${TAGS[tag||r.type]}</span><span class="t">${esc(r.title)}</span>
@@ -1194,6 +1370,7 @@ function run(){
   store.set('og_data_v4', text); store.set('og_settings_v2', JSON.stringify(S));
   $('err').textContent = '';
   let res;
+  const dz = defenseFor(text, S); if (dz && S.defFirst) S.defense = dz.orders;
   try { res = OG.analyse(text, S); } catch(e){ $('err').textContent = 'Impossible de lire les données : ' + e.message; return; }
   try { CS.parsed = OG.parse(text); buildCombatForm(); } catch(e){}
   if (!res.planets.length){ $('err').textContent = text.trim() ? 'Aucune planète trouvée. Chaque planète doit commencer par une ligne « Planete: Nom ».' : 'Colle ton export de planètes pour commencer (bouton « Copier un modèle vide » pour le format).'; $('inputPanel').open = true; return; }
@@ -1211,9 +1388,10 @@ function run(){
   ].map(([a,b,c]) => `<div class="kpi"><small>${a}</small><b>${b}</b><small>${c}</small></div>`).join('');
   if (!res.exportedAt && /Temperature max\s*:/.test(text)) res.warnings.unshift('Ton favori Export OGame est une ancienne version : il ne lit pas encore ton stock de ressources. Va dans l\'onglet Export, copie à nouveau le code du favori et remplace l\'adresse de ton favori.');
   $('warns').innerHTML = res.warnings.map(w => `<div class="warn">${esc(w)}</div>`).join('');
-  $('research').innerHTML = res.research.map(r => recLi(r, r.isBuilding ? 'infra' : 'res')).join('');
+  renderResearch(res);
   showStamp(res.exportedAt);
-  $('planets').innerHTML = res.planets.map(x => planetCard(x, S)).join('');
+  res.defense = dz ? dz.byName : null;
+  $('planets').innerHTML = res.planets.map(x => planetCard(x, S, res.defense)).join('');
   renderVue(res);
   renderPlan(res);
   if (location.hash === '#cibles') renderTargets();
@@ -1258,7 +1436,7 @@ function calLine(c){
   const dev = ks.filter(k => Math.abs(cal[k] - 1) > 0.02).map(k => `${{ m: 'M', c: 'C', d: 'D' }[k]} ${cal[k] > 1 ? '+' : ''}${Math.round((cal[k] - 1) * c.modelBon[k] * 100)} %`);
   return `<span class="ok" title="Production lue dans le jeu">✓ calé sur le jeu</span>${dev.length ? `<span class="warnc" title="Écart entre le jeu et les bonus connus (objets, recherches de formes de vie, événements…)">bonus non identifiés : ${esc(dev.join(' · '))}</span>` : ''}`;
 }
-function planetCard(x, S){
+function planetCard(x, S, DZ){
   const b = x.p.b, c = x.c, f = OG.fmt, recs = x.recs;
   const rock = isRock(b), race = rock ? "Rock'tal" : (b.lfRes ? 'Humains' : 'sans forme de vie');
   const e = Math.round(c.eProd - c.eUse);
@@ -1276,6 +1454,7 @@ function planetCard(x, S){
     <div class="lv3"><div><div class="lvh">Ressources</div>${lvlRows(RES_ROWS, b, recs, ['metal','crystal','deut','solar','stM','stC','stD'])}</div><div><div class="lvh">Formes de vie</div>${lf}</div><div><div class="lvh">Installations</div>${lvlRows(INST_ROWS, b, recs, ['robots','shipyard','lab'])}</div></div>
     <div class="lvh" style="padding:4px 14px 0">À construire</div>
     <ol class="top3">${top}</ol>
+    ${defBlock(DZ && DZ[x.p.name], x)}
     ${x.parallel && x.parallel.length ? `<div class="note" style="padding:0 14px 12px;font-size:12px">En parallèle, sur leur propre file : ${x.parallel.slice(0, 3).map(r => esc(r.title)).join(' · ')}</div>` : ''}
   </article>`;
 }
@@ -1319,12 +1498,70 @@ function renderPlan(res){
     x.steps.forEach(s => { if (s.blocked) return; const d = new Date(now + s.start * 3600000); const k = dayKey(d); if (!groups[k]) { groups[k] = { label: dayLabel(d), items: [] }; order.push(k); } groups[k].items.push({ s, d }); });
     const block = x.steps.find(s => s.blocked);
     const body = order.map((k, gi) => `<details class="howto" ${gi === 0 ? 'open' : ''} style="margin:8px 0"><summary>${esc(groups[k].label)} <span class="note">· ${groups[k].items.length} construction${groups[k].items.length > 1 ? 's' : ''}</span></summary>
-      <ol class="top3" style="padding:4px 0 0">${groups[k].items.map(({ s, d }) => `<li style="display:flex;gap:10px;align-items:baseline;padding:6px 0;border-top:1px solid var(--line)"><span class="cc" style="width:44px;flex:none">${hm(d)}</span><span class="tt">${esc(s.name)}</span><span class="note" style="white-space:nowrap">${esc(OG.fmtCost(s.cost))} · ${fmtDur(s.end - s.start)}</span></li>`).join('')}</ol></details>`).join('')
+      <ol class="top3" style="padding:4px 0 0">${groups[k].items.map(({ s, d }) => `<li style="display:flex;gap:10px;align-items:baseline;padding:6px 0;border-top:1px solid var(--line)"><span class="cc" style="width:44px;flex:none">${hm(d)}</span>${s.kind === 'defense' ? `<span class="tt" style="flex:1;min-width:0;white-space:normal"><span class="tag def">Défense</span>${esc(s.name.replace(/^Défense : /, ''))}<br><span class="note">${esc(OG.fmtCost(s.cost))} · chantier spatial, en parallèle</span></span>` : `<span class="tt">${esc(s.name)}</span><span class="note" style="white-space:nowrap">${esc(OG.fmtCost(s.cost))} · ${fmtDur(s.end - s.start)}</span>`}</li>`).join('')}</ol></details>`).join('')
       || '<p class="note" style="padding:0 14px">Rien de faisable sur cette période.</p>';
     return `<article class="card"><header><h3>${esc(x.planet.name)}</h3><small>${x.steps.filter(s => !s.blocked).length} constructions</small></header>
       <div class="pstat"><span>Production/h aujourd'hui <b>${f(x.before.m)}</b> M · <b>${f(x.before.c)}</b> C · <b>${f(x.before.d)}</b> D</span><span>dans ${days} j <b class="ok">${f(x.after.m)}</b> M · <b>${f(x.after.c)}</b> C · <b>${f(x.after.d)}</b> D</span></div>
-      <div style="padding:0 14px 10px">${body}${block ? `<p class="warnc" style="font-size:12px">Ensuite : ${esc(block.name)} est bloqué (ressource non produite ou hangar insuffisant).</p>` : ''}</div></article>`;
+      <div style="padding:0 14px 10px">${body}${block ? `<p class="warnc" style="font-size:12px">Ensuite : ${esc(block.name)} est bloqué (ressource non produite ou hangar insuffisant).</p>` : ''}${x.steps.some(s => s.late) ? `<p class="warnc" style="font-size:12px">La défense conseillée n'est pas payable sur cette période avec la production de la planète : le plan l'attend. Envoie des ressources depuis tes autres planètes, ou décoche « Payer la défense avant les bâtiments » dans l'onglet Export.</p>` : ''}</div></article>`;
   }).join('');
+}
+
+// ---------- Defence: enough that raiding each planet no longer pays (computed in the background, then the plan is redone) ----------
+const DZ = { key: null, val: null, pending: null };
+const DEFKEY = { RL: 'dRL', LL: 'dLL', HL: 'dHL', GC: 'dGauss', IC: 'dIon', PT: 'dPlasma', SS: 'dSS', LS: 'dLS' };
+function defenseFor(text, S){
+  let h = 0; for (let i = 0; i < text.length; i++) h = (h * 31 + text.charCodeAt(i)) | 0;
+  const key = [h, S.threat, S.ratioC, S.ratioD].join('|');
+  if (DZ.key === key) return DZ.val;
+  if (DZ.pending !== key) { DZ.pending = key; setTimeout(() => computeDefense(text, S, key), 30); }
+  return null;
+}
+async function computeDefense(text, S, key){
+  let P; try { P = OG.parse(text); } catch(e){ return; }
+  const R = P.research || {}, sv = P.server || {};
+  const msu = k => CB.U[k][1] + CB.U[k][2] * S.ratioC + CB.U[k][3] * S.ratioD;
+  let fleet = 0; P.planets.forEach(p => Object.entries(SHIPKEY).forEach(([k, s]) => { if (!['EP', 'Col', 'Rec'].includes(k)) fleet += (p.b[s] || 0) * msu(k); }));
+  const byName = {}, orders = {};
+  for (const p of P.planets) {
+    if (DZ.pending !== key) return; // a newer export arrived
+    if (!p.stock) continue;
+    const have = {}; Object.entries(DEFKEY).forEach(([k, s]) => { have[k] = p.b[s] || 0; });
+    const d = CB.planDefense({ have, sy: p.b.shipyard || 0, R, stock: p.stock, ratioC: S.ratioC, ratioD: S.ratioD, dfShips: (sv.dfShips ?? 30) / 100, dfDef: (sv.dfDef ?? 0) / 100, dfDeut: sv.dfDeut !== false, lootPct: 0.5, threatMsu: Math.max(5e5, S.threat * fleet) });
+    d.threatMsu = Math.max(5e5, S.threat * fleet); byName[p.name] = d;
+    if (!d.safe && !d.noShipyard && Object.keys(d.add).length) orders[p.name] = { name: 'Défense : ' + defList(d.add), cost: d.cost };
+    await new Promise(r => setTimeout(r, 0));
+  }
+  if (DZ.pending !== key) return;
+  DZ.key = key; DZ.val = { byName, orders }; run();
+}
+const PLURAL = { RL: 'lanceurs de missiles', LL: 'artilleries laser légères', HL: 'artilleries laser lourdes', GC: 'canons de Gauss', IC: 'artilleries à ions', PT: 'lanceurs de plasma', SS: 'petit bouclier', LS: 'grand bouclier', Cr: 'croiseurs', BS: 'vaisseaux de bataille', Bo: 'bombardiers' };
+const unitName = (k, n) => n > 1 && PLURAL[k] ? PLURAL[k] : (k === 'GC' ? 'canon de Gauss' : CB.U[k][0].toLowerCase());
+const defList = add => Object.entries(add).filter(([, n]) => n > 0).map(([k, n]) => `${n} ${unitName(k, n)}`).join(', ');
+function defBlock(d, x){
+  const f = OG.fmt; const wrap = (cls, html) => `<div style="margin:0 14px 12px;padding:8px 10px;border-radius:8px;background:#0e1529;font-size:12.5px"><span class="tag def">Défense</span>${html}</div>`;
+  if (!x.c.stockNow && !(x.p.stock)) return '';
+  if (!d) return DZ.pending && DZ.key !== DZ.pending ? wrap('', '<span class="note">calcul en cours…</span>') : '';
+  const who = `un attaquant jusqu'à ${f(d.threatMsu)} de flotte (${settings().threat} fois la tienne)`;
+  const atk = w => w && w.by ? `${w.n} ${unitName(w.by, w.n)}` : '';
+  if (d.safe) return wrap('', `<b class="ok">Suffisante.</b> Avec ${f(d.lootMsu)} de butin possible, ${who} ne gagne rien à t'attaquer.`);
+  const now = d.before && d.before.by ? ` Aujourd'hui, un raid avec ${atk(d.before)} rapporterait environ <b class="red">+${f(d.before.gain)}</b>.` : ` Aujourd'hui, la planète n'a pas de défense : le moindre raid emporte la moitié des ressources (${f(d.lootMsu)}).`;
+  if (d.noShipyard) return wrap('', `<b class="red">Aucune défense possible :</b> pas de chantier spatial.${now} Ne laisse pas de ressources dessus.`);
+  if (d.tooBig) return wrap('', `<b class="red">Trop de ressources à protéger.</b>${now} Même ${esc(defList(d.add))} ne suffirait pas : dépense ou transporte le stock et mets ta flotte à l'abri.`);
+  const after = d.after && d.after.by ? ` Ensuite, le raid le plus rentable (${atk(d.after)}) perdrait ${f(-d.after.gain)}.` : ` Ensuite, ${who} ne gagne plus le combat.`;
+  return wrap('', `<b class="warnc">À construire :</b> ${esc(defList(d.add))} <span class="note">(${esc(OG.fmtCost(d.cost))})</span>.${now}${after}`);
+}
+
+// ---------- Research tab ----------
+function renderResearch(res){
+  const sel = $('rplanet'); const want = settings().researchPlanet;
+  sel.innerHTML = '<option value="">Meilleur laboratoire</option>' + res.planets.map(x => `<option${x.p.name === want ? ' selected' : ''}>${esc(x.p.name)}</option>`).join('');
+  const h = res.researchHost; if (!h) { $('rHost').textContent = ''; $('rOut').innerHTML = ''; return; }
+  const f = OG.fmt, now = Date.now(), hm = d => d.toLocaleString('fr-FR', { weekday: 'short', hour: '2-digit', minute: '2-digit' });
+  $('rHost').innerHTML = `Recherches lancées sur <b>${esc(h.name)}</b> (laboratoire ${h.lab}), vitesse de recherche x${+h.speed.toFixed(2)}.${h.irn ? ' Le Réseau de recherche est actif : les durées réelles seront plus courtes.' : ' Avant le Réseau de recherche intergalactique, seul ce laboratoire compte.'}<br>
+    Pot de recherche : ${Math.round(h.share * 100)} % du stock et de la production de toutes tes planètes, soit <b>${f(h.potProd[0] * 24)}</b> M · <b>${f(h.potProd[1] * 24)}</b> C · <b>${f(h.potProd[2] * 24)}</b> D par jour à envoyer vers ${esc(h.name)} (une partie y est déjà produite).`;
+  const S = res.researchSteps || [];
+  $('rOut').innerHTML = S.length ? `<table class="mx" style="font-size:12.5px"><thead><tr><th style="text-align:left">Recherche</th><th>Début</th><th>Durée</th><th>Coût</th></tr></thead><tbody>${S.map(s => `<tr><td style="text-align:left;white-space:normal"><b>${esc(s.name)}</b><br><span class="note" style="font-size:11.5px">${esc(s.why || '')}</span></td><td>${s.start < 0.02 ? 'maintenant' : hm(new Date(now + s.start * 3600000))}</td><td>${fmtDur(s.end - s.start)}</td><td style="white-space:normal">${esc(OG.fmtCost(s.cost))}</td></tr>`).join('')}</tbody></table>`
+    : '<p class="note" style="padding:12px 14px">Aucune recherche finançable sur l\'horizon du plan avec ce pot. Augmente la part de production pour la recherche.</p>';
 }
 
 // ---------- Combat tab ----------
@@ -1812,8 +2049,8 @@ function renderHisto(){
 }
 
 function route(){
-  const v = { '#planetes': 'planetes', '#combat': 'combat', '#export': 'export', '#vue': 'vue', '#plan': 'plan', '#cibles': 'cibles', '#expe': 'expe', '#histo': 'histo' }[location.hash] || 'export';
-  ['planetes','plan','vue','combat','cibles','expe','histo','export'].forEach(n => { $('view-' + n).classList.toggle('hidden', v !== n); $('tab-' + n).classList.toggle('on', v === n); });
+  const v = { '#planetes': 'planetes', '#combat': 'combat', '#export': 'export', '#vue': 'vue', '#plan': 'plan', '#recherche': 'recherche', '#cibles': 'cibles', '#expe': 'expe', '#histo': 'histo' }[location.hash] || 'export';
+  ['planetes','plan','recherche','vue','combat','cibles','expe','histo','export'].forEach(n => { $('view-' + n).classList.toggle('hidden', v !== n); $('tab-' + n).classList.toggle('on', v === n); });
 }
 
 const BOOKMARKLET = "javascript:(async()%3D%3E%7Bif(window.__ogExportRunning)return%3Bwindow.__ogExportRunning%3D!0%3Bconst%20e%3D%7B1%3A%22Mine%20de%20metal%22%2C2%3A%22Mine%20de%20cristal%22%2C3%3A%22Synthetiseur%20de%20deuterium%22%2C4%3A%22Centrale%20electrique%20solaire%22%2C12%3A%22Centrale%20electrique%20de%20fusion%22%2C22%3A%22Hangar%20de%20metal%22%2C23%3A%22Hangar%20de%20cristal%22%2C24%3A%22Reservoir%20de%20deuterium%22%2C212%3A%22Satellite%20solaire%22%2C217%3A%22Foreuse%22%2C14%3A%22Usine%20de%20robots%22%2C21%3A%22Chantier%20spatial%22%2C31%3A%22Laboratoire%20de%20recherche%22%2C34%3A%22Depot%20de%20ravitaillement%22%2C44%3A%22Silo%20de%20missiles%22%2C15%3A%22Usine%20de%20nanites%22%2C33%3A%22Terraformeur%22%2C36%3A%22Dock%20Spatial%22%2C113%3A%22Technologie%20energetique%22%2C120%3A%22Technologie%20laser%22%2C121%3A%22Technologie%20a%20ions%22%2C114%3A%22Technologie%20hyperespace%22%2C122%3A%22Technologie%20plasma%22%2C115%3A%22Reacteur%20a%20combustion%22%2C117%3A%22Reacteur%20a%20impulsion%22%2C118%3A%22Propulsion%20hyperespace%22%2C106%3A%22Technologie%20espionnage%22%2C108%3A%22Technologie%20ordinateur%22%2C124%3A%22Astrophysique%22%2C123%3A%22Reseau%20de%20recherche%20intergalactique%22%2C199%3A%22Technologie%20graviton%22%2C109%3A%22Technologie%20armes%22%2C110%3A%22Technologie%20bouclier%22%2C111%3A%22Technologie%20protection%20des%20vaisseaux%20spatiaux%22%2C204%3A%22Chasseur%20leger%22%2C205%3A%22Chasseur%20lourd%22%2C206%3A%22Croiseur%22%2C207%3A%22Vaisseau%20de%20bataille%22%2C215%3A%22Traqueur%22%2C211%3A%22Bombardier%22%2C213%3A%22Destructeur%22%2C214%3A%22Etoile%20de%20la%20mort%22%2C218%3A%22Faucheur%22%2C219%3A%22Eclaireur%22%2C202%3A%22Petit%20transporteur%22%2C203%3A%22Grand%20transporteur%22%2C208%3A%22Vaisseau%20de%20colonisation%22%2C209%3A%22Recycleur%22%2C210%3A%22Sonde%20d'espionnage%22%2C401%3A%22Lanceur%20de%20missiles%22%2C402%3A%22Artillerie%20laser%20legere%22%2C403%3A%22Artillerie%20laser%20lourde%22%2C404%3A%22Canon%20de%20Gauss%22%2C405%3A%22Artillerie%20a%20Ions%22%2C406%3A%22Lanceur%20de%20plasma%22%2C407%3A%22Petit%20bouclier%22%2C408%3A%22Grand%20bouclier%22%2C502%3A%22Missile%20d'interception%22%2C503%3A%22Missile%20interplanetaire%22%2C11101%3A%22Secteur%20residentiel%22%2C11102%3A%22Ferme%20Biospherique%22%2C11103%3A%22Centre%20de%20recherche%22%2C11104%3A%22Academie%20des%20sciences%22%2C11105%3A%22Centre%20de%20neurocalibrage%22%2C11106%3A%22Fusion%20a%20haute%20energie%22%2C11107%3A%22Reserve%20alimentaire%22%2C11108%3A%22Extraction%20par%20fusion%22%2C11109%3A%22Tour%20d'habitation%22%2C11110%3A%22Laboratoire%20de%20biotechnologie%22%2C11111%3A%22Metropolis%22%2C11112%3A%22Bouclier%20planetaire%22%2C12101%3A%22Enclave%20stoique%22%2C12102%3A%22Culture%20du%20cristal%22%2C12103%3A%22Centre%20technologique%20runique%22%2C12104%3A%22Forge%20runique%22%2C12105%3A%22Orictorium%22%2C12106%3A%22Fusion%20magmatique%22%2C12107%3A%22Chambre%20de%20disruption%22%2C12108%3A%22Monument%20rocheux%22%2C12109%3A%22Raffinerie%20de%20cristaux%22%2C12110%3A%22Synthetiseur%20de%20deuterium%22%2C12111%3A%22Centre%20de%20recherche%20sur%20les%20mineraux%22%2C12112%3A%22Usine%20de%20traitement%20a%20haut%20rendement%22%2C11201%3A%22Ambassadeurs%20intergalactiques%22%2C11202%3A%22Extracteurs%20a%20haute%20performance%22%2C11203%3A%22Moteurs%20a%20fusion%22%2C11204%3A%22Generateur%20de%20champ%20de%20camouflage%22%2C11205%3A%22Planque%20Orbitale%22%2C11206%3A%22IA%20de%20recherche%22%2C12201%3A%22Batteries%20volcaniques%22%7D%2Ct%3D%5B1%2C2%2C3%2C4%2C12%2C22%2C23%2C24%5D%2Cr%3Ddocument.createElement(%22div%22)%3Br.style.cssText%3D%22position%3Afixed%3Binset%3A5%25%2010%25%3Bz-index%3A2147483647%3Bbackground%3A%230b1020%3Bcolor%3A%23e6ebf7%3Bborder%3A2px%20solid%20%23f5a623%3Bborder-radius%3A12px%3Bpadding%3A16px%3Bfont%3A14px%2F1.45%20Arial%2Csans-serif%3Bdisplay%3Aflex%3Bflex-direction%3Acolumn%3Bgap%3A10px%3Bbox-shadow%3A0%2010px%2040px%20%23000%22%2Cr.innerHTML%3D'%3Cdiv%20style%3D%22display%3Aflex%3Bjustify-content%3Aspace-between%3Balign-items%3Acenter%22%3E%3Cb%20style%3D%22font-size%3A18px%3Bcolor%3A%23f5a623%22%3EExport%20pour%20le%20conseiller%20OGame%3C%2Fb%3E%3Cbutton%20data-x%20style%3D%22background%3Anone%3Bborder%3A0%3Bcolor%3A%23e6ebf7%3Bfont-size%3A22px%3Bcursor%3Apointer%22%3E%C3%97%3C%2Fbutton%3E%3C%2Fdiv%3E%3Cdiv%20data-msg%3EPr%C3%A9paration%E2%80%A6%3C%2Fdiv%3E%3Ctextarea%20data-out%20style%3D%22flex%3A1%3Bwidth%3A100%25%3Bbackground%3A%23050914%3Bcolor%3A%23e6ebf7%3Bborder%3A1px%20solid%20%2326335a%3Bborder-radius%3A8px%3Bpadding%3A8px%3Bfont%3A12px%20monospace%22%20readonly%3E%3C%2Ftextarea%3E%3Cdiv%20style%3D%22display%3Aflex%3Bgap%3A8px%3Bflex-wrap%3Awrap%22%3E%3Cbutton%20data-copy%20disabled%20style%3D%22background%3A%23f5a623%3Bborder%3A0%3Bborder-radius%3A8px%3Bpadding%3A9px%2016px%3Bfont-weight%3Abold%3Bcursor%3Apointer%22%3ECopier%3C%2Fbutton%3E%3Cbutton%20data-open%20disabled%20style%3D%22background%3A%2318223d%3Bcolor%3A%23e6ebf7%3Bborder%3A1px%20solid%20%2326335a%3Bborder-radius%3A8px%3Bpadding%3A9px%2016px%3Bcursor%3Apointer%22%3EOuvrir%20dans%20le%20conseiller%3C%2Fbutton%3E%3Cspan%20data-note%20style%3D%22align-self%3Acenter%3Bcolor%3A%238f9bbd%22%3E%3C%2Fspan%3E%3C%2Fdiv%3E'%2Cdocument.body.appendChild(r)%3Bconst%20a%3De%3D%3Er.querySelector(e)%2Co%3De%3D%3E%7Ba(%22%5Bdata-msg%5D%22).textContent%3De%7D%3Ba(%22%5Bdata-x%5D%22).onclick%3D()%3D%3E%7Br.remove()%2Cwindow.__ogExportRunning%3D!1%7D%3Btry%7Bconst%20r%3D%5B...document.querySelectorAll(%22%23planetList%20.smallplanet%22)%5D.map(e%3D%3E%7Bconst%20t%3D(e.id%7C%7C%22%22).replace(%2F%5CD%2Fg%2C%22%22)%2Cr%3D(e.querySelector(%22.planet-name%22)%3F.textContent%7C%7C%22%22).trim()%2Ca%3D(e.querySelector(%22.planet-koords%22)%3F.textContent%7C%7C%22%22).replace(%2F%5B%5C%5B%5C%5D%5Cs%5D%2Fg%2C%22%22)%2Co%3D(e.querySelector(%22a.planetlink%22)%3F.getAttribute(%22title%22)%7C%7Ce.querySelector(%22a.planetlink%22)%3F.getAttribute(%22data-tooltip-title%22)%7C%7C%22%22).replace(%2F%3C%5B%5E%3E%5D%2B%3E%2Fg%2C%22%20%22).match(%2F(-%3F%5Cd%2B)%5Cs*%C2%B0C%5Cs*%5CS*%5Cs*(-%3F%5Cd%2B)%5Cs*%C2%B0C%2F)%3Breturn%7Bid%3At%2Cname%3Ar%2Ccoords%3Aa%2Ctmax%3Ao%3F%2Bo%5B2%5D%3Anull%7D%7D).filter(e%3D%3Ee.id)%3Bif(!r.length)throw%20new%20Error(%22Liste%20des%20plan%C3%A8tes%20introuvable.%20Lance%20l'export%20depuis%20une%20page%20du%20jeu%20(Vue%20d'ensemble%20par%20exemple).%22)%3Bconst%20n%3Dlocation.origin%2B%22%2Fgame%2Findex.php%3Fpage%3Dingame%26component%3D%22%2Ci%3D%5B%5D%3Blet%20s%3D0%3Bconst%20l%3Dasync(e%2Ct)%3D%3E%7Bconst%20r%3Dn%2Be%2B(t%3F%22%26cp%3D%22%2Bt%3A%22%22)%2Ca%3Dawait%20fetch(r%2C%7Bcredentials%3A%22include%22%7D)%3Bif(!a.ok)throw%20new%20Error(e%2B%22%20%3A%20erreur%20%22%2Ba.status)%3Bconst%20l%3D(new%20DOMParser).parseFromString(await%20a.text()%2C%22text%2Fhtml%22)%2Cc%3D%7B%7D%3Bif(l.querySelectorAll(%22%5Bdata-technology%5D%22).forEach(e%3D%3E%7Bconst%20t%3D%2Be.getAttribute(%22data-technology%22)%3Bif(!t%7C%7Cnull!%3Dc%5Bt%5D)return%3Bconst%20r%3De.querySelector(%22.level%5Bdata-value%5D%2C%20.amount%5Bdata-value%5D%2C%20%5Bdata-value%5D%22)%3Blet%20a%3Dr%3Fr.getAttribute(%22data-value%22)%3Anull%3Bif(null%3D%3Da)%7Ba%3D(e.querySelector(%22.level%2C%20.amount%22)%3F.textContent%7C%7C%22%22).replace(%2F%5B%5E%5Cd%5D%2Fg%2C%22%22)%7C%7Cnull%7Dif(null%3D%3Da)return%3Bconst%20o%3De.getAttribute(%22aria-label%22)%7C%7Ce.querySelector(%22%5Baria-label%5D%22)%3F.getAttribute(%22aria-label%22)%7C%7C%22%22%3Bc%5Bt%5D%3D%7Bv%3AparseInt(String(a).replace(%2F%5B%5E%5Cd%5D%2Fg%2C%22%22)%2C10)%7C%7C0%2Clabel%3Ao.trim()%7D%7D)%2CObject.keys(c).length%7C%7Ci.push(e%2B(t%3F%22%40%22%2Bt%3A%22%22)%2B%22%20%3A%20rien%20lu%22)%2C%22supplies%22%3D%3D%3De)%7Bconst%20e%3D%7B%7D%2Cr%3Dl.documentElement.innerHTML%3Bfor(const%5Bt%2Ca%5Dof%20Object.entries(%7Bm%3A%5B%22metal%22%5D%2Cc%3A%5B%22crystal%22%5D%2Cd%3A%5B%22deuterium%22%5D%2Ce%3A%5B%22energy%22%5D%2Cpop%3A%5B%22population%22%5D%2Cfood%3A%5B%22food%22%5D%7D))%7Bconst%20o%3Dl.getElementById(%22resources_%22%2Ba%5B0%5D)%3Blet%20n%3Do%3Fo.getAttribute(%22data-raw%22)%3Anull%3Bif(null%3D%3Dn%26%26o)%7Bconst%20e%3Do.textContent.trim().match(%2F%5E(-%3F%5B%5Cd.%2C%5D%2B)%5Cs*(%5BkKmM%5D%3F)%2F)%3Be%26%26(n%3De%5B2%5D%3FparseFloat(e%5B1%5D.replace(%22%2C%22%2C%22.%22))*(%2Fm%2Fi.test(e%5B2%5D)%3F1e6%3A1e3)%3Ae%5B1%5D.replace(%2F%5B.%2C%5D%2Fg%2C%22%22))%7Dif(null%3D%3Dn)%7Bconst%20e%3Dr.match(new%20RegExp('%22'%2Ba%5B0%5D%2B'%22%5C%5Cs*%3A%5C%5Cs*%5C%5C%7B%5B%5E%7D%5D*%3F%22amount%22%5C%5Cs*%3A%5C%5Cs*(-%3F%5B%5C%5Cd.%5D%2B)'))%3Be%26%26(n%3De%5B1%5D)%7Dnull!%3Dn%26%26%22%22!%3D%3Dn%26%26(e%5Bt%5D%3DMath.floor(parseFloat(n)))%7Dconst%20a%3De%3D%3E%7Bconst%20t%3DString(e).replace(%2F%3C%5B%5E%3E%5D%2B%3E%2Fg%2C%22%20%22).match(%2F%5B-%2B%5D%3F%5Cd%5B%5Cd.%2C%5D*%2F)%3Breturn%20t%3FparseInt(t%5B0%5D.replace(%2F%5B.%2C%5D%2Fg%2C%22%22)%2C10)%3Anull%7D%3Bfor(const%5Bt%2Co%5Dof%5B%5B%22m%22%2C%22metal%22%5D%2C%5B%22c%22%2C%22crystal%22%5D%2C%5B%22d%22%2C%22deuterium%22%5D%2C%5B%22e%22%2C%22energy%22%5D%5D)%7Bconst%20n%3Dl.getElementById(o%2B%22_box%22)%7C%7Cl.querySelector('%5Bid%5E%3D%22'%2Bo%2B'_box%22%5D')%2Ci%3D%5B...(n%26%26(n.getAttribute(%22title%22)%7C%7Cn.getAttribute(%22data-tooltip-title%22))%7C%7C%22%22).matchAll(%2F%3Ctd%5B%5E%3E%5D*%3E(%5B%5Cs%5CS%5D*%3F)%3C%5C%2Ftd%3E%2Fgi)%5D.map(e%3D%3Ea(e%5B1%5D)).filter(e%3D%3Enull!%3De)%3Bif(%22e%22%3D%3D%3Dt)i.length%3E%3D3%26%26(e.eProd%3Di%5B1%5D%2Ce.eUse%3DMath.abs(i%5B2%5D))%3Belse%20if(i.length%3E%3D3)e%5B%22cap%22%2Bt%5D%3Di%5B1%5D%2Ce%5B%22prod%22%2Bt%5D%3Di%5B2%5D%3Belse%7Bconst%20a%3Dr.match(new%20RegExp('%22'%2Bo%2B'%22%5C%5Cs*%3A%5C%5Cs*%5C%5C%7B%5B%5E%7D%5D*%3F%22production%22%5C%5Cs*%3A%5C%5Cs*(-%3F%5B%5C%5Cd.%5D%2B)'))%3Ba%26%26%22e%22!%3D%3Dt%26%26(e%5B%22prodps%22%2Bt%5D%3DparseFloat(a%5B1%5D))%7D%7Dc.__stock%3De%2CObject.keys(e).length%7C%7Ci.push(%22stock%40%22%2Bt%2B%22%20%3A%20rien%20lu%22)%7Dvar%20u%3Breturn%20s%2B%2B%2Co(%60Lecture%E2%80%A6%20%24%7Bs%7D%20pages%60)%2Cawait(u%3D350%2Cnew%20Promise(e%3D%3EsetTimeout(e%2Cu)))%2Cc%7D%2Cc%3D(t%2Cr)%3D%3Et%5Br%5D%3F%60%24%7Be%5Br%5D%7C%7Ct%5Br%5D.label%7C%7C%22ID%20%22%2Br%7D%3A%20%24%7Bt%5Br%5D.v%7D%60%3Anull%2Cu%3D(e%2Ct)%3D%3Et.map(t%3D%3Ec(e%2Ct)).filter(Boolean).join(%22%5Cn%22)%2Cd%3D(e%2Ct)%3D%3EObject.keys(e).map(Number).filter(e%3D%3E!t.includes(e)).map(t%3D%3Ec(e%2Ct)).join(%22%5Cn%22)%2Cp%3D%5B%5D%3Bfor(const%20e%20of%20r)%7Bo(%60Lecture%20de%20%24%7Be.name%7D%E2%80%A6%60)%3Bconst%20r%3Dawait%20l(%22supplies%22%2Ce.id)%2Ca%3Dawait%20l(%22facilities%22%2Ce.id)%2Cn%3Dawait%20l(%22lfbuildings%22%2Ce.id)%2Ci%3Dawait%20l(%22lfresearch%22%2Ce.id)%2Cs%3Dawait%20l(%22shipyard%22%2Ce.id)%2Cc%3Dawait%20l(%22defenses%22%2Ce.id)%2Cm%3Dr.__stock%7C%7C%7B%7D%3Bdelete%20r.__stock%3Bconst%20g%3DObject.assign(%7B%7D%2Cr%2Cs)%2Ch%3D%5B%60Planete%3A%20%24%7Be.name%7D%60%2C%60Coordonnees%3A%20%24%7Be.coords%7D%60%5D%3Bnull!%3De.tmax%26%26h.push(%60Temperature%20max%3A%20%24%7Be.tmax%7D%60)%3Bconst%20b%3D%7Bm%3A%22Metal%22%2Cc%3A%22Cristal%22%2Cd%3A%22Deuterium%22%2Ce%3A%22Energie%22%2Cpop%3A%22Population%22%2Cfood%3A%22Nourriture%22%2Cprodm%3A%22Production%20metal%22%2Cprodc%3A%22Production%20cristal%22%2Cprodd%3A%22Production%20deuterium%22%2Ccapm%3A%22Capacite%20metal%22%2Ccapc%3A%22Capacite%20cristal%22%2Ccapd%3A%22Capacite%20deuterium%22%2CeProd%3A%22Production%20energie%22%2CeUse%3A%22Consommation%20energie%22%2Cprodpsm%3A%22Production%20metal%20par%20seconde%22%2Cprodpsc%3A%22Production%20cristal%20par%20seconde%22%2Cprodpsd%3A%22Production%20deuterium%20par%20seconde%22%7D%3BObject.keys(m).length%26%26h.push(%22%22%2C%22Stock%3A%22%2CObject.keys(b).filter(e%3D%3Enull!%3Dm%5Be%5D).map(e%3D%3E%60%24%7Bb%5Be%5D%7D%3A%20%24%7Bm%5Be%5D%7D%60).join(%22%5Cn%22))%2Ch.push(%22%22%2C%22Ressources%22%2Cu(g%2C%5B...t%2C212%2C217%5D)%2C%22%22%2C%22Forme%20de%20vie%22%2Cd(n%2C%5B%5D)%2C%22%22%2C%22Recherche%20Forme%20de%20vie%3A%22%2Cd(i%2C%5B%5D)%2C%22%22%2C%22Installations%22%2Cd(a%2C%5B%5D)%2C%22%22%2C%22Defense%3A%22%2Cd(c%2C%5B%5D)%2C%22%22%2C%22Flotte%3A%22%2Cd(s%2C%5B212%2C217%5D)%2C%22%22)%2Cp.push(h.join(%22%5Cn%22))%7Do(%22Lecture%20des%20recherches%E2%80%A6%22)%3Bconst%20m%3Dawait%20l(%22research%22%2Cr%5B0%5D.id)%3Bp.push(%22Recherche%3A%5Cn%22%2Bd(m%2C%5B%5D)%2B%22%5Cn%22)%3Btry%7Bconst%20e%3D(new%20DOMParser).parseFromString(await(await%20fetch(location.origin%2B%22%2Fapi%2FserverData.xml%22)).text()%2C%22text%2Fxml%22)%2Ct%3Dt%3D%3Ee.querySelector(t)%3F.textContent%2Cr%3D%5B%22Parametres%20de%20serveur%3A%22%5D%3Bt(%22speed%22)%26%26r.push(%60Vitesse%20de%20d%C3%A9veloppement%20%3A%20x%24%7Bt(%22speed%22)%7D%60)%2Ct(%22researchDurationDivisor%22)%26%26r.push(%22Vitesse%20de%20recherche%20%3A%20x%22%2B(%2Bt(%22speed%22)%7C%7C1)*(%2Bt(%22researchDurationDivisor%22)%7C%7C1))%2Ct(%22debrisFactor%22)%26%26r.push(%60Flotte%20dans%20le%20champ%20de%20d%C3%A9bris%20%2B%24%7BMath.round(100*parseFloat(t(%22debrisFactor%22)))%7D%20%25%60)%2Ct(%22debrisFactorDef%22)%26%26r.push(%60Installations%20de%20d%C3%A9fense%20dans%20le%20champ%20de%20d%C3%A9bris%20%2B%24%7BMath.round(100*parseFloat(t(%22debrisFactorDef%22)))%7D%20%25%60)%2C%221%22%3D%3D%3Dt(%22deuteriumInDebris%22)%26%26r.push(%22Deut%C3%A9rium%20dans%20les%20champs%20de%20d%C3%A9bris%22)%2Ct(%22galaxies%22)%26%26r.push(%60Nombre%20de%20galaxies%3A%20%24%7Bt(%22galaxies%22)%7D%60)%3Bconst%20a%3Dt(%22speedFleetPeaceful%22)%7C%7Ct(%22speedFleet%22)%3Ba%26%26r.push(%60Vitesse%20de%20flotte%20des%20unit%C3%A9s%20pacifiques%20%3A%20x%24%7Ba%7D%60)%3Bconst%20o%3Dt(%22speedFleetWar%22)%7C%7Ct(%22speedFleet%22)%3Bo%26%26r.push(%60Vitesse%20de%20flotte%20des%20unit%C3%A9s%20de%20guerre%20%3A%20x%24%7Bo%7D%60)%3Btry%7Bconst%20e%3D(new%20DOMParser).parseFromString(await(await%20fetch(location.origin%2B%22%2Fapi%2Fhighscore.xml%3Fcategory%3D1%26type%3D0%22)).text()%2C%22text%2Fxml%22).querySelector('player%5Bposition%3D%221%22%5D')%3Be%26%26r.push(%60Points%20du%20top%201%3A%20%24%7BMath.round(parseFloat(e.getAttribute(%22score%22)))%7D%60)%7Dcatch(e)%7Bi.push(%22classement%20%3A%20%22%2Be.message)%7Dp.push(r.join(%22%5Cn%22))%7Dcatch(e)%7Bi.push(%22serverData%20%3A%20%22%2Be.message)%7Dconst%20g%3D%5B...document.querySelectorAll(%22%23officers%20a%22)%5D.filter(e%3D%3E%2F%5Cbon%5Cb%2F.test(e.className)).map(e%3D%3E(e.className.match(%2F%5Cb(commander%7Cadmiral%7Cengineer%7Cgeologist%7Ctechnocrat)%5Cb%2F)%7C%7C%5B%5D)%5B1%5D).filter(Boolean)%2Ch%3D%22Date%20export%3A%20%22%2BDate.now()%2B%22%5Cn%22%2B(document.querySelector(%22%23officers%22)%3F%22Officiers%20actifs%3A%20%22%2B(g.join(%22%2C%20%22)%7C%7C%22aucun%22)%2B%22%5Cn%22%3A%22%22)%2B%22%5Cn%22%2Bp.join(%22%5Cn%22)%3Ba(%22%5Bdata-out%5D%22).value%3Dh%2Co(%60Export%20pr%C3%AAt%20%3A%20%24%7Br.length%7D%20plan%C3%A8tes%2C%20%24%7Bs%7D%20pages%20lues.%60%2B(i.length%3F%22%20%C3%80%20v%C3%A9rifier%20%3A%20%22%2Bi.join(%22%20%3B%20%22)%3A%22%22))%3Bconst%20b%3Da(%22%5Bdata-copy%5D%22)%2Cx%3Da(%22%5Bdata-open%5D%22)%3Bb.disabled%3Dx.disabled%3D!1%2Cb.onclick%3D()%3D%3E%7Bconst%20e%3Da(%22%5Bdata-out%5D%22)%3Blet%20t%3D!1%3Btry%7Be.readOnly%3D!1%2Ce.focus()%2Ce.setSelectionRange(0%2Ce.value.length)%2Ct%3Ddocument.execCommand(%22copy%22)%7Dcatch(e)%7B%7De.readOnly%3D!0%2Ce.blur()%2Ct%3Fa(%22%5Bdata-note%5D%22).textContent%3D%22Copi%C3%A9%20!%20Ouvre%20l'application%20et%20appuie%20sur%20%C2%AB%20Coller%20mon%20export%20%C2%BB.%22%3Anavigator.clipboard%26%26navigator.clipboard.writeText%3Fnavigator.clipboard.writeText(h).then(()%3D%3E%7Ba(%22%5Bdata-note%5D%22).textContent%3D%22Copi%C3%A9%20!%22%7D%2C()%3D%3E%7Ba(%22%5Bdata-note%5D%22).textContent%3D%22Copie%20bloqu%C3%A9e%20%3A%20appuie%20longuement%20dans%20le%20texte%2C%20%C2%AB%20Tout%20s%C3%A9lectionner%20%C2%BB%2C%20puis%20%C2%AB%20Copier%20%C2%BB.%22%2Ce.readOnly%3D!1%2Ce.focus()%2Ce.setSelectionRange(0%2Ce.value.length)%7D)%3Aa(%22%5Bdata-note%5D%22).textContent%3D%22Copie%20bloqu%C3%A9e%20%3A%20appuie%20longuement%20dans%20le%20texte%2C%20%C2%AB%20Tout%20s%C3%A9lectionner%20%C2%BB%2C%20puis%20%C2%AB%20Copier%20%C2%BB.%22%7D%2Cx.onclick%3D()%3D%3E%7Bconst%20e%3Dbtoa(unescape(encodeURIComponent(h)))%3Bwindow.open(%22https%3A%2F%2Fgluminou.github.io%2Fogame%2F%23import%3D%22%2BencodeURIComponent(e)%2C%22_blank%22)%7D%7Dcatch(e)%7Bo(%22Erreur%20%3A%20%22%2Be.message)%7Dwindow.__ogExportRunning%3D!1%7D)()%3B";
@@ -1834,9 +2071,10 @@ function init(){
   $('bmLink').onclick = e => { e.preventDefault(); $('bmMsg').textContent = 'Fais glisser le bouton dans ta barre de favoris (un clic ici ne fait rien).'; };
   $('bmCopy').onclick = async () => { try { await navigator.clipboard.writeText(BOOKMARKLET); $('bmMsg').textContent = 'Code copié.'; } catch(e){ $('bmMsg').textContent = 'Copie refusée par le navigateur.'; } };
   const saved = store.get('og_data_v4'); $('data').value = saved || DEFAULT_DATA; if (!$('data').value.trim()) { $('inputPanel').open = true; }
-  try { const s = JSON.parse(store.get('og_settings_v2')||'null'); if (s){ $('speed').value=s.speed; $('fill').value=s.fillHours; $('rc').value=s.ratioC; $('rd').value=s.ratioD; $('col').checked=s.collector; $('geo').checked=s.geologist; $('eng').checked=s.engineer; if (s.planDays) $('planDays').value=s.planDays; $('ally').checked=!!s.allyTrader; $('extra').value=s.extraPct||0; $('nocalib').checked=!!s.noCalib; } } catch(e){}
+  try { const s = JSON.parse(store.get('og_settings_v2')||'null'); if (s){ $('speed').value=s.speed; $('fill').value=s.fillHours; $('rc').value=s.ratioC; $('rd').value=s.ratioD; $('col').checked=s.collector; $('geo').checked=s.geologist; $('eng').checked=s.engineer; if (s.planDays) $('planDays').value=s.planDays; $('ally').checked=!!s.allyTrader; $('extra').value=s.extraPct||0; $('nocalib').checked=!!s.noCalib; if (s.researchShare != null) $('rshare').value=s.researchShare; if (s.threat) $('threat').value=s.threat; if (s.defFirst != null) $('defFirst').checked=!!s.defFirst; } } catch(e){}
   $('go').onclick = run;
-  ['speed','fill','rc','rd','col','geo','eng','ally','extra','nocalib','planDays'].forEach(id => $(id).addEventListener('change', run));
+  ['speed','fill','rc','rd','col','geo','eng','ally','extra','nocalib','planDays','rshare','threat','defFirst'].forEach(id => $(id).addEventListener('change', run));
+  $('rplanet').addEventListener('change', () => { store.set('og_rplanet', $('rplanet').value); run(); });
   $('copyTpl').onclick = async () => { try { await navigator.clipboard.writeText(TEMPLATE); $('copyMsg').textContent = 'Modèle copié.'; } catch(e){ $('data').value = TEMPLATE; $('copyMsg').textContent = 'Copie refusée : le modèle a été placé dans la zone de texte.'; $('inputPanel').open = true; } };
   $('aPlanet').addEventListener('change', fillAttFleet);
   $('aClear').onclick = () => { CB.ATTACK_SHIPS.forEach(k => $('aU_'+k).value = 0); $('aSrc').textContent = ''; };

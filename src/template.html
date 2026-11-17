@@ -113,7 +113,7 @@ details.howto ol{margin:6px 0 6px;padding-left:22px}details.howto li{margin:4px 
   <h1>OGame <span>·</span> Conseiller de construction</h1>
   <p class="sub">Colle ton export de planètes : l'outil calcule production, énergie, stockage et rentabilité, et te dit quoi construire ensuite sur chaque planète.</p>
 
-  <nav class="tabs" style="flex-wrap:wrap"><a href="#export" id="tab-export">Export</a><a href="#vue" id="tab-vue">Vue générale</a><a href="#planetes" id="tab-planetes">Planètes</a><a href="#plan" id="tab-plan">Plan</a><a href="#combat" id="tab-combat">Combat</a><a href="#cibles" id="tab-cibles">Cibles</a><a href="#expe" id="tab-expe">Expéditions</a><a href="#histo" id="tab-histo">Historique</a></nav>
+  <nav class="tabs" style="flex-wrap:wrap"><a href="#export" id="tab-export">Export</a><a href="#vue" id="tab-vue">Vue générale</a><a href="#planetes" id="tab-planetes">Planètes</a><a href="#plan" id="tab-plan">Plan</a><a href="#recherche" id="tab-recherche">Recherche</a><a href="#combat" id="tab-combat">Combat</a><a href="#cibles" id="tab-cibles">Cibles</a><a href="#expe" id="tab-expe">Expéditions</a><a href="#histo" id="tab-histo">Historique</a></nav>
   <section id="view-planetes">
   <div class="note" style="display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;margin:0 0 14px"><span id="dataStamp2">Aucune donnée pour l'instant.</span><a href="#export" style="color:var(--acc);font-weight:600">Mettre à jour</a></div>
   <div class="panel">
@@ -123,10 +123,6 @@ details.howto ol{margin:6px 0 6px;padding-left:22px}details.howto li{margin:4px 
     <div id="warns"></div>
   </div>
 
-  <div class="panel">
-    <h2>Recherche : prochaines étapes</h2>
-    <ul class="recs" id="research" style="padding:6px 0 0"></ul>
-  </div>
 
   <div style="display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between;margin:22px 0 12px"><h2>Planètes</h2><span class="note">Les pastilles <span class="pill">1</span> repèrent dans les niveaux les bâtiments à construire, dans l'ordre. Touche une construction pour voir pourquoi.</span></div>
   <div class="grid" id="planets"></div>
@@ -141,7 +137,20 @@ details.howto ol{margin:6px 0 6px;padding-left:22px}details.howto li{margin:4px 
     </div>
     <div id="planSummary"></div>
     <div class="grid" id="planOut"></div>
-    <p class="note">Hypothèses : une construction à la fois par planète, avec le stock de l'export comme point de départ. Les transports, recherches, bâtiments de formes de vie, défenses et vaisseaux ne sont pas pris en compte : ils décalent le plan, qui se recale à chaque nouvel export. Les choix suivent ton taux d'échange (onglet Export, « Mes données et réglages »).</p>
+    <p class="note">Hypothèses : une construction à la fois par planète, avec le stock de l'export comme point de départ, moins la part réservée à la recherche (onglet Recherche). La défense conseillée est payée en premier (réglable dans l'onglet Export). Les transports, bâtiments de formes de vie et vaisseaux ne sont pas pris en compte : ils décalent le plan, qui se recale à chaque nouvel export. Les choix suivent ton taux d'échange (onglet Export, « Mes données et réglages »).</p>
+  </section>
+
+  <section id="view-recherche" class="hidden">
+    <div class="panel">
+      <h2>Recherche</h2>
+      <div class="settings" style="margin-top:8px">
+        <label>Planète de recherche<select id="rplanet"></select></label>
+        <label>Part de la production pour la recherche (%)<input type="number" id="rshare" min="0" max="90" step="5" value="20"></label>
+      </div>
+      <p class="note" id="rHost" style="margin:10px 0 0"></p>
+    </div>
+    <div class="panel" style="padding:0"><div id="rOut"></div></div>
+    <p class="note">Ordre choisi : l'astrophysique jusqu'à la prochaine planète, la technologie plasma quand elle s'amortit à peu près aussi vite que tes mines, puis, de la moins chère à la plus chère (avec un léger avantage aux plus utiles), ordinateur 10, espionnage 10, hyperespace 8 et le Réseau de recherche, armes, bouclier et protection 10, énergie 10, réacteurs, laser 12. Une recherche n'est lancée que si le pot peut la payer en moins de 2 jours. Le laboratoire de la planète de recherche monte jusqu'au niveau 10 dans son plan de construction (prérequis du Réseau). Les effets des recherches sur la production ne sont pas recalculés dans le plan.</p>
   </section>
 
   <section id="view-vue" class="hidden">
@@ -228,6 +237,8 @@ details.howto ol{margin:6px 0 6px;padding-left:22px}details.howto li{margin:4px 
       <label class="chk"><input type="checkbox" id="ally"> Classe d'alliance Marchands (+5 %)</label>
       <label>Bonus supplémentaires sur les mines (%)<input type="number" id="extra" value="0" step="1"></label>
       <label class="chk"><input type="checkbox" id="nocalib"> Ne pas caler sur les chiffres du jeu</label>
+      <label>Défense : attaquant jusqu'à X fois ta flotte<input type="number" id="threat" min="0.5" max="20" step="0.5" value="2"></label>
+      <label class="chk"><input type="checkbox" id="defFirst" checked> Payer la défense avant les bâtiments dans le plan</label>
     </div>
     <div class="row">
       <button id="pasteData">Coller mon export</button>
@@ -410,7 +421,7 @@ const store = { get(k){ try { return localStorage.getItem(k); } catch(e){ return
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const TAGS = { urgent:'Urgent', important:'Important', eco:'Production', infra:'Infrastructure', lf:'Formes de vie', def:'Défense', res:'Recherche' };
 
-function settings(){ return { speed:+$("speed").value||8, fillHours:+$('fill').value||24, ratioC:+$('rc').value||1.5, ratioD:+$('rd').value||3, collector:$('col').checked, geologist:$('geo').checked, engineer:$('eng').checked, allyTrader:$('ally').checked, extraPct:+$('extra').value||0, noCalib:$('nocalib').checked, planDays:+$('planDays').value||3 }; }
+function settings(){ return { speed:+$("speed").value||8, fillHours:+$('fill').value||24, ratioC:+$('rc').value||1.5, ratioD:+$('rd').value||3, collector:$('col').checked, geologist:$('geo').checked, engineer:$('eng').checked, allyTrader:$('ally').checked, extraPct:+$('extra').value||0, noCalib:$('nocalib').checked, planDays:+$('planDays').value||3, researchShare: $('rshare').value === '' ? 20 : +$('rshare').value, researchPlanet: $('rplanet').value || store.get('og_rplanet') || '', threat:+$('threat').value||2, defFirst:$('defFirst').checked }; }
 
 function recLi(r, tag){
   return `<li><span class="tag ${tag||r.type}">${TAGS[tag||r.type]}</span><span class="t">${esc(r.title)}</span>
@@ -430,6 +441,7 @@ function run(){
   store.set('og_data_v4', text); store.set('og_settings_v2', JSON.stringify(S));
   $('err').textContent = '';
   let res;
+  const dz = defenseFor(text, S); if (dz && S.defFirst) S.defense = dz.orders;
   try { res = OG.analyse(text, S); } catch(e){ $('err').textContent = 'Impossible de lire les données : ' + e.message; return; }
   try { CS.parsed = OG.parse(text); buildCombatForm(); } catch(e){}
   if (!res.planets.length){ $('err').textContent = text.trim() ? 'Aucune planète trouvée. Chaque planète doit commencer par une ligne « Planete: Nom ».' : 'Colle ton export de planètes pour commencer (bouton « Copier un modèle vide » pour le format).'; $('inputPanel').open = true; return; }
@@ -447,9 +459,10 @@ function run(){
   ].map(([a,b,c]) => `<div class="kpi"><small>${a}</small><b>${b}</b><small>${c}</small></div>`).join('');
   if (!res.exportedAt && /Temperature max\s*:/.test(text)) res.warnings.unshift('Ton favori Export OGame est une ancienne version : il ne lit pas encore ton stock de ressources. Va dans l\'onglet Export, copie à nouveau le code du favori et remplace l\'adresse de ton favori.');
   $('warns').innerHTML = res.warnings.map(w => `<div class="warn">${esc(w)}</div>`).join('');
-  $('research').innerHTML = res.research.map(r => recLi(r, r.isBuilding ? 'infra' : 'res')).join('');
+  renderResearch(res);
   showStamp(res.exportedAt);
-  $('planets').innerHTML = res.planets.map(x => planetCard(x, S)).join('');
+  res.defense = dz ? dz.byName : null;
+  $('planets').innerHTML = res.planets.map(x => planetCard(x, S, res.defense)).join('');
   renderVue(res);
   renderPlan(res);
   if (location.hash === '#cibles') renderTargets();
@@ -494,7 +507,7 @@ function calLine(c){
   const dev = ks.filter(k => Math.abs(cal[k] - 1) > 0.02).map(k => `${{ m: 'M', c: 'C', d: 'D' }[k]} ${cal[k] > 1 ? '+' : ''}${Math.round((cal[k] - 1) * c.modelBon[k] * 100)} %`);
   return `<span class="ok" title="Production lue dans le jeu">✓ calé sur le jeu</span>${dev.length ? `<span class="warnc" title="Écart entre le jeu et les bonus connus (objets, recherches de formes de vie, événements…)">bonus non identifiés : ${esc(dev.join(' · '))}</span>` : ''}`;
 }
-function planetCard(x, S){
+function planetCard(x, S, DZ){
   const b = x.p.b, c = x.c, f = OG.fmt, recs = x.recs;
   const rock = isRock(b), race = rock ? "Rock'tal" : (b.lfRes ? 'Humains' : 'sans forme de vie');
   const e = Math.round(c.eProd - c.eUse);
@@ -512,6 +525,7 @@ function planetCard(x, S){
     <div class="lv3"><div><div class="lvh">Ressources</div>${lvlRows(RES_ROWS, b, recs, ['metal','crystal','deut','solar','stM','stC','stD'])}</div><div><div class="lvh">Formes de vie</div>${lf}</div><div><div class="lvh">Installations</div>${lvlRows(INST_ROWS, b, recs, ['robots','shipyard','lab'])}</div></div>
     <div class="lvh" style="padding:4px 14px 0">À construire</div>
     <ol class="top3">${top}</ol>
+    ${defBlock(DZ && DZ[x.p.name], x)}
     ${x.parallel && x.parallel.length ? `<div class="note" style="padding:0 14px 12px;font-size:12px">En parallèle, sur leur propre file : ${x.parallel.slice(0, 3).map(r => esc(r.title)).join(' · ')}</div>` : ''}
   </article>`;
 }
@@ -555,12 +569,70 @@ function renderPlan(res){
     x.steps.forEach(s => { if (s.blocked) return; const d = new Date(now + s.start * 3600000); const k = dayKey(d); if (!groups[k]) { groups[k] = { label: dayLabel(d), items: [] }; order.push(k); } groups[k].items.push({ s, d }); });
     const block = x.steps.find(s => s.blocked);
     const body = order.map((k, gi) => `<details class="howto" ${gi === 0 ? 'open' : ''} style="margin:8px 0"><summary>${esc(groups[k].label)} <span class="note">· ${groups[k].items.length} construction${groups[k].items.length > 1 ? 's' : ''}</span></summary>
-      <ol class="top3" style="padding:4px 0 0">${groups[k].items.map(({ s, d }) => `<li style="display:flex;gap:10px;align-items:baseline;padding:6px 0;border-top:1px solid var(--line)"><span class="cc" style="width:44px;flex:none">${hm(d)}</span><span class="tt">${esc(s.name)}</span><span class="note" style="white-space:nowrap">${esc(OG.fmtCost(s.cost))} · ${fmtDur(s.end - s.start)}</span></li>`).join('')}</ol></details>`).join('')
+      <ol class="top3" style="padding:4px 0 0">${groups[k].items.map(({ s, d }) => `<li style="display:flex;gap:10px;align-items:baseline;padding:6px 0;border-top:1px solid var(--line)"><span class="cc" style="width:44px;flex:none">${hm(d)}</span>${s.kind === 'defense' ? `<span class="tt" style="flex:1;min-width:0;white-space:normal"><span class="tag def">Défense</span>${esc(s.name.replace(/^Défense : /, ''))}<br><span class="note">${esc(OG.fmtCost(s.cost))} · chantier spatial, en parallèle</span></span>` : `<span class="tt">${esc(s.name)}</span><span class="note" style="white-space:nowrap">${esc(OG.fmtCost(s.cost))} · ${fmtDur(s.end - s.start)}</span>`}</li>`).join('')}</ol></details>`).join('')
       || '<p class="note" style="padding:0 14px">Rien de faisable sur cette période.</p>';
     return `<article class="card"><header><h3>${esc(x.planet.name)}</h3><small>${x.steps.filter(s => !s.blocked).length} constructions</small></header>
       <div class="pstat"><span>Production/h aujourd'hui <b>${f(x.before.m)}</b> M · <b>${f(x.before.c)}</b> C · <b>${f(x.before.d)}</b> D</span><span>dans ${days} j <b class="ok">${f(x.after.m)}</b> M · <b>${f(x.after.c)}</b> C · <b>${f(x.after.d)}</b> D</span></div>
-      <div style="padding:0 14px 10px">${body}${block ? `<p class="warnc" style="font-size:12px">Ensuite : ${esc(block.name)} est bloqué (ressource non produite ou hangar insuffisant).</p>` : ''}</div></article>`;
+      <div style="padding:0 14px 10px">${body}${block ? `<p class="warnc" style="font-size:12px">Ensuite : ${esc(block.name)} est bloqué (ressource non produite ou hangar insuffisant).</p>` : ''}${x.steps.some(s => s.late) ? `<p class="warnc" style="font-size:12px">La défense conseillée n'est pas payable sur cette période avec la production de la planète : le plan l'attend. Envoie des ressources depuis tes autres planètes, ou décoche « Payer la défense avant les bâtiments » dans l'onglet Export.</p>` : ''}</div></article>`;
   }).join('');
+}
+
+// ---------- Defence: enough that raiding each planet no longer pays (computed in the background, then the plan is redone) ----------
+const DZ = { key: null, val: null, pending: null };
+const DEFKEY = { RL: 'dRL', LL: 'dLL', HL: 'dHL', GC: 'dGauss', IC: 'dIon', PT: 'dPlasma', SS: 'dSS', LS: 'dLS' };
+function defenseFor(text, S){
+  let h = 0; for (let i = 0; i < text.length; i++) h = (h * 31 + text.charCodeAt(i)) | 0;
+  const key = [h, S.threat, S.ratioC, S.ratioD].join('|');
+  if (DZ.key === key) return DZ.val;
+  if (DZ.pending !== key) { DZ.pending = key; setTimeout(() => computeDefense(text, S, key), 30); }
+  return null;
+}
+async function computeDefense(text, S, key){
+  let P; try { P = OG.parse(text); } catch(e){ return; }
+  const R = P.research || {}, sv = P.server || {};
+  const msu = k => CB.U[k][1] + CB.U[k][2] * S.ratioC + CB.U[k][3] * S.ratioD;
+  let fleet = 0; P.planets.forEach(p => Object.entries(SHIPKEY).forEach(([k, s]) => { if (!['EP', 'Col', 'Rec'].includes(k)) fleet += (p.b[s] || 0) * msu(k); }));
+  const byName = {}, orders = {};
+  for (const p of P.planets) {
+    if (DZ.pending !== key) return; // a newer export arrived
+    if (!p.stock) continue;
+    const have = {}; Object.entries(DEFKEY).forEach(([k, s]) => { have[k] = p.b[s] || 0; });
+    const d = CB.planDefense({ have, sy: p.b.shipyard || 0, R, stock: p.stock, ratioC: S.ratioC, ratioD: S.ratioD, dfShips: (sv.dfShips ?? 30) / 100, dfDef: (sv.dfDef ?? 0) / 100, dfDeut: sv.dfDeut !== false, lootPct: 0.5, threatMsu: Math.max(5e5, S.threat * fleet) });
+    d.threatMsu = Math.max(5e5, S.threat * fleet); byName[p.name] = d;
+    if (!d.safe && !d.noShipyard && Object.keys(d.add).length) orders[p.name] = { name: 'Défense : ' + defList(d.add), cost: d.cost };
+    await new Promise(r => setTimeout(r, 0));
+  }
+  if (DZ.pending !== key) return;
+  DZ.key = key; DZ.val = { byName, orders }; run();
+}
+const PLURAL = { RL: 'lanceurs de missiles', LL: 'artilleries laser légères', HL: 'artilleries laser lourdes', GC: 'canons de Gauss', IC: 'artilleries à ions', PT: 'lanceurs de plasma', SS: 'petit bouclier', LS: 'grand bouclier', Cr: 'croiseurs', BS: 'vaisseaux de bataille', Bo: 'bombardiers' };
+const unitName = (k, n) => n > 1 && PLURAL[k] ? PLURAL[k] : (k === 'GC' ? 'canon de Gauss' : CB.U[k][0].toLowerCase());
+const defList = add => Object.entries(add).filter(([, n]) => n > 0).map(([k, n]) => `${n} ${unitName(k, n)}`).join(', ');
+function defBlock(d, x){
+  const f = OG.fmt; const wrap = (cls, html) => `<div style="margin:0 14px 12px;padding:8px 10px;border-radius:8px;background:#0e1529;font-size:12.5px"><span class="tag def">Défense</span>${html}</div>`;
+  if (!x.c.stockNow && !(x.p.stock)) return '';
+  if (!d) return DZ.pending && DZ.key !== DZ.pending ? wrap('', '<span class="note">calcul en cours…</span>') : '';
+  const who = `un attaquant jusqu'à ${f(d.threatMsu)} de flotte (${settings().threat} fois la tienne)`;
+  const atk = w => w && w.by ? `${w.n} ${unitName(w.by, w.n)}` : '';
+  if (d.safe) return wrap('', `<b class="ok">Suffisante.</b> Avec ${f(d.lootMsu)} de butin possible, ${who} ne gagne rien à t'attaquer.`);
+  const now = d.before && d.before.by ? ` Aujourd'hui, un raid avec ${atk(d.before)} rapporterait environ <b class="red">+${f(d.before.gain)}</b>.` : ` Aujourd'hui, la planète n'a pas de défense : le moindre raid emporte la moitié des ressources (${f(d.lootMsu)}).`;
+  if (d.noShipyard) return wrap('', `<b class="red">Aucune défense possible :</b> pas de chantier spatial.${now} Ne laisse pas de ressources dessus.`);
+  if (d.tooBig) return wrap('', `<b class="red">Trop de ressources à protéger.</b>${now} Même ${esc(defList(d.add))} ne suffirait pas : dépense ou transporte le stock et mets ta flotte à l'abri.`);
+  const after = d.after && d.after.by ? ` Ensuite, le raid le plus rentable (${atk(d.after)}) perdrait ${f(-d.after.gain)}.` : ` Ensuite, ${who} ne gagne plus le combat.`;
+  return wrap('', `<b class="warnc">À construire :</b> ${esc(defList(d.add))} <span class="note">(${esc(OG.fmtCost(d.cost))})</span>.${now}${after}`);
+}
+
+// ---------- Research tab ----------
+function renderResearch(res){
+  const sel = $('rplanet'); const want = settings().researchPlanet;
+  sel.innerHTML = '<option value="">Meilleur laboratoire</option>' + res.planets.map(x => `<option${x.p.name === want ? ' selected' : ''}>${esc(x.p.name)}</option>`).join('');
+  const h = res.researchHost; if (!h) { $('rHost').textContent = ''; $('rOut').innerHTML = ''; return; }
+  const f = OG.fmt, now = Date.now(), hm = d => d.toLocaleString('fr-FR', { weekday: 'short', hour: '2-digit', minute: '2-digit' });
+  $('rHost').innerHTML = `Recherches lancées sur <b>${esc(h.name)}</b> (laboratoire ${h.lab}), vitesse de recherche x${+h.speed.toFixed(2)}.${h.irn ? ' Le Réseau de recherche est actif : les durées réelles seront plus courtes.' : ' Avant le Réseau de recherche intergalactique, seul ce laboratoire compte.'}<br>
+    Pot de recherche : ${Math.round(h.share * 100)} % du stock et de la production de toutes tes planètes, soit <b>${f(h.potProd[0] * 24)}</b> M · <b>${f(h.potProd[1] * 24)}</b> C · <b>${f(h.potProd[2] * 24)}</b> D par jour à envoyer vers ${esc(h.name)} (une partie y est déjà produite).`;
+  const S = res.researchSteps || [];
+  $('rOut').innerHTML = S.length ? `<table class="mx" style="font-size:12.5px"><thead><tr><th style="text-align:left">Recherche</th><th>Début</th><th>Durée</th><th>Coût</th></tr></thead><tbody>${S.map(s => `<tr><td style="text-align:left;white-space:normal"><b>${esc(s.name)}</b><br><span class="note" style="font-size:11.5px">${esc(s.why || '')}</span></td><td>${s.start < 0.02 ? 'maintenant' : hm(new Date(now + s.start * 3600000))}</td><td>${fmtDur(s.end - s.start)}</td><td style="white-space:normal">${esc(OG.fmtCost(s.cost))}</td></tr>`).join('')}</tbody></table>`
+    : '<p class="note" style="padding:12px 14px">Aucune recherche finançable sur l\'horizon du plan avec ce pot. Augmente la part de production pour la recherche.</p>';
 }
 
 // ---------- Combat tab ----------
@@ -1048,8 +1120,8 @@ function renderHisto(){
 }
 
 function route(){
-  const v = { '#planetes': 'planetes', '#combat': 'combat', '#export': 'export', '#vue': 'vue', '#plan': 'plan', '#cibles': 'cibles', '#expe': 'expe', '#histo': 'histo' }[location.hash] || 'export';
-  ['planetes','plan','vue','combat','cibles','expe','histo','export'].forEach(n => { $('view-' + n).classList.toggle('hidden', v !== n); $('tab-' + n).classList.toggle('on', v === n); });
+  const v = { '#planetes': 'planetes', '#combat': 'combat', '#export': 'export', '#vue': 'vue', '#plan': 'plan', '#recherche': 'recherche', '#cibles': 'cibles', '#expe': 'expe', '#histo': 'histo' }[location.hash] || 'export';
+  ['planetes','plan','recherche','vue','combat','cibles','expe','histo','export'].forEach(n => { $('view-' + n).classList.toggle('hidden', v !== n); $('tab-' + n).classList.toggle('on', v === n); });
 }
 
 const BOOKMARKLET = /*BOOKMARKLET*/;
@@ -1070,9 +1142,10 @@ function init(){
   $('bmLink').onclick = e => { e.preventDefault(); $('bmMsg').textContent = 'Fais glisser le bouton dans ta barre de favoris (un clic ici ne fait rien).'; };
   $('bmCopy').onclick = async () => { try { await navigator.clipboard.writeText(BOOKMARKLET); $('bmMsg').textContent = 'Code copié.'; } catch(e){ $('bmMsg').textContent = 'Copie refusée par le navigateur.'; } };
   const saved = store.get('og_data_v4'); $('data').value = saved || DEFAULT_DATA; if (!$('data').value.trim()) { $('inputPanel').open = true; }
-  try { const s = JSON.parse(store.get('og_settings_v2')||'null'); if (s){ $('speed').value=s.speed; $('fill').value=s.fillHours; $('rc').value=s.ratioC; $('rd').value=s.ratioD; $('col').checked=s.collector; $('geo').checked=s.geologist; $('eng').checked=s.engineer; if (s.planDays) $('planDays').value=s.planDays; $('ally').checked=!!s.allyTrader; $('extra').value=s.extraPct||0; $('nocalib').checked=!!s.noCalib; } } catch(e){}
+  try { const s = JSON.parse(store.get('og_settings_v2')||'null'); if (s){ $('speed').value=s.speed; $('fill').value=s.fillHours; $('rc').value=s.ratioC; $('rd').value=s.ratioD; $('col').checked=s.collector; $('geo').checked=s.geologist; $('eng').checked=s.engineer; if (s.planDays) $('planDays').value=s.planDays; $('ally').checked=!!s.allyTrader; $('extra').value=s.extraPct||0; $('nocalib').checked=!!s.noCalib; if (s.researchShare != null) $('rshare').value=s.researchShare; if (s.threat) $('threat').value=s.threat; if (s.defFirst != null) $('defFirst').checked=!!s.defFirst; } } catch(e){}
   $('go').onclick = run;
-  ['speed','fill','rc','rd','col','geo','eng','ally','extra','nocalib','planDays'].forEach(id => $(id).addEventListener('change', run));
+  ['speed','fill','rc','rd','col','geo','eng','ally','extra','nocalib','planDays','rshare','threat','defFirst'].forEach(id => $(id).addEventListener('change', run));
+  $('rplanet').addEventListener('change', () => { store.set('og_rplanet', $('rplanet').value); run(); });
   $('copyTpl').onclick = async () => { try { await navigator.clipboard.writeText(TEMPLATE); $('copyMsg').textContent = 'Modèle copié.'; } catch(e){ $('data').value = TEMPLATE; $('copyMsg').textContent = 'Copie refusée : le modèle a été placé dans la zone de texte.'; $('inputPanel').open = true; } };
   $('aPlanet').addEventListener('change', fillAttFleet);
   $('aClear').onclick = () => { CB.ATTACK_SHIPS.forEach(k => $('aU_'+k).value = 0); $('aSrc').textContent = ''; };

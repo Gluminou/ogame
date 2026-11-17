@@ -242,6 +242,67 @@ const CB = (() => {
     const per = drv === 'comb' ? 0.1 : drv === 'imp' ? 0.2 : 0.3;
     return base * (1 + per * lvl + (collector && (k === 'SC' || k === 'LC') ? 1 : 0));
   }
-  return { U, SHIPS, ATTACK_SHIPS, DEFS, RF, parseReport, splitReports, simulate, optimize, buildSide, num, shipSpeed, FUEL };
+  // ---------- defence planner: enough defence that raiding the planet no longer pays for an attacker of your level ----------
+  const DEF_REQ = { RL: { sy: 1 }, LL: { sy: 2, rEnergy: 1, rLaser: 3 }, HL: { sy: 4, rEnergy: 3, rLaser: 6 }, GC: { sy: 6, rEnergy: 6, rWeap: 3, rShield: 1 }, IC: { sy: 4, rIon: 4 }, PT: { sy: 8, rPlasma: 7 }, SS: { sy: 1, rShield: 2 }, LS: { sy: 6, rShield: 6 } };
+  const DEF_SHARE = { RL: 0.30, LL: 0.25, HL: 0.15, GC: 0.20, PT: 0.10 }; // share of the budget, by cost: cheap fodder + heavy guns
+  // cfg: { have:{RL..LS}, sy, R, stock:{m,c,d}, ratioC, ratioD, dfShips, dfDef, dfDeut, lootPct, attackers:[...], threatMsu }
+  function planDefense(cfg) {
+    const rc = cfg.ratioC, rd = cfg.ratioD, R = cfg.R || {};
+    const msuOf = k => U[k][1] + U[k][2] * rc + U[k][3] * rd;
+    const ok = k => Object.entries(DEF_REQ[k]).every(([q, l]) => (q === 'sy' ? cfg.sy || 0 : R[q] || 0) >= l);
+    const avail = Object.keys(DEF_SHARE).filter(ok); const tot = avail.reduce((a, k) => a + DEF_SHARE[k], 0);
+    const stock = cfg.stock || {}; const lootPct = cfg.lootPct ?? 0.5;
+    const lootMsu = ((stock.m || 0) + (stock.c || 0) * rc + (stock.d || 0) * rd) * lootPct;
+    const tech = { weap: R.rWeap || 0, shield: R.rShield || 0, armour: R.rArmour || 0 };
+    const opts = { dfShips: cfg.dfShips ?? 0.3, dfDef: cfg.dfDef ?? 0, dfDeut: cfg.dfDeut ?? true, lootPct, hyperA: R.rHyper || 0, rnd: mulberry(777) };
+    const capLC = 25000 * (1 + 0.05 * (R.rHyper || 0));
+    const lc = Math.ceil(lootMsu / capLC) || 0; // the attacker brings the cargo for the loot
+    const attackers = (cfg.attackers || ['Cr', 'BS', 'Bo']);
+    const val = v => v[0] + v[1] * rc + v[2] * rd;
+    const defRes = { m: stock.m || 0, c: stock.c || 0, d: stock.d || 0 };
+    // best gain an attacker can make with one ship type (+ cargo) against these defences
+    function worst(defUnits) {
+      const units = {}; Object.entries(defUnits).forEach(([k, n]) => { if (n > 0) units[k] = n; });
+      if (!Object.keys(units).length) return { gain: lootMsu, by: null, n: 1 };
+      const def = { units, tech, res: defRes };
+      let w = { gain: -Infinity, by: null, n: 0 };
+      for (const a of attackers) {
+        // an attacker of your level: his fleet is worth at most threatMsu (default: no limit but 20x the loot)
+        const cap = Math.max(1, Math.floor(Math.min(20 * Math.max(lootMsu, 1e5), cfg.threatMsu || Infinity) / msuOf(a)));
+        const sim = (n, runs) => simulate({ units: lc ? { [a]: n, LC: lc } : { [a]: n }, tech }, def, Object.assign({}, opts, { runs, rnd: mulberry(99) }));
+        const wins = n => { const s = sim(n, 10); return s.A / s.n >= 0.9; };
+        let hi = 1; while (hi <= cap && !wins(hi)) hi *= 2;
+        if (hi > cap) { if (!wins(cap)) continue; hi = cap; }
+        let lo = Math.floor(hi / 2); for (let i = 0; i < 6 && hi - lo > 1; i++) { const m = (lo + hi) >> 1; if (wins(m)) hi = m; else lo = m; }
+        for (const f of [1, 1.5, 2.5]) {
+          const n = Math.min(cap, Math.ceil(hi * f)); if (f > 1 && n === hi) continue; const s = sim(n, 14);
+          const gain = val(s.lootIfWin) * (s.A / s.n) + val(s.debris) - val(s.costA);
+          if (gain > w.gain) w = { gain, by: a, n };
+        }
+      }
+      return w;
+    }
+    const plus = k => { // additions for a budget of k (metal units)
+      const add = {}; if (k <= 0) return add;
+      avail.forEach(t => { const n = Math.floor(k * DEF_SHARE[t] / tot / msuOf(t)); if (n > 0) add[t] = n; });
+      if (ok('SS') && !(cfg.have.SS > 0)) add.SS = 1;
+      if (ok('LS') && !(cfg.have.LS > 0) && k >= 3 * msuOf('LS')) add.LS = 1;
+      return add;
+    };
+    const merged = add => { const u = Object.assign({}, cfg.have); Object.entries(add).forEach(([k, n]) => { u[k] = (u[k] || 0) + n; }); return u; };
+    const costOf = add => { const c = [0, 0, 0]; Object.entries(add).forEach(([k, n]) => { c[0] += n * U[k][1]; c[1] += n * U[k][2]; c[2] += n * U[k][3]; }); return c; };
+    const now = worst(cfg.have);
+    if (now.gain <= 0) return { safe: true, add: {}, cost: [0, 0, 0], lootMsu, before: now, after: now };
+    if (!avail.length) return { safe: false, noShipyard: true, add: {}, cost: [0, 0, 0], lootMsu, before: now, after: now };
+    let k = Math.max(2e4, lootMsu * 0.1), w = worst(merged(plus(k))); const kMax = 10 * Math.max(lootMsu, 1e5);
+    while (w.gain > 0 && k < kMax) { k *= 2; w = worst(merged(plus(k))); }
+    if (w.gain > 0) return { safe: false, tooBig: true, add: plus(k), cost: costOf(plus(k)), lootMsu, before: now, after: w };
+    let lo = k / 2, hi = k, wHi = w;
+    for (let i = 0; i < 5; i++) { const m = (lo + hi) / 2; const wm = worst(merged(plus(m))); if (wm.gain <= 0) { hi = m; wHi = wm; } else lo = m; }
+    const add = plus(hi);
+    return { safe: false, add, cost: costOf(add), lootMsu, before: now, after: wHi };
+  }
+
+  return { U, SHIPS, ATTACK_SHIPS, DEFS, RF, parseReport, planDefense, DEF_REQ, splitReports, simulate, optimize, buildSide, num, shipSpeed, FUEL };
 })();
 if (typeof module !== 'undefined') module.exports = CB;

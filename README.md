@@ -22,6 +22,31 @@ affiche l'écart (« bonus non identifiés ») : objets, recherches de formes
 de vie, niveau de l'espèce, événements. Réglages manuels : classe
 d'alliance Marchands, bonus supplémentaires, ou désactiver le calage.
 
+## Onglet Recherche
+
+Les recherches sont lancées sur une seule planète (par défaut celle qui a le
+meilleur laboratoire, réglable), tant que le Réseau de recherche
+intergalactique n'est pas actif. Elles sont payées par un pot : une part
+(20 % par défaut) du stock et de la production de toutes les planètes,
+que tu envoies vers la planète de recherche. Le reste finance les
+bâtiments dans le plan. Ordre : astrophysique jusqu'à la prochaine
+planète, plasma quand elle s'amortit presque aussi vite que les mines,
+puis, de la moins chère à la plus chère, ordinateur 10, espionnage 10,
+hyperespace 8 et Réseau de recherche, armes, bouclier et protection 10,
+énergie 10, réacteurs, laser 12. Le laboratoire de la planète de
+recherche monte jusqu'au niveau 10 dans son plan.
+
+## Défense de chaque planète
+
+Pour chaque planète, l'application simule le raid le plus rentable d'un
+attaquant de ton niveau (tes technologies, une flotte jusqu'à 2 fois la
+tienne, réglable) en croiseurs, vaisseaux de bataille ou bombardiers,
+avec les transporteurs pour le butin (50 % du stock de l'export) et le
+recyclage de ses propres débris. Si ce raid rapporte, elle cherche la
+plus petite défense (mélange lanceurs, lasers, Gauss, plasma, boucliers)
+qui le rend perdant, et l'affiche sur la carte de la planète. Dans le
+plan, cette défense est payée en premier (désactivable).
+
 ## Onglet Planètes
 
 On colle un export texte de ses planètes (bâtiments, formes de vie,
