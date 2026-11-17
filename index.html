@@ -296,7 +296,8 @@ details.howto ol{margin:6px 0 6px;padding-left:22px}details.howto li{margin:4px 
     <div class="cols">
       <div class="panel">
         <h2>Attaquant (toi)</h2>
-        <div class="row"><label class="note">Partir avec la flotte de <select id="aPlanet"></select></label><button class="ghost" id="aClear">Vider</button></div>
+        <div class="row"><label class="note">Partir avec la flotte de <select id="aPlanet"></select></label><button class="ghost" id="aAll">Toute la flotte</button><button class="ghost" id="aClear">Vider</button></div>
+        <p class="note" id="aSrc" style="margin:4px 0 0"></p>
         <div class="sub2">Technologies</div>
         <div class="ugrid" id="aTech"></div>
         <div class="sub2">Vaisseaux envoyés</div>
@@ -1086,7 +1087,7 @@ if (typeof module !== 'undefined') module.exports = CB;
 
 </script>
 <script>
-const APP_VERSION="202611160745";
+const APP_VERSION="202611170013";
 async function checkVersion(){
   if (location.protocol === 'file:') return;
   try { const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' }); if (!r.ok) return; const j = await r.json();
@@ -1338,10 +1339,19 @@ const SHIPKEY = { LF:'sLF', HF:'sHF', Cr:'sCr', BS:'sBS', BC:'sBC', Bo:'sBo', De
 function fillAttFleet(){
   const res = CS.parsed || { planets: [] }; const i = +$('aPlanet').value; const p = res.planets[i];
   $('aShips').innerHTML = CB.ATTACK_SHIPS.map(k => {
-    let v = p ? (p.b[SHIPKEY[k]]||0) : 0;
+    const have = p ? (p.b[SHIPKEY[k]] || 0) : 0; let v = have;
     if (k === 'EP' || k === 'Col' || k === 'Rec') v = 0; // not sent into battle by default
-    return numInput('aU_'+k, CB.U[k][0], v);
+    return `<label>${esc(CB.U[k][0])}${p ? ` <span class="note" style="font-size:11px">(${OG.fmt(have)} dispo)</span>` : ''}<input type="number" min="0" id="aU_${k}" value="${v || 0}"></label>`;
   }).join('');
+  attSource(null);
+}
+// says where the attacking fleet comes from, so a proposed fleet is not taken for the whole fleet
+function attSource(why){
+  const res = CS.parsed || { planets: [] }; const p = res.planets[+$('aPlanet').value];
+  const when = res.exportedAt ? ` (export du ${new Date(res.exportedAt).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })})` : '';
+  $('aSrc').innerHTML = !p ? '' : why
+    ? `<span class="warnc">${why} : seulement les vaisseaux utiles, pas toute ta flotte de ${esc(p.name)}.</span> « Toute la flotte » remet tout ce que tu as${when}.`
+    : `Toute la flotte de ${esc(p.name)}${when}, sans sondes, recycleurs ni vaisseau de colonisation. Si un chiffre diffère du jeu, refais un export.`;
 }
 const val = id => Math.max(0, +($(id)?.value) || 0);
 function probesSent(){ const v = +($('tgProbes')?.value); return v >= 1 ? Math.round(v) : 4; }
@@ -1429,7 +1439,7 @@ function runOptimize(){
       ${o.lcShort ? `<div class="warn">Il manque ${o.lcShort} grands transporteurs sur ${esc(p.name)} pour emporter tout le butin (${f(o.lootWant)}).</div>` : ''}
       <div class="row"><button id="useOpt">Utiliser cette flotte</button></div>
       <p class="note">Méthode : départ de toute la flotte disponible (et de chaque type de vaisseau seul), puis retrait de vaisseaux tant que la victoire reste au-dessus du seuil et que le coût (pertes + deutérium) ne remonte pas. Les grands transporteurs nécessaires au butin sont ajoutés d'office.</p></div>`;
-    $('useOpt').onclick = () => { CB.ATTACK_SHIPS.forEach(k => { const el = $('aU_' + k); if (el) el.value = b.units[k] || 0; }); runSim(); };
+    $('useOpt').onclick = () => { CB.ATTACK_SHIPS.forEach(k => { const el = $('aU_' + k); if (el) el.value = b.units[k] || 0; }); attSource('Flotte optimale proposée'); runSim(); };
   }, 20);
 }
 function runSim(){
@@ -1563,6 +1573,7 @@ function renderTargets(){
   $('tgOut').querySelectorAll('[data-sim]').forEach(b => b.onclick = () => { const { tg, e } = rows[+b.dataset.sim];
     $('report').value = tg.text; $('aPlanet').value = String(src.i); fillAttFleet();
     CB.ATTACK_SHIPS.forEach(k => { const el = $('aU_' + k); if (el) el.value = e.ch.units[k] || 0; });
+    attSource('Flotte proposée par l\'onglet Cibles pour [' + esc(e.r.coords || '?') + ']');
     if (readReport()) runSim(); location.hash = '#combat'; window.scrollTo(0, 0); });
 }
 
@@ -1753,7 +1764,8 @@ function init(){
   ['speed','fill','rc','rd','col','geo','eng','ally','extra','nocalib','planDays'].forEach(id => $(id).addEventListener('change', run));
   $('copyTpl').onclick = async () => { try { await navigator.clipboard.writeText(TEMPLATE); $('copyMsg').textContent = 'Modèle copié.'; } catch(e){ $('data').value = TEMPLATE; $('copyMsg').textContent = 'Copie refusée : le modèle a été placé dans la zone de texte.'; $('inputPanel').open = true; } };
   $('aPlanet').addEventListener('change', fillAttFleet);
-  $('aClear').onclick = () => CB.ATTACK_SHIPS.forEach(k => $('aU_'+k).value = 0);
+  $('aClear').onclick = () => { CB.ATTACK_SHIPS.forEach(k => $('aU_'+k).value = 0); $('aSrc').textContent = ''; };
+  $('aAll').onclick = fillAttFleet;
   $('dClear').onclick = () => { [...CB.SHIPS, ...CB.DEFS].forEach(k => $('dU_'+k).value = 0); ['dR_m','dR_c','dR_d','dT_weap','dT_shield','dT_armour'].forEach(id => $(id).value = 0); $('report').value=''; $('readMsg').textContent=''; CS.lastReport = null; };
   $('readReport').onclick = () => { if (readReport()) runSim(); };
   const pasteInto = async (id, after, msgId) => { try { const txt = await navigator.clipboard.readText(); if (!txt.trim()) throw new Error('vide'); $(id).value = txt; after(); } catch(e){ $(id).focus(); $(msgId).textContent = 'Collage automatique refusé par le navigateur : colle le texte dans la case (appui long ou Ctrl+V).'; } };
