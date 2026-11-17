@@ -269,16 +269,25 @@ const OG = (() => {
     // what each planet can give: stock minus what its own next build needs
     const avail = P.map(x => {
       if (!x.c.stockNow) return null;
-      const top = x.recs.find(r => r.cost); const res = top ? top.cost : [0, 0, 0];
+      // keep what its own next three builds need
+      const res = [0, 0, 0]; x.recs.slice(0, 3).forEach(r => { if (r.cost) r.cost.forEach((v, j) => { res[j] += v; }); });
       return K.map((k, j) => Math.max(0, Math.floor((x.c.stockNow[k] || 0) - res[j])));
     });
     const ships = P.map(x => ({ LC: x.p.b.sLC || 0, SC: x.p.b.sSC || 0 }));
     const plans = [];
     P.forEach((x, ti) => {
-      const r = x.recs[0];
-      if (!r || !r.cost || r.affordable !== false || !r.missing) return;
-      if (r.waitBlock === 'hangar') return;
-      let need = r.missing.map(v => Math.ceil(v)); const legs = [];
+      // first of the next three builds that waits for resources (not for the queue): the stock left after the earlier ones decides
+      if (!x.c.stockNow) return;
+      let r = null, need = null, prevEnd = 0; const left = K.map(k => x.c.stockNow[k] || 0);
+      for (const [i, q] of x.recs.slice(0, 3).entries()) {
+        if (!q.cost || q.waitBlock === 'hangar' || q.waitBlock === 'prod') break;
+        const miss = q.cost.map((v, j) => Math.ceil(v - left[j]));
+        const start = i === 0 ? (q.affordable ? 0 : q.waitH) : (q.planStart ?? q.waitH);
+        if (miss.some(v => v > 0) && isFinite(start) && start > prevEnd + 0.05) { r = q; need = miss.map(v => Math.max(0, v)); r.missing = need.slice(); r.queueFreeH = prevEnd; r.startH = start; break; }
+        q.cost.forEach((v, j) => { left[j] -= v; }); prevEnd = q.planEnd ?? prevEnd;
+      }
+      if (!r) return;
+      const legs = [];
       const sources = P.map((s, si) => ({ s, si, f: flight(s.p, x.p, speedLC, fleetSpeed) }))
         .filter(o => o.si !== ti && avail[o.si])
         .sort((a, b) => ((ships[b.si].LC + ships[b.si].SC > 0) - (ships[a.si].LC + ships[a.si].SC > 0)) || a.f.h - b.f.h);
@@ -301,8 +310,9 @@ const OG = (() => {
       if (!legs.length) return;
       const covered = need.every(v => v <= 0);
       const arrive = Math.max(...legs.map(l => l.h));
-      if (covered && isFinite(r.waitH) && arrive >= r.waitH) return; // waiting is as fast
-      const plan = { to: x.p.name, build: r.title, legs, covered, arriveH: arrive, waitH: r.waitH, left: need.map(v => Math.max(0, v)) };
+      const ready = Math.max(arrive, r.queueFreeH);
+      if (covered && ready >= r.startH - 0.05) return; // waiting is as fast
+      const plan = { to: x.p.name, build: r.title, legs, covered, arriveH: ready, waitH: r.startH, left: need.map(v => Math.max(0, v)) };
       plans.push(plan); r.transport = plan;
     });
     out.transports = plans;
@@ -484,8 +494,9 @@ const OG = (() => {
         const r = m ? Object.assign({}, m) : { prio: 3, type: s.why === 'infra' || s.why === 'robots' ? 'infra' : 'eco', title: s.name, cost: s.cost || null, why: WHY[s.why] || '' };
         if (!r.cost && s.cost) r.cost = s.cost;
         if (si === 0 && !m && s.why === 'storage-size') r.type = 'important';
+        r.planEnd = s.end;
         if (s.blocked) { r.affordable = false; r.waitH = Infinity; r.waitBlock = 'prod'; r.missing = r.missing || [0, 0, 0]; }
-        else if (si > 0) { r.planStart = s.start; r.affordable = s.start <= 0.001; r.missing = r.missing || [0, 0, 0]; r.waitH = s.start; r.waitBlock = null; r.why = (r.why ? r.why + ' ' : '') + 'Étape ' + (si + 1) + ' du plan.'; }
+        else if (si > 0) { r.planStart = s.start; r.planEnd = s.end; r.affordable = s.start <= 0.001; r.missing = r.missing || [0, 0, 0]; r.waitH = s.start; r.waitBlock = null; r.why = (r.why ? r.why + ' ' : '') + 'Étape ' + (si + 1) + ' du plan.'; }
         else if (calcs[i].stockNow) { const c = calcs[i]; const miss = ['m', 'c', 'd'].map((k, j) => Math.max(0, r.cost[j] - (c.stockNow[k] ?? Infinity))); r.missing = miss; r.affordable = miss.every(v => v <= 0); if (!r.affordable) { r.waitH = s.start; r.waitBlock = null; } }
         q.push(r);
       });

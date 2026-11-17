@@ -1,3 +1,12 @@
+Pour chaque planète, l'application regarde ses trois prochaines
+constructions et prend la première qui attend des ressources (et non la
+fin de la construction précédente). Elle cherche le stock des autres
+planètes (chacune garde de quoi lancer ses trois prochaines constructions)
+et propose le transport le plus court : quantités, grands transporteurs
+disponibles, durée du vol (vitesse des flottes pacifiques du serveur) et
+deutérium. Le transport n'est proposé que s'il permet de lancer la
+construction plus tôt qu'en attendant la production.
+
 # OGame : conseiller de construction
 
 Application personnelle pour OGame (univers FR s285, classe Collecteur).
