@@ -763,6 +763,55 @@ function tgSources(){
   const res = CS.parsed || { planets: [] };
   return res.planets.map((p, i) => ({ i, p, val: CB.ATTACK_SHIPS.reduce((a, k) => a + (p.b[SHIPKEY[k]] || 0) * (CB.U[k][1] + CB.U[k][2]), 0) })).filter(x => x.val > 0).sort((a, b) => b.val - a.val);
 }
+// ships you can build now: shipyard (best of your planets) and research requirements
+const SHIP_REQ = { LF: { sy: 1, rComb: 1 }, HF: { sy: 3, rArmour: 2, rImp: 2 }, Cr: { sy: 5, rImp: 4, rIon: 2 }, BS: { sy: 7, rHD: 4 }, BC: { sy: 8, rHyper: 5, rLaser: 12, rHD: 5 }, Bo: { sy: 8, rImp: 6, rPlasma: 5 }, De: { sy: 9, rHD: 6, rHyper: 5 }, Re: { sy: 10, rHyper: 6, rHD: 7, rShield: 6 }, RIP: { sy: 12, rHD: 7, rHyper: 6, rGrav: 1 } };
+function buildableShips(R, planets){
+  const sy = Math.max(0, ...planets.map(p => p.b.shipyard || 0));
+  return Object.keys(SHIP_REQ).filter(k => Object.entries(SHIP_REQ[k]).every(([q, l]) => (q === 'sy' ? sy : (R[q] || 0)) >= l));
+}
+// cheapest reinforcement (one ship type + the cargo for the loot) that wins the raid, and whether it pays off
+function idealFleet(avail, def, p, coords, R, S, server, minWin, planets){
+  const msu = c => c[0] + c[1] * S.ratioC + c[2] * S.ratioD; const unitCost = k => msu([CB.U[k][1], CB.U[k][2], CB.U[k][3]]);
+  const tech = { weap: R.rWeap || 0, shield: R.rShield || 0, armour: R.rArmour || 0 };
+  const opts = { runs: 24, lootPct: def.lootPct, dfShips: ((server && server.dfShips) ?? 40) / 100, dfDef: ((server && server.dfDef) ?? 0) / 100, dfDeut: !(server && server.dfDeut === false), hyperA: R.rHyper || 0, attackerCollector: S.collector };
+  const base = {}; ['LF', 'HF', 'Cr', 'BS', 'BC', 'Bo', 'De', 'RIP', 'Re', 'LC', 'SC'].forEach(k => { if (avail[k]) base[k] = avail[k]; });
+  const win = (k, n) => { const u = Object.assign({}, base); u[k] = (u[k] || 0) + n; const st = CB.simulate({ units: u, tech }, def, opts); return st.A / st.n; };
+  const capLC = 25000 * (1 + 0.05 * (R.rHyper || 0) + (S.collector ? 0.25 : 0));
+  const lootWant = ((def.res.m || 0) + (def.res.c || 0) + (def.res.d || 0)) * def.lootPct;
+  const addLC = Math.max(0, Math.ceil(lootWant / capLC) - (avail.LC || 0));
+  const budget = Math.max(30 * lootWant, 2e6); // reinforcements must pay back within about 30 raids
+  // 1. for each ship type you can build: how many to add to win
+  const cands = [];
+  for (const k of buildableShips(R, planets)) {
+    const maxN = Math.floor(budget / unitCost(k)); if (maxN < 1) continue;
+    let hi = 1; while (hi <= maxN && win(k, hi) < minWin) hi *= 2;
+    if (hi > maxN) { if (win(k, maxN) < minWin) continue; hi = maxN; }
+    let lo = Math.floor(hi / 2); for (let i = 0; i < 6 && hi - lo > 1; i++) { const mid = (lo + hi) >> 1; if (win(k, mid) >= minWin) hi = mid; else lo = mid; }
+    cands.push({ k, n: Math.ceil(hi * 1.1), est: Math.ceil(hi * 1.1) * unitCost(k) });
+  }
+  if (!cands.length) return { none: true, budget };
+  cands.sort((a, b) => a.est - b.est);
+  // 2. the two cheapest: trim with the optimiser and count the gain
+  const out = [];
+  // more ships than the bare minimum often cut losses enough to pay off sooner: try x1, x2, x3 on the cheapest type
+  const trials = [...[1, 2, 3].map(m => ({ k: cands[0].k, n: cands[0].n * m })), ...cands.slice(1, 2)].filter(c => c.n * unitCost(c.k) <= budget * 1.5);
+  for (const c of trials) {
+    for (let tryN = c.n, t = 0; t < 2; t++, tryN = Math.ceil(tryN * 1.3)) {
+      const av = Object.assign({}, avail); av[c.k] = (av[c.k] || 0) + tryN; av.LC = (av.LC || 0) + addLC;
+      const o = bestFleet(av, def, p, coords, R, S, server, minWin, 40, 50);
+      if (!o || o.impossible) continue;
+      const u = o.best.units; const build = {};
+      Object.keys(u).forEach(x => { const need = u[x] - (avail[x] || 0); if (need > 0) build[x] = need; });
+      const cost = Object.entries(build).reduce((a, [x, n]) => a + n * unitCost(x), 0);
+      const debris = $('tgDebris').checked ? o.debris : 0; const gain = o.lootExp + debris - o.best.loss - o.trip.msu;
+      out.push({ build, cost, units: u, win: o.best.win, loss: o.best.loss, gain, raids: gain > 0 ? Math.ceil(cost / gain) : Infinity, round: o.trip.h });
+      break;
+    }
+  }
+  if (!out.length) return { none: true, budget };
+  out.sort((a, b) => (a.raids - b.raids) || (a.cost - b.cost));
+  return out[0];
+}
 function evalTarget(tg, src, R, S, server, minWin){
   const r = CB.parseReport(tg.text); const p = src.p; const avail = {}; CB.ATTACK_SHIPS.forEach(k => avail[k] = p.b[SHIPKEY[k]] || 0);
   const myTech = { weap: R.rWeap || 0, shield: R.rShield || 0, armour: R.rArmour || 0 };
@@ -775,7 +824,15 @@ function evalTarget(tg, src, R, S, server, minWin){
   const b = o.best; const debris = $('tgDebris').checked ? o.debris : 0;
   const gain = o.lootExp + debris - b.loss - o.trip.msu;
   const defVal = Object.entries(r.units).reduce((a, [k, n]) => a + n * (CB.U[k] ? CB.U[k][1] + CB.U[k][2] + CB.U[k][3] : 0), 0);
-  return { r, ch: { units: b.units, win: b.win, loss: b.loss }, ok: !o.impossible, round: o.trip.h, fuel: o.trip.fuel, gain, perH: gain / Math.max(o.trip.h, 1 / 60), lootWant: o.lootWant, defVal, lcShort: o.lcShort };
+  const ideal = o.impossible ? idealFleet(avail, def, p, r.coords, R, S, server, minWin, (CS.parsed && CS.parsed.planets) || [p]) : null;
+  return { r, ch: { units: b.units, win: b.win, loss: b.loss }, ok: !o.impossible, round: o.trip.h, fuel: o.trip.fuel, gain, perH: gain / Math.max(o.trip.h, 1 / 60), lootWant: o.lootWant, defVal, lcShort: o.lcShort, ideal };
+}
+function idealHtml(e){
+  const x = e.ideal; if (!x) return ''; const f = OG.fmt;
+  if (x.none) return `<div class="note" style="font-size:12px;margin-top:4px">Flotte idéale : aucun renfort que tu peux construire ne gagne pour moins de ${f(x.budget)} (30 raids de butin). Cible à laisser pour l'instant.</div>`;
+  const pay = x.gain > 0 ? `rentabilisés en ${x.raids} raid${x.raids > 1 ? 's' : ''}` : `<span class="red">pas rentable (${f(x.gain)} par raid)</span>`;
+  return `<div style="font-size:12.5px;margin-top:6px;padding:6px 8px;border-radius:6px;background:#0e1529"><b>Flotte idéale :</b> construis <b>${esc(fleetTxt(x.build))}</b> (${f(x.cost)})<br>
+    puis envoie ${esc(fleetTxt(x.units))} : victoire ${Math.round(x.win * 100)} %, gain <b class="${x.gain >= 0 ? 'ok' : 'red'}">${x.gain >= 0 ? '+' : ''}${f(x.gain)}</b> par raid, ${pay}.</div>`;
 }
 function renderTargets(){
   if (!$('tgOut')) return;
@@ -804,7 +861,7 @@ function renderTargets(){
         <div class="btns">${e.unknown ? '' : `<button class="ghost" style="padding:4px 8px;font-size:12px" data-sim="${i}">Simuler</button>`}<button class="ghost" style="padding:4px 8px;font-size:12px" data-del="${esc(tg.key)}" aria-label="Supprimer">✕</button></div></div>`;
       if (e.unknown) return `<div class="tgc">${head}<div class="grid3"><div><span>Butin</span>${f(e.lootWant)}</div><div><span>Défense</span><b class="warnc">${e.r.defKnown ? (e.defVal ? f(e.defVal) : 'aucune') : 'non visible'}</b></div><div><span>Résumé</span>${e.r.summary && e.r.summary.def ? '≈ ' + f(e.r.summary.def) : '–'}</div></div><div class="warnc" style="font-size:12.5px"><b>À resonder.</b> ${esc(e.warn)}</div></div>`;
       return `<div class="tgc">${head}
-        <div class="fl">${e.ok ? '' : '<span class="red">Trop défendue pour ta flotte. Meilleur essai : </span>'}<b>${esc(fleetTxt(e.ch.units))}</b>${e.ok && e.lcShort ? `<br><span class="warnc" style="font-size:12px">manque ${e.lcShort} GT pour tout le butin</span>` : ''}</div>
+        <div class="fl">${e.ok ? '' : '<span class="red">Trop défendue pour ta flotte. Meilleur essai : </span>'}<b>${esc(fleetTxt(e.ch.units))}</b>${e.ok && e.lcShort ? `<br><span class="warnc" style="font-size:12px">manque ${e.lcShort} GT pour tout le butin</span>` : ''}${idealHtml(e)}</div>
         <div class="grid3"><div><span>Butin</span>${f(e.lootWant)}</div><div><span>Défense</span>${e.defVal ? f(e.defVal) : '<span class="ok">aucune</span>'}</div><div><span>Vol A/R</span>${fmtDur(e.round)} · ${f(e.fuel)} D</div>
         <div><span>Victoire</span><b class="${e.ok ? 'ok' : 'red'}">${Math.round(e.ch.win * 100)} %</b>${e.ch.loss > 0 ? ` · pertes ${f(e.ch.loss)}` : ''}</div><div><span>Gain net</span><b class="${e.gain >= 0 ? 'ok' : 'red'}">${e.gain >= 0 ? '+' : ''}${f(e.gain)}</b></div><div><span>Gain / h</span>${e.ok ? f(e.perH) : '–'}</div></div></div>`;
     }).join('') + '</div>';
@@ -816,7 +873,7 @@ function renderTargets(){
       <td style="white-space:nowrap"><button class="ghost" style="padding:4px 8px;font-size:12px" data-del="${esc(tg.key)}" aria-label="Supprimer">✕</button></td></tr>`;
     return `<tr><td style="text-align:left;color:var(--txt)"><b>${esc(e.r.player || '?')}</b> <span class="note">[${esc(e.r.coords)}]${e.r.isMoon ? ' lune' : ''}</span><br><span class="${old ? 'warnc' : 'note'}" style="font-size:11px">rapport il y a ${age(tg.at)}${act ? ' · ' + act : ''}</span></td>
       <td>${f(e.lootWant)}</td><td>${e.defVal ? f(e.defVal) : '<span class="ok">aucune</span>'}</td>
-      <td style="text-align:left;white-space:normal;min-width:160px">${e.ok ? '' : '<span class="red" style="font-size:11px">Trop défendue pour ta flotte</span><br><span class="note" style="font-size:11px">meilleur essai : </span>'}${esc(fleetTxt(e.ch.units))}${e.ok && e.lcShort ? `<br><span class="warnc" style="font-size:11px">manque ${e.lcShort} GT pour tout le butin</span>` : ''}</td>
+      <td style="text-align:left;white-space:normal;min-width:160px">${e.ok ? '' : '<span class="red" style="font-size:11px">Trop défendue pour ta flotte</span><br><span class="note" style="font-size:11px">meilleur essai : </span>'}${esc(fleetTxt(e.ch.units))}${e.ok && e.lcShort ? `<br><span class="warnc" style="font-size:11px">manque ${e.lcShort} GT pour tout le butin</span>` : ''}${idealHtml(e)}</td>
       <td>${fmtDur(e.round)}<br><span class="note" style="font-size:11px">${f(e.fuel)} D</span></td>
       <td class="${e.ok ? 'ok' : 'red'}">${Math.round(e.ch.win * 100)} %${e.ch.loss > 0 ? `<br><span class="note" style="font-size:11px">pertes ${f(e.ch.loss)}</span>` : ''}</td>
       <td class="${e.gain >= 0 ? 'ok' : 'red'}" style="font-weight:600">${e.gain >= 0 ? '+' : ''}${f(e.gain)}</td>
@@ -825,8 +882,9 @@ function renderTargets(){
   $('tgOut').querySelectorAll('[data-del]').forEach(b => b.onclick = () => { TG.list = TG.list.filter(x => x.key !== b.dataset.del); tgSave(); renderTargets(); });
   $('tgOut').querySelectorAll('[data-sim]').forEach(b => b.onclick = () => { const { tg, e } = rows[+b.dataset.sim];
     $('report').value = tg.text; $('aPlanet').value = String(src.i); fillAttFleet();
-    CB.ATTACK_SHIPS.forEach(k => { const el = $('aU_' + k); if (el) el.value = e.ch.units[k] || 0; });
-    attSource('Flotte proposée par l\'onglet Cibles pour [' + esc(e.r.coords || '?') + ']');
+    const useIdeal = !e.ok && e.ideal && e.ideal.units; const units = useIdeal ? e.ideal.units : e.ch.units;
+    CB.ATTACK_SHIPS.forEach(k => { const el = $('aU_' + k); if (el) el.value = units[k] || 0; });
+    attSource((useIdeal ? 'Flotte idéale, avec les renforts à construire, ' : 'Flotte proposée ') + 'par l\'onglet Cibles pour [' + esc(e.r.coords || '?') + ']');
     if (readReport()) runSim(); location.hash = '#combat'; window.scrollTo(0, 0); });
 }
 

@@ -72,6 +72,13 @@ transporteurs nécessaires au butin sont ajoutés d'office.
 
 ## Onglet Cibles
 
+Flotte idéale : quand ta flotte ne suffit pas, l'application cherche,
+parmi les vaisseaux que tu peux construire (chantier spatial et
+recherches), le renfort d'un seul type le moins cher qui gagne, essaie
+aussi 2 et 3 fois plus pour réduire les pertes, ajoute les grands
+transporteurs du butin, puis affiche ce qu'il faut construire, son coût,
+le gain par raid et le nombre de raids pour le rembourser.
+
 On colle un ou plusieurs rapports d'espionnage ; ils restent enregistrés
 dans le navigateur (un rapport plus récent sur la même planète remplace
 l'ancien). Pour chaque cible : plusieurs escortes possibles tirées de la
