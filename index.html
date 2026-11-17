@@ -904,7 +904,12 @@ const CB = (() => {
     const TECH = { esp: ['technologie espionnage', 'technologie d espionnage'], weap: ['technologie armes', 'technologie des armes'], shield: ['technologie bouclier', 'technologie des boucliers', 'technologie de bouclier'], armour: ['technologie protection des vaisseaux spatiaux', 'technologie de protection des vaisseaux spatiaux', 'protection des vaisseaux spatiaux'], hyper: ['technologie hyperespace'] };
     for (const [k, arr] of Object.entries(TECH)) for (const a of arr) { const v = grab(a); if (v != null) { out.tech[k] = v; out.found++; break; } }
     const RES = { m: '(?<!de\\s)metal', c: '(?<!de\\s)cristal', d: '(?<!de\\s)(?<!en\\s)deuterium' };
-    for (const [k, a] of Object.entries(RES)) { const re = new RegExp('(?:^|[^a-z])' + a + '\\s*:?\\s*' + NUM, 'g'); let m, v = null; while ((m = re.exec(t))) v = num(m[1]); if (v != null) { out.res[k] = v; out.found++; } }
+    // the debris field block repeats Métal / Cristal / Deutérium: read the planet's resources before it, the debris inside it
+    const dfAt = t.search(/champ de debris/); const tRes = dfAt >= 0 ? t.slice(0, dfAt) : t;
+    const tDf = dfAt >= 0 ? t.slice(dfAt).split(/\n\s*(?:flottes?|defense|batiments?|recherche)\s*\n/)[0] : '';
+    const lastNum = (txt, a) => { const re = new RegExp('(?:^|[^a-z])' + a + '\\s*:?\\s*' + NUM, 'g'); let m, v = null; while ((m = re.exec(txt))) v = num(m[1]); return v; };
+    for (const [k, a] of Object.entries(RES)) { const v = lastNum(tRes, a); if (v != null) { out.res[k] = v; out.found++; } }
+    if (tDf) { out.df = {}; for (const [k, a] of Object.entries(RES)) { const v = lastNum(tDf, a); if (v != null) out.df[k] = v; } }
     const lm = t.match(/butin\s*:?\s*(\d{1,3})(?!\d)/); if (lm) out.lootPct = +lm[1];
     const cm = t.match(/classe\s*:\s*(le |la )?(collecteur|general|explorateur)/); if (cm) out.cls = cm[2];
     out.noResearch = /recherche\s+aucune donnee fiable/.test(t);
@@ -1088,7 +1093,7 @@ if (typeof module !== 'undefined') module.exports = CB;
 
 </script>
 <script>
-const APP_VERSION="202611170144";
+const APP_VERSION="202611170617";
 async function checkVersion(){
   if (location.protocol === 'file:') return;
   try { const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' }); if (!r.ok) return; const j = await r.json();
