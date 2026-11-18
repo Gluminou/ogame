@@ -1280,7 +1280,7 @@ if (typeof module !== 'undefined') module.exports = CB;
 
 </script>
 <script>
-const APP_VERSION="202611180549";
+const APP_VERSION="202611180556";
 async function checkVersion(){
   if (location.protocol === 'file:') return;
   try { const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' }); if (!r.ok) return; const j = await r.json();
@@ -1547,14 +1547,14 @@ function defBlock(d, x){
   const ORDER = ['RL', 'LL', 'HL', 'GC', 'IC', 'PT', 'SS', 'LS']; const have = d.have || {};
   const target = k => (have[k] || 0) + ((d.add || {})[k] || 0);
   const rows = ORDER.filter(k => target(k) > 0).map(k => { const h = have[k] || 0, g = target(k); const okk = h >= g;
-    return `<div style="display:flex;justify-content:space-between;gap:8px;padding:2px 0;border-top:1px solid var(--line)"><span>${esc(g > 1 && PLURAL[k] ? PLURAL[k][0].toUpperCase() + PLURAL[k].slice(1) : CB.U[k][0])}</span><span style="white-space:nowrap"><b>${f(g)}</b> <span class="${okk ? 'ok' : 'note'}" style="font-size:11.5px">${okk ? '✓' : `tu en as ${f(h)}`}</span></span></div>`; }).join('');
-  const table = rows ? `<div style="margin:6px 0 4px"><div class="note" style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;margin-bottom:2px">Objectif à avoir sur la planète</div>${rows}</div>` : '';
+    return `<div style="display:grid;grid-template-columns:1fr 92px 56px;gap:8px;padding:2px 0;border-top:1px solid var(--line)"><span>${esc(g > 1 && PLURAL[k] ? PLURAL[k][0].toUpperCase() + PLURAL[k].slice(1) : CB.U[k][0])}</span><span style="text-align:right">${okk ? '<span class="ok">✓</span>' : `<b class="warnc">+${f(g - h)}</b>`}</span><span style="text-align:right"><b>${f(g)}</b></span></div>`; }).join('');
+  const table = rows ? `<div style="margin:6px 0 4px"><div class="note" style="display:grid;grid-template-columns:1fr 92px 56px;gap:8px;font-size:11px;letter-spacing:.04em;text-transform:uppercase;margin-bottom:2px"><span>Défense</span><span style="text-align:right;white-space:nowrap">À construire</span><span style="text-align:right">Objectif</span></div>${rows}</div>` : '';
   if (d.safe) return wrap('', `<b class="ok">Suffisante.</b> Avec ${f(d.lootMsu)} de butin possible, ${who} ne gagne rien à t'attaquer.${table}`);
   const now = d.before && d.before.by ? ` Aujourd'hui, un raid avec ${atk(d.before)} rapporterait environ <b class="red">+${f(d.before.gain)}</b>.` : ` Aujourd'hui, la planète n'a pas de défense : le moindre raid emporte la moitié des ressources (${f(d.lootMsu)}).`;
   if (d.noShipyard) return wrap('', `<b class="red">Aucune défense possible :</b> pas de chantier spatial.${now} Ne laisse pas de ressources dessus.`);
   if (d.tooBig) return wrap('', `<b class="red">Trop de ressources à protéger.</b>${now} Même la défense ci-dessous ne suffirait pas : dépense ou transporte le stock et mets ta flotte à l'abri.${table}`);
   const after = d.after && d.after.by ? ` Ensuite, le raid le plus rentable (${atk(d.after)}) perdrait ${f(-d.after.gain)}.` : ` Ensuite, ${who} ne gagne plus le combat.`;
-  return wrap('', `<b class="warnc">Insuffisante.</b>${now}${table}<span class="note">Il manque ${esc(OG.fmtCost(d.cost))}.</span>${after} L'objectif est recalculé à chaque export, selon le stock du moment.`);
+  return wrap('', `<b class="warnc">Insuffisante.</b>${now}${table}<span class="note">Coût de ce qui est à construire : ${esc(OG.fmtCost(d.cost))}.</span>${after} L'objectif est recalculé à chaque export, selon le stock du moment.`);
 }
 
 // ---------- Research tab ----------
