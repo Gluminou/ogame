@@ -44,7 +44,7 @@ tienne, réglable) en croiseurs, vaisseaux de bataille ou bombardiers,
 avec les transporteurs pour le butin (50 % du stock de l'export) et le
 recyclage de ses propres débris. Si ce raid rapporte, elle cherche la
 plus petite défense (mélange lanceurs, lasers, Gauss, plasma, boucliers)
-qui le rend perdant, et l'affiche sur la carte de la planète. Dans le
+qui le rend perdant, et affiche sur la carte de la planète le nombre total à avoir pour chaque défense, à côté de ce que tu as (recalculé à chaque export). Dans le
 plan, cette défense est payée en premier (désactivable).
 
 ## Onglet Planètes

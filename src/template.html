@@ -598,7 +598,7 @@ async function computeDefense(text, S, key){
     if (!p.stock) continue;
     const have = {}; Object.entries(DEFKEY).forEach(([k, s]) => { have[k] = p.b[s] || 0; });
     const d = CB.planDefense({ have, sy: p.b.shipyard || 0, R, stock: p.stock, ratioC: S.ratioC, ratioD: S.ratioD, dfShips: (sv.dfShips ?? 30) / 100, dfDef: (sv.dfDef ?? 0) / 100, dfDeut: sv.dfDeut !== false, lootPct: 0.5, threatMsu: Math.max(5e5, S.threat * fleet) });
-    d.threatMsu = Math.max(5e5, S.threat * fleet); byName[p.name] = d;
+    d.threatMsu = Math.max(5e5, S.threat * fleet); d.have = have; byName[p.name] = d;
     if (!d.safe && !d.noShipyard && Object.keys(d.add).length) orders[p.name] = { name: 'Défense : ' + defList(d.add), cost: d.cost };
     await new Promise(r => setTimeout(r, 0));
   }
@@ -614,12 +614,18 @@ function defBlock(d, x){
   if (!d) return DZ.pending && DZ.key !== DZ.pending ? wrap('', '<span class="note">calcul en cours…</span>') : '';
   const who = `un attaquant jusqu'à ${f(d.threatMsu)} de flotte (${settings().threat} fois la tienne)`;
   const atk = w => w && w.by ? `${w.n} ${unitName(w.by, w.n)}` : '';
-  if (d.safe) return wrap('', `<b class="ok">Suffisante.</b> Avec ${f(d.lootMsu)} de butin possible, ${who} ne gagne rien à t'attaquer.`);
+  // target = what the planet should have in total (recomputed at each export), next to what it has
+  const ORDER = ['RL', 'LL', 'HL', 'GC', 'IC', 'PT', 'SS', 'LS']; const have = d.have || {};
+  const target = k => (have[k] || 0) + ((d.add || {})[k] || 0);
+  const rows = ORDER.filter(k => target(k) > 0).map(k => { const h = have[k] || 0, g = target(k); const okk = h >= g;
+    return `<div style="display:flex;justify-content:space-between;gap:8px;padding:2px 0;border-top:1px solid var(--line)"><span>${esc(g > 1 && PLURAL[k] ? PLURAL[k][0].toUpperCase() + PLURAL[k].slice(1) : CB.U[k][0])}</span><span style="white-space:nowrap"><b>${f(g)}</b> <span class="${okk ? 'ok' : 'note'}" style="font-size:11.5px">${okk ? '✓' : `tu en as ${f(h)}`}</span></span></div>`; }).join('');
+  const table = rows ? `<div style="margin:6px 0 4px"><div class="note" style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;margin-bottom:2px">Objectif à avoir sur la planète</div>${rows}</div>` : '';
+  if (d.safe) return wrap('', `<b class="ok">Suffisante.</b> Avec ${f(d.lootMsu)} de butin possible, ${who} ne gagne rien à t'attaquer.${table}`);
   const now = d.before && d.before.by ? ` Aujourd'hui, un raid avec ${atk(d.before)} rapporterait environ <b class="red">+${f(d.before.gain)}</b>.` : ` Aujourd'hui, la planète n'a pas de défense : le moindre raid emporte la moitié des ressources (${f(d.lootMsu)}).`;
   if (d.noShipyard) return wrap('', `<b class="red">Aucune défense possible :</b> pas de chantier spatial.${now} Ne laisse pas de ressources dessus.`);
-  if (d.tooBig) return wrap('', `<b class="red">Trop de ressources à protéger.</b>${now} Même ${esc(defList(d.add))} ne suffirait pas : dépense ou transporte le stock et mets ta flotte à l'abri.`);
+  if (d.tooBig) return wrap('', `<b class="red">Trop de ressources à protéger.</b>${now} Même la défense ci-dessous ne suffirait pas : dépense ou transporte le stock et mets ta flotte à l'abri.${table}`);
   const after = d.after && d.after.by ? ` Ensuite, le raid le plus rentable (${atk(d.after)}) perdrait ${f(-d.after.gain)}.` : ` Ensuite, ${who} ne gagne plus le combat.`;
-  return wrap('', `<b class="warnc">À construire :</b> ${esc(defList(d.add))} <span class="note">(${esc(OG.fmtCost(d.cost))})</span>.${now}${after}`);
+  return wrap('', `<b class="warnc">Insuffisante.</b>${now}${table}<span class="note">Il manque ${esc(OG.fmtCost(d.cost))}.</span>${after} L'objectif est recalculé à chaque export, selon le stock du moment.`);
 }
 
 // ---------- Research tab ----------
