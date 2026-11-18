@@ -244,13 +244,19 @@ const CB = (() => {
   }
   // ---------- defence planner: enough defence that raiding the planet no longer pays for an attacker of your level ----------
   const DEF_REQ = { RL: { sy: 1 }, LL: { sy: 2, rEnergy: 1, rLaser: 3 }, HL: { sy: 4, rEnergy: 3, rLaser: 6 }, GC: { sy: 6, rEnergy: 6, rWeap: 3, rShield: 1 }, IC: { sy: 4, rIon: 4 }, PT: { sy: 8, rPlasma: 7 }, SS: { sy: 1, rShield: 2 }, LS: { sy: 6, rShield: 6 } };
-  const DEF_SHARE = { RL: 0.30, LL: 0.25, HL: 0.15, GC: 0.20, PT: 0.10 }; // share of the budget, by cost: cheap fodder + heavy guns
+  // budget shares, by cost: several mixes are tried and the cheapest one that does the job wins
+  const DEF_MIXES = [
+    { RL: 0.30, LL: 0.25, HL: 0.15, GC: 0.20, PT: 0.10 },
+    { RL: 0.25, LL: 0.20, HL: 0.10, GC: 0.20, PT: 0.25 },
+    { RL: 0.20, LL: 0.15, HL: 0.05, GC: 0.30, PT: 0.30 }, // heavy guns: bombers have no rapid fire on Gauss and plasma
+  ];
+  const DEF_SHARE = DEF_MIXES[0];
   // cfg: { have:{RL..LS}, sy, R, stock:{m,c,d}, ratioC, ratioD, dfShips, dfDef, dfDeut, lootPct, attackers:[...], threatMsu }
   function planDefense(cfg) {
     const rc = cfg.ratioC, rd = cfg.ratioD, R = cfg.R || {};
     const msuOf = k => U[k][1] + U[k][2] * rc + U[k][3] * rd;
     const ok = k => Object.entries(DEF_REQ[k]).every(([q, l]) => (q === 'sy' ? cfg.sy || 0 : R[q] || 0) >= l);
-    const avail = Object.keys(DEF_SHARE).filter(ok); const tot = avail.reduce((a, k) => a + DEF_SHARE[k], 0);
+    const avail = Object.keys(DEF_SHARE).filter(ok);
     const stock = cfg.stock || {}; const lootPct = cfg.lootPct ?? 0.5;
     const lootMsu = ((stock.m || 0) + (stock.c || 0) * rc + (stock.d || 0) * rd) * lootPct;
     const tech = { weap: R.rWeap || 0, shield: R.rShield || 0, armour: R.rArmour || 0 };
@@ -282,9 +288,10 @@ const CB = (() => {
       }
       return w;
     }
-    const plus = k => { // additions for a budget of k (metal units)
-      const add = {}; if (k <= 0) return add;
-      avail.forEach(t => { const n = Math.floor(k * DEF_SHARE[t] / tot / msuOf(t)); if (n > 0) add[t] = n; });
+    let mix = DEF_SHARE;
+    const plus = k => { // additions for a budget of k (metal units), with the current mix
+      const add = {}; if (k <= 0) return add; const tot = avail.reduce((a, t) => a + mix[t], 0);
+      avail.forEach(t => { const n = Math.round(k * mix[t] / tot / msuOf(t)); if (n > 0) add[t] = n; });
       if (ok('SS') && !(cfg.have.SS > 0)) add.SS = 1;
       if (ok('LS') && !(cfg.have.LS > 0) && k >= 3 * msuOf('LS')) add.LS = 1;
       return add;
@@ -294,13 +301,20 @@ const CB = (() => {
     const now = worst(cfg.have);
     if (now.gain <= 0) return { safe: true, add: {}, cost: [0, 0, 0], lootMsu, before: now, after: now };
     if (!avail.length) return { safe: false, noShipyard: true, add: {}, cost: [0, 0, 0], lootMsu, before: now, after: now };
-    let k = Math.max(2e4, lootMsu * 0.1), w = worst(merged(plus(k))); const kMax = 10 * Math.max(lootMsu, 1e5);
-    while (w.gain > 0 && k < kMax) { k *= 2; w = worst(merged(plus(k))); }
-    if (w.gain > 0) return { safe: false, tooBig: true, add: plus(k), cost: costOf(plus(k)), lootMsu, before: now, after: w };
-    let lo = k / 2, hi = k, wHi = w;
-    for (let i = 0; i < 5; i++) { const m = (lo + hi) / 2; const wm = worst(merged(plus(m))); if (wm.gain <= 0) { hi = m; wHi = wm; } else lo = m; }
-    const add = plus(hi);
-    return { safe: false, add, cost: costOf(add), lootMsu, before: now, after: wHi };
+    const kMax = 10 * Math.max(lootMsu, 1e5); let best = null; const tried = [];
+    const mixes = avail.includes('PT') ? DEF_MIXES : DEF_MIXES.slice(0, 1);
+    for (const m of mixes) {
+      mix = m;
+      let k = Math.max(2e4, lootMsu * 0.1), w = worst(merged(plus(k)));
+      while (w.gain > 0 && k < kMax) { k *= 2; w = worst(merged(plus(k))); }
+      if (w.gain > 0) { if (!best) best = { tooBig: true, add: plus(k), w }; continue; }
+      let lo = k / 2, hi = k, wHi = w;
+      for (let i = 0; i < 5; i++) { const md = (lo + hi) / 2; const wm = worst(merged(plus(md))); if (wm.gain <= 0) { hi = md; wHi = wm; } else lo = md; }
+      const add = plus(hi); const v = val(costOf(add)); tried.push({ v, add });
+      if (!best || best.tooBig || v < best.v) best = { add, v, w: wHi };
+    }
+    if (best.tooBig) return { safe: false, tooBig: true, add: best.add, cost: costOf(best.add), lootMsu, before: now, after: best.w };
+    return { safe: false, add: best.add, cost: costOf(best.add), lootMsu, before: now, after: best.w, tried };
   }
 
   return { U, SHIPS, ATTACK_SHIPS, DEFS, RF, parseReport, planDefense, DEF_REQ, splitReports, simulate, optimize, buildSide, num, shipSpeed, FUEL };

@@ -625,7 +625,10 @@ function defBlock(d, x){
   if (d.noShipyard) return wrap('', `<b class="red">Aucune défense possible :</b> pas de chantier spatial.${now} Ne laisse pas de ressources dessus.`);
   if (d.tooBig) return wrap('', `<b class="red">Trop de ressources à protéger.</b>${now} Même la défense ci-dessous ne suffirait pas : dépense ou transporte le stock et mets ta flotte à l'abri.${table}`);
   const after = d.after && d.after.by ? ` Ensuite, le raid le plus rentable (${atk(d.after)}) perdrait ${f(-d.after.gain)}.` : ` Ensuite, ${who} ne gagne plus le combat.`;
-  return wrap('', `<b class="warnc">Insuffisante.</b>${now}${table}<span class="note">Coût de ce qui est à construire : ${esc(OG.fmtCost(d.cost))}.</span>${after} L'objectif est recalculé à chaque export, selon le stock du moment.`);
+  const alt = !(d.add && d.add.PT) && d.tried ? d.tried.filter(x => x.add.PT).sort((a, b) => a.v - b.v)[0] : null;
+  const best = d.tried ? Math.min(...d.tried.map(x => x.v)) : 0;
+  const altTxt = alt ? `<div class="note" style="margin-top:6px">Sans lanceur de plasma, c'est la défense la moins chère. Variante avec plasma, à construire : ${esc(defList(alt.add))}, pour ${f(alt.v)} au lieu de ${f(best)} (+${Math.round((alt.v / best - 1) * 100)} %). Plus solide contre les bombardiers et les grosses flottes.</div>` : '';
+  return wrap('', `<b class="warnc">Insuffisante.</b>${now}${table}<span class="note">Coût de ce qui est à construire : ${esc(OG.fmtCost(d.cost))}.</span>${after} L'objectif est recalculé à chaque export, selon le stock du moment.${altTxt}`);
 }
 
 // ---------- Research tab ----------
