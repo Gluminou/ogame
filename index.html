@@ -1213,6 +1213,25 @@ const CB = (() => {
     const per = drv === 'comb' ? 0.1 : drv === 'imp' ? 0.2 : 0.3;
     return base * (1 + per * lvl + (collector && (k === 'SC' || k === 'LC') ? 1 : 0));
   }
+  // ---------- cannon fodder: how many light fighters to add to cut the losses of this fleet ----------
+  // cfg: { ratioC, ratioD, spare: light fighters still on the planet, runs }
+  function fodderPlan(att, def, opts, cfg) {
+    const val = v => v[0] + v[1] * cfg.ratioC + v[2] * cfg.ratioD;
+    const run = u => { const s = simulate({ units: u, tech: att.tech }, def, Object.assign({}, opts, { runs: cfg.runs || 60, rnd: mulberry(4242) })); return { win: s.A / s.n, loss: val(s.costA), st: s }; };
+    const base = run(att.units); if (base.loss < 1) return null;
+    const ships = Object.entries(att.units).reduce((a, [k, n]) => a + (k === 'LF' ? 0 : n), 0) || 1;
+    let best = null;
+    for (const f of [0.25, 0.5, 1, 2, 4, 8]) {
+      const m = Math.max(5, Math.round(ships * f)); const u = Object.assign({}, att.units); u.LF = (u.LF || 0) + m;
+      const r = run(u); if (r.win < base.win - 0.02) continue;
+      if (!best || r.loss < best.loss) best = Object.assign(r, { m });
+    }
+    if (!best || best.loss > base.loss * 0.85 || base.loss - best.loss < 1e4) return { none: true, base };
+    const fromSpare = Math.min(best.m, cfg.spare || 0), toBuild = best.m - fromSpare;
+    const buildCost = toBuild * val([U.LF[1], U.LF[2], U.LF[3]]); const saving = base.loss - best.loss;
+    return { m: best.m, fromSpare, toBuild, buildCost, before: base.loss, after: best.loss, saving, raids: toBuild ? Math.ceil(buildCost / saving) : 0, win: best.win };
+  }
+
   // ---------- defence planner: enough defence that raiding the planet no longer pays for an attacker of your level ----------
   const DEF_REQ = { RL: { sy: 1 }, LL: { sy: 2, rEnergy: 1, rLaser: 3 }, HL: { sy: 4, rEnergy: 3, rLaser: 6 }, GC: { sy: 6, rEnergy: 6, rWeap: 3, rShield: 1 }, IC: { sy: 4, rIon: 4 }, PT: { sy: 8, rPlasma: 7 }, SS: { sy: 1, rShield: 2 }, LS: { sy: 6, rShield: 6 } };
   // budget shares, by cost: several mixes are tried and the cheapest one that does the job wins
@@ -1288,13 +1307,13 @@ const CB = (() => {
     return { safe: false, add: best.add, cost: costOf(best.add), lootMsu, before: now, after: best.w, tried };
   }
 
-  return { U, SHIPS, ATTACK_SHIPS, DEFS, RF, parseReport, planDefense, DEF_REQ, splitReports, simulate, optimize, buildSide, num, shipSpeed, FUEL };
+  return { U, SHIPS, ATTACK_SHIPS, DEFS, RF, parseReport, planDefense, DEF_REQ, fodderPlan, splitReports, simulate, optimize, buildSide, num, shipSpeed, FUEL };
 })();
 if (typeof module !== 'undefined') module.exports = CB;
 
 </script>
 <script>
-const APP_VERSION="202611180559";
+const APP_VERSION="202611210140";
 async function checkVersion(){
   if (location.protocol === 'file:') return;
   try { const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' }); if (!r.ok) return; const j = await r.json();
@@ -1689,7 +1708,7 @@ function bestFleet(avail, def, srcP, coords, R, S, server, minWin, runs, maxEval
   const b = res.best; const trip = tripCost(b.units, srcP, coords, R, S, server);
   const lootExp = b.st.lootExpected[0] + b.st.lootExpected[1] * S.ratioC + b.st.lootExpected[2] * S.ratioD;
   const debris = b.st.debris[0] + b.st.debris[1] * S.ratioC + b.st.debris[2] * S.ratioD;
-  return { ...res, best: b, lc, lootWant, lcShort: Math.max(0, Math.ceil((lootWant - b.st.cargo) / capLC)), trip, lootExp, debris };
+  return { ...res, best: b, lc, lootWant, lcShort: Math.max(0, Math.ceil((lootWant - b.st.cargo) / capLC)), trip, lootExp, debris, opts, tech: { weap: R.rWeap || 0, shield: R.rShield || 0, armour: R.rArmour || 0 } };
 }
 const fleetTxt = u => Object.entries(u).filter(([, n]) => n > 0).map(([k, n]) => `${n} ${CB.U[k][0].replace('Vaisseau de bataille', 'VB').replace('Grand transporteur', 'GT')}`).join(', ');
 function runOptimize(){
@@ -1707,6 +1726,7 @@ function runOptimize(){
     $('simMsg').textContent = o ? `${o.evals} flottes testées en ${Math.round(performance.now() - t0)} ms.` : '';
     if (!o){ $('optOut').innerHTML = ''; return; }
     const b = o.best, f = OG.fmt;
+    const fp = !o.impossible && b.loss > 0 ? CB.fodderPlan({ units: b.units, tech: o.tech }, def, o.opts, { ratioC: S.ratioC, ratioD: S.ratioD, spare: Math.max(0, (avail.LF || 0) - (b.units.LF || 0)) }) : null;
     $('optOut').innerHTML = `<div class="panel"><h2>${o.impossible ? '<span class="red">Aucune flotte de ' + esc(p.name) + ' n\'atteint ' + Math.round(minWin * 100) + ' % de victoire</span>' : 'Flotte optimale depuis ' + esc(p.name)}</h2>
       <p style="margin:8px 0;font-size:15px"><b>${esc(fleetTxt(b.units))}</b></p>
       <div class="kpis"><div class="kpi"><small>Victoire</small><b class="${b.win >= minWin ? 'ok' : 'red'}">${Math.round(b.win * 100)} %</b><small>sur ${b.st.n} combats</small></div>
@@ -1714,9 +1734,11 @@ function runOptimize(){
       <div class="kpi"><small>Vol aller-retour</small><b>${o.trip.h ? fmtDur(o.trip.h) : '–'}</b><small>${f(o.trip.fuel)} deutérium</small></div>
       <div class="kpi"><small>Gain net attendu</small><b class="ok">${f(o.lootExp + o.debris - b.loss - o.trip.msu)}</b><small>butin + débris − pertes − deut</small></div></div>
       ${o.lcShort ? `<div class="warn">Il manque ${o.lcShort} grands transporteurs sur ${esc(p.name)} pour emporter tout le butin (${f(o.lootWant)}).</div>` : ''}
-      <div class="row"><button id="useOpt">Utiliser cette flotte</button></div>
+      ${fp && !fp.none ? `<div class="warn"><b>Avec de la chair à canon :</b> ${fodderText(fp)}</div>` : ''}
+      <div class="row"><button id="useOpt">Utiliser cette flotte</button>${fp && !fp.none ? '<button class="ghost" id="useOptF">Utiliser avec la chair à canon</button>' : ''}</div>
       <p class="note">Méthode : départ de toute la flotte disponible (et de chaque type de vaisseau seul), puis retrait de vaisseaux tant que la victoire reste au-dessus du seuil et que le coût (pertes + deutérium) ne remonte pas. Les grands transporteurs nécessaires au butin sont ajoutés d'office.</p></div>`;
     $('useOpt').onclick = () => { CB.ATTACK_SHIPS.forEach(k => { const el = $('aU_' + k); if (el) el.value = b.units[k] || 0; }); attSource('Flotte optimale proposée'); runSim(); };
+    if ($('useOptF')) $('useOptF').onclick = () => { CB.ATTACK_SHIPS.forEach(k => { const el = $('aU_' + k); if (el) el.value = (b.units[k] || 0) + (k === 'LF' ? fp.m : 0); }); attSource('Flotte optimale avec chair à canon (dont ' + fp.toBuild + ' chasseurs légers à construire)'); runSim(); };
   }, 20);
 }
 function runSim(){
@@ -1729,6 +1751,13 @@ function runSim(){
   $('simMsg').textContent = 'Simulation en cours…';
   setTimeout(() => { const t0 = performance.now(); const st = CB.simulate(att, def, opts); $('simMsg').textContent = `${st.n} combats simulés en ${Math.round(performance.now()-t0)} ms.`; renderSim(st, att, def, opts); }, 20);
 }
+// text for a fodder suggestion (CB.fodderPlan)
+function fodderText(fp){
+  const f = OG.fmt; if (!fp || fp.none) return '';
+  const src = fp.toBuild && fp.fromSpare ? ` (${fp.fromSpare} déjà sur la planète, ${fp.toBuild} à construire pour ${f(fp.buildCost)})` : fp.toBuild ? ` (à construire : ${f(fp.buildCost)})` : ' (déjà sur la planète)';
+  return `Ajoute <b>${fp.m} chasseurs légers</b>${src} : tes pertes passent de ${f(fp.before)} à <b>${f(fp.after)}</b> par raid${fp.toBuild ? `, construction remboursée en ${fp.raids} raid${fp.raids > 1 ? 's' : ''}` : ''}.`;
+}
+function spareLF(units){ const p = (CS.parsed || { planets: [] }).planets[+$('aPlanet').value]; return p ? Math.max(0, (p.b[SHIPKEY.LF] || 0) - (units.LF || 0)) : 0; }
 function renderSim(st, att, def, opts){
   const f = OG.fmt, n = st.n, pa = st.A/n*100, pd = st.D/n*100, pn = st.draw/n*100;
   const S = settings(); const msu = c => c[0] + c[1]*S.ratioC + c[2]*S.ratioD;
@@ -1743,7 +1772,12 @@ function renderSim(st, att, def, opts){
   const gain = (st.lootExpected[0] + st.lootExpected[1]*S.ratioC + st.lootExpected[2]*S.ratioD) + (st.debris[0] + st.debris[1]*S.ratioC + st.debris[2]*S.ratioD) - msu(st.costA);
   const tips = [];
   if (pa < 95) tips.push('Renforce ta flotte : ajoute de la chair à canon (chasseurs légers) pour protéger tes gros vaisseaux, ou plus de vaisseaux de bataille. Contre beaucoup de lanceurs de missiles, les croiseurs (rapidfire x10) et les bombardiers sont efficaces.');
-  if (msu(st.costA) > 0 && pa >= 95) tips.push(`Tu gagnes, mais tu perds en moyenne ${f(msu(st.costA))} (équivalent métal) de vaisseaux. Ajoute de la chair à canon pour réduire les pertes.`);
+  let fp = null;
+  if (msu(st.costA) > 0 && pa >= 95) {
+    fp = CB.fodderPlan(att, def, opts, { ratioC: S.ratioC, ratioD: S.ratioD, spare: spareLF(att.units) });
+    tips.push(fp && !fp.none ? { html: `Tu gagnes, mais tu perds en moyenne ${f(msu(st.costA))} de vaisseaux. ${fodderText(fp)} <button class="ghost" id="addFodder" style="margin-top:6px;padding:4px 10px">Ajouter à la flotte</button>` }
+      : `Tu gagnes, mais tu perds en moyenne ${f(msu(st.costA))} de vaisseaux. Ajouter des chasseurs légers ne réduirait pas ces pertes ici.`);
+  }
   if (lcNeeded > 0 && pa >= 60) tips.push(`Ta soute ne suffit pas pour tout le butin : ajoute ${lcNeeded} grand${lcNeeded>1?'s':''} transporteur${lcNeeded>1?'s':''} (${f(lcCap)} chacun) pour emporter ${f(lootWant)}.`);
   if (debrisTot > 0) tips.push(`Envoie ${Math.ceil(debrisTot/recCap)} recycleur${Math.ceil(debrisTot/recCap)>1?'s':''} pour récupérer le champ de débris (${f(recCap)} chacun).`);
   $('simOut').innerHTML = `
@@ -1758,12 +1792,13 @@ function renderSim(st, att, def, opts){
       <div class="kpi"><small>Champ de débris</small><b>${f(debrisTot)}</b><small>${esc(OG.fmtCost(st.debris)||'0')}</small></div>
       <div class="kpi"><small>Gain net attendu</small><b class="${gain>=0?'ok':'red'}">${gain>=0?'+':''}${f(gain)}</b><small>butin × victoire + débris − pertes, en équiv. métal</small></div>
     </div>
-    ${tips.map(t => `<div class="warn">${esc(t)}</div>`).join('')}
+    ${tips.map(t => `<div class="warn">${t.html || esc(t)}</div>`).join('')}
   </div>
   <div class="cols">
     <div class="panel"><h3>Tes vaisseaux</h3><table class="t"><tr><th>Unité</th><th>Envoyés</th><th>Perdus (moy.)</th></tr>${rows(st.lossA, att.units)}</table></div>
     <div class="panel"><h3>Défenseur</h3><table class="t"><tr><th>Unité</th><th>Présents</th><th>Détruits (moy.)</th></tr>${rows(st.lossD, def.units)}</table><p class="note">Environ 70 % des défenses détruites sont reconstruites gratuitement après le combat.</p></div>
   </div>`;
+  if (fp && !fp.none && $('addFodder')) $('addFodder').onclick = () => { const el = $('aU_LF'); el.value = (+el.value || 0) + fp.m; attSource('Flotte avec chair à canon ajoutée'); runSim(); };
 }
 // ---------- Targets tab ----------
 const TG = { list: [] };
@@ -1849,7 +1884,8 @@ function evalTarget(tg, src, R, S, server, minWin){
   const gain = o.lootExp + debris - b.loss - o.trip.msu;
   const defVal = Object.entries(r.units).reduce((a, [k, n]) => a + n * (CB.U[k] ? CB.U[k][1] + CB.U[k][2] + CB.U[k][3] : 0), 0);
   const ideal = o.impossible ? idealFleet(avail, def, p, r.coords, R, S, server, minWin, (CS.parsed && CS.parsed.planets) || [p]) : null;
-  return { r, ch: { units: b.units, win: b.win, loss: b.loss }, ok: !o.impossible, round: o.trip.h, fuel: o.trip.fuel, gain, perH: gain / Math.max(o.trip.h, 1 / 60), lootWant: o.lootWant, defVal, lcShort: o.lcShort, ideal };
+  const fodder = !o.impossible && b.loss > 1e4 ? CB.fodderPlan({ units: b.units, tech: o.tech }, def, o.opts, { ratioC: S.ratioC, ratioD: S.ratioD, spare: Math.max(0, (avail.LF || 0) - (b.units.LF || 0)), runs: 40 }) : null;
+  return { r, fodder, ch: { units: b.units, win: b.win, loss: b.loss }, ok: !o.impossible, round: o.trip.h, fuel: o.trip.fuel, gain, perH: gain / Math.max(o.trip.h, 1 / 60), lootWant: o.lootWant, defVal, lcShort: o.lcShort, ideal };
 }
 function idealHtml(e){
   const x = e.ideal; if (!x) return ''; const f = OG.fmt;
@@ -1885,7 +1921,7 @@ function renderTargets(){
         <div class="btns">${e.unknown ? '' : `<button class="ghost" style="padding:4px 8px;font-size:12px" data-sim="${i}">Simuler</button>`}<button class="ghost" style="padding:4px 8px;font-size:12px" data-del="${esc(tg.key)}" aria-label="Supprimer">✕</button></div></div>`;
       if (e.unknown) return `<div class="tgc">${head}<div class="grid3"><div><span>Butin</span>${f(e.lootWant)}</div><div><span>Défense</span><b class="warnc">${e.r.defKnown ? (e.defVal ? f(e.defVal) : 'aucune') : 'non visible'}</b></div><div><span>Résumé</span>${e.r.summary && e.r.summary.def ? '≈ ' + f(e.r.summary.def) : '–'}</div></div><div class="warnc" style="font-size:12.5px"><b>À resonder.</b> ${esc(e.warn)}</div></div>`;
       return `<div class="tgc">${head}
-        <div class="fl">${e.ok ? '' : '<span class="red">Trop défendue pour ta flotte. Meilleur essai : </span>'}<b>${esc(fleetTxt(e.ch.units))}</b>${e.ok && e.lcShort ? `<br><span class="warnc" style="font-size:12px">manque ${e.lcShort} GT pour tout le butin</span>` : ''}${idealHtml(e)}</div>
+        <div class="fl">${e.ok ? '' : '<span class="red">Trop défendue pour ta flotte. Meilleur essai : </span>'}<b>${esc(fleetTxt(e.ch.units))}</b>${e.ok && e.lcShort ? `<br><span class="warnc" style="font-size:12px">manque ${e.lcShort} GT pour tout le butin</span>` : ''}${idealHtml(e)}${e.fodder && !e.fodder.none ? `<div style="font-size:12px;margin-top:6px" class="warnc">${fodderText(e.fodder)}</div>` : ''}</div>
         <div class="grid3"><div><span>Butin</span>${f(e.lootWant)}</div><div><span>Défense</span>${e.defVal ? f(e.defVal) : '<span class="ok">aucune</span>'}</div><div><span>Vol A/R</span>${fmtDur(e.round)} · ${f(e.fuel)} D</div>
         <div><span>Victoire</span><b class="${e.ok ? 'ok' : 'red'}">${Math.round(e.ch.win * 100)} %</b>${e.ch.loss > 0 ? ` · pertes ${f(e.ch.loss)}` : ''}</div><div><span>Gain net</span><b class="${e.gain >= 0 ? 'ok' : 'red'}">${e.gain >= 0 ? '+' : ''}${f(e.gain)}</b></div><div><span>Gain / h</span>${e.ok ? f(e.perH) : '–'}</div></div></div>`;
     }).join('') + '</div>';
@@ -1897,7 +1933,7 @@ function renderTargets(){
       <td style="white-space:nowrap"><button class="ghost" style="padding:4px 8px;font-size:12px" data-del="${esc(tg.key)}" aria-label="Supprimer">✕</button></td></tr>`;
     return `<tr><td style="text-align:left;color:var(--txt)"><b>${esc(e.r.player || '?')}</b> <span class="note">[${esc(e.r.coords)}]${e.r.isMoon ? ' lune' : ''}</span><br><span class="${old ? 'warnc' : 'note'}" style="font-size:11px">rapport il y a ${age(tg.at)}${act ? ' · ' + act : ''}</span></td>
       <td>${f(e.lootWant)}</td><td>${e.defVal ? f(e.defVal) : '<span class="ok">aucune</span>'}</td>
-      <td style="text-align:left;white-space:normal;min-width:160px">${e.ok ? '' : '<span class="red" style="font-size:11px">Trop défendue pour ta flotte</span><br><span class="note" style="font-size:11px">meilleur essai : </span>'}${esc(fleetTxt(e.ch.units))}${e.ok && e.lcShort ? `<br><span class="warnc" style="font-size:11px">manque ${e.lcShort} GT pour tout le butin</span>` : ''}${idealHtml(e)}</td>
+      <td style="text-align:left;white-space:normal;min-width:160px">${e.ok ? '' : '<span class="red" style="font-size:11px">Trop défendue pour ta flotte</span><br><span class="note" style="font-size:11px">meilleur essai : </span>'}${esc(fleetTxt(e.ch.units))}${e.ok && e.lcShort ? `<br><span class="warnc" style="font-size:11px">manque ${e.lcShort} GT pour tout le butin</span>` : ''}${idealHtml(e)}${e.fodder && !e.fodder.none ? `<div style="font-size:12px;margin-top:6px" class="warnc">${fodderText(e.fodder)}</div>` : ''}</td>
       <td>${fmtDur(e.round)}<br><span class="note" style="font-size:11px">${f(e.fuel)} D</span></td>
       <td class="${e.ok ? 'ok' : 'red'}">${Math.round(e.ch.win * 100)} %${e.ch.loss > 0 ? `<br><span class="note" style="font-size:11px">pertes ${f(e.ch.loss)}</span>` : ''}</td>
       <td class="${e.gain >= 0 ? 'ok' : 'red'}" style="font-weight:600">${e.gain >= 0 ? '+' : ''}${f(e.gain)}</td>

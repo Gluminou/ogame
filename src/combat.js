@@ -242,6 +242,25 @@ const CB = (() => {
     const per = drv === 'comb' ? 0.1 : drv === 'imp' ? 0.2 : 0.3;
     return base * (1 + per * lvl + (collector && (k === 'SC' || k === 'LC') ? 1 : 0));
   }
+  // ---------- cannon fodder: how many light fighters to add to cut the losses of this fleet ----------
+  // cfg: { ratioC, ratioD, spare: light fighters still on the planet, runs }
+  function fodderPlan(att, def, opts, cfg) {
+    const val = v => v[0] + v[1] * cfg.ratioC + v[2] * cfg.ratioD;
+    const run = u => { const s = simulate({ units: u, tech: att.tech }, def, Object.assign({}, opts, { runs: cfg.runs || 60, rnd: mulberry(4242) })); return { win: s.A / s.n, loss: val(s.costA), st: s }; };
+    const base = run(att.units); if (base.loss < 1) return null;
+    const ships = Object.entries(att.units).reduce((a, [k, n]) => a + (k === 'LF' ? 0 : n), 0) || 1;
+    let best = null;
+    for (const f of [0.25, 0.5, 1, 2, 4, 8]) {
+      const m = Math.max(5, Math.round(ships * f)); const u = Object.assign({}, att.units); u.LF = (u.LF || 0) + m;
+      const r = run(u); if (r.win < base.win - 0.02) continue;
+      if (!best || r.loss < best.loss) best = Object.assign(r, { m });
+    }
+    if (!best || best.loss > base.loss * 0.85 || base.loss - best.loss < 1e4) return { none: true, base };
+    const fromSpare = Math.min(best.m, cfg.spare || 0), toBuild = best.m - fromSpare;
+    const buildCost = toBuild * val([U.LF[1], U.LF[2], U.LF[3]]); const saving = base.loss - best.loss;
+    return { m: best.m, fromSpare, toBuild, buildCost, before: base.loss, after: best.loss, saving, raids: toBuild ? Math.ceil(buildCost / saving) : 0, win: best.win };
+  }
+
   // ---------- defence planner: enough defence that raiding the planet no longer pays for an attacker of your level ----------
   const DEF_REQ = { RL: { sy: 1 }, LL: { sy: 2, rEnergy: 1, rLaser: 3 }, HL: { sy: 4, rEnergy: 3, rLaser: 6 }, GC: { sy: 6, rEnergy: 6, rWeap: 3, rShield: 1 }, IC: { sy: 4, rIon: 4 }, PT: { sy: 8, rPlasma: 7 }, SS: { sy: 1, rShield: 2 }, LS: { sy: 6, rShield: 6 } };
   // budget shares, by cost: several mixes are tried and the cheapest one that does the job wins
@@ -317,6 +336,6 @@ const CB = (() => {
     return { safe: false, add: best.add, cost: costOf(best.add), lootMsu, before: now, after: best.w, tried };
   }
 
-  return { U, SHIPS, ATTACK_SHIPS, DEFS, RF, parseReport, planDefense, DEF_REQ, splitReports, simulate, optimize, buildSide, num, shipSpeed, FUEL };
+  return { U, SHIPS, ATTACK_SHIPS, DEFS, RF, parseReport, planDefense, DEF_REQ, fodderPlan, splitReports, simulate, optimize, buildSide, num, shipSpeed, FUEL };
 })();
 if (typeof module !== 'undefined') module.exports = CB;
