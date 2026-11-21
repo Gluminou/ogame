@@ -1,0 +1,6 @@
+{
+  "source": "src/template.html",
+  "build": [
+    "node tools/build.js"
+  ]
+}

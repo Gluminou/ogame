@@ -343,7 +343,7 @@ details.howto ol{margin:6px 0 6px;padding-left:22px}details.howto li{margin:4px 
     <div id="simOut"></div>
     <p class="note">Règles OGame : 6 rounds, boucliers rechargés à chaque round, tirs sans effet sous 1 % du bouclier, explosion possible sous 70 % de coque, rapidfire. Les bonus de formes de vie, de classe et d'alliance sur les vaisseaux ne sont pas comptés : vérifie avec une marge si le défenseur est Rock'tal.</p>
   </section>
-  <p class="note" style="margin-top:28px;text-align:center">Version <span id="appVer"></span> · <button class="ghost" id="refreshBtn" style="padding:4px 10px;font-size:12px">Mettre à jour</button></p>
+  <div id="app-updates" style="margin-top:28px"></div>
 </div>
 
 <script>
@@ -351,14 +351,9 @@ details.howto ol{margin:6px 0 6px;padding-left:22px}details.howto li{margin:4px 
 /*COMBAT*/
 </script>
 <script>
-const APP_VERSION="/*VERSION*/";
-async function checkVersion(){
-  if (location.protocol === 'file:') return;
-  try { const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' }); if (!r.ok) return; const j = await r.json();
-    if (j.v && j.v !== APP_VERSION) location.replace(location.pathname + '?v=' + encodeURIComponent(j.v) + location.hash); } catch(e){}
-}
-checkVersion();
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkVersion(); });
+const APP_RELEASE="1.0.0";
+const APP_DATE="2026-11-21";
+const APP_VERSION="/*VERSION*/"; // stamped by tools/build.js; update checks live in updates.js
 const DEFAULT_DATA = /*DATA*/;
 const TEMPLATE = `Planete: NomDeLaPlanete
 Coordonnees: 1:100:8
@@ -1210,12 +1205,11 @@ function init(){
   $('hmAdd').onclick = () => { const ty = $('hmType').value; const e = ty === 'raid' ? { kind: 'raid', loot: { m: val('hmM'), c: val('hmC'), d: val('hmD') }, debris: { m: 0, c: 0, d: 0 }, loss: val('hmLoss'), won: true } : { kind: 'exp', type: ty, res: { m: val('hmM'), c: val('hmC'), d: val('hmD') }, dm: val('hmDM'), ships: {} };
     e.at = Date.now(); e.coords = ''; e.id = 'm' + Date.now(); HI.list.push(e); hiSave(); $('hiMsg').textContent = 'Enregistré.'; renderHisto(); };
   window.addEventListener('hashchange', () => { route(); if (location.hash === '#cibles') renderTargets(); if (location.hash === '#expe') renderExpe(); if (location.hash === '#histo') renderHisto(); }); route();
-  $('appVer').textContent = APP_VERSION.replace(/^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})$/, '$3/$2/$1 $4:$5 UTC');
-  $('refreshBtn').onclick = () => location.replace(location.pathname + '?r=' + Date.now() + location.hash);
   run();
   if (imported) { $('err').textContent = ''; const n = document.createElement('div'); n.className = 'warn'; n.textContent = 'Export importé depuis OGame : tes planètes sont à jour.'; $('warns').prepend(n); }
 }
 init();
 </script>
+<script src="updates.js"></script>
 </body>
 </html>

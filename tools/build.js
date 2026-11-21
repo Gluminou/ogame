@@ -19,6 +19,8 @@ const root = path.join(__dirname, '..'); const src = f => fs.readFileSync(path.j
     .replace('/*VERSION*/', V);
   h = h.replace('body{margin:0;', 'html{background:var(--bg)}body{margin:0;min-height:100vh;background-repeat:no-repeat;');
   fs.writeFileSync(path.join(root, 'index.html'), h);
-  fs.writeFileSync(path.join(root, 'version.json'), JSON.stringify({ v: V }) + '\n');
+  // Keep the version number, date and notes written by tools/release.mjs; only the build stamp changes.
+  let vj = {}; try { vj = JSON.parse(fs.readFileSync(path.join(root, 'version.json'), 'utf8')); } catch (e) {}
+  fs.writeFileSync(path.join(root, 'version.json'), JSON.stringify({ ...vj, v: V }, null, 2) + '\n');
   console.log(`index.html construit (${h.length} octets), version ${V}, favori ${bookmarklet.length} caractères`);
 })();

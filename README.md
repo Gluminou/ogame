@@ -178,3 +178,13 @@ inscrit une nouvelle version dans `version.json`.
 sa version avec `version.json`. Si une nouvelle version a été publiée,
 elle se recharge toute seule. Le bouton « Mettre à jour » en bas de page
 force le rechargement.
+
+## Versions
+
+L'app affiche son numéro de version et sa date en bas, avec un bouton **Rechercher une mise à jour** et la liste des **Nouveautés**. Chaque changement se publie avec :
+
+```
+node tools/release.mjs patch "Ce qui change, en mots simples"
+```
+
+`patch` pour une correction, `minor` pour une nouveauté visible, `major` pour une refonte. Le script garde la page, `version.json` et `changelog.json` en accord, puis relance `node tools/build.js`. La section elle-même est `updates.js`, commune à toutes les apps.
