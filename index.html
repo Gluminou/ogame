@@ -346,7 +346,7 @@ details.howto ol{margin:6px 0 6px;padding-left:22px}details.howto li{margin:4px 
   <div id="app-updates" style="margin-top:28px"></div>
 </div>
 
-<script>
+<script id="lib">
 // OGame planner engine: parse export text, compute production, energy, storage, ROI and recommendations.
 const OG = (() => {
   const norm = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
@@ -1315,7 +1315,7 @@ if (typeof module !== 'undefined') module.exports = CB;
 <script>
 const APP_RELEASE="1.0.0";
 const APP_DATE="2026-11-21";
-const APP_VERSION="202611210721"; // stamped by tools/build.js; update checks live in updates.js
+const APP_VERSION="202611230658"; // stamped by tools/build.js; update checks live in updates.js
 const DEFAULT_DATA = "";
 const TEMPLATE = `Planete: NomDeLaPlanete
 Coordonnees: 1:100:8
@@ -1537,10 +1537,38 @@ function renderPlan(res){
 // ---------- Defence: enough that raiding each planet no longer pays (computed in the background, then the plan is redone) ----------
 const DZ = { key: null, val: null, pending: null };
 const DEFKEY = { RL: 'dRL', LL: 'dLL', HL: 'dHL', GC: 'dGauss', IC: 'dIon', PT: 'dPlasma', SS: 'dSS', LS: 'dLS' };
+// heavy simulations run in a background worker: the buttons stay responsive while they compute.
+// The worker gets the engine and combat code (the #lib script) plus the target functions of this page.
+const BG = (() => {
+  let w = null, tried = false, n = 0; const wait = new Map();
+  const fail = () => { w = null; wait.forEach(p => p.retry()); wait.clear(); };
+  const start = () => { // created on first use, once every constant of the page exists
+    tried = true;
+    try {
+      const fns = [tripCost, bestFleet, buildableShips, idealFleet, evalTarget, hiddenWarning, probeAdvice, probesSent].map(f => f.toString()).join('\n');
+      const code = document.getElementById('lib').textContent + '\n' + fns +
+        `\nconst SHIP_REQ = ${JSON.stringify(SHIP_REQ)}; const SHIPKEY = ${JSON.stringify(SHIPKEY)};
+let UI = {}; const CS = { parsed: null }; const $ = id => UI[id] || {};
+onmessage = e => { const { id, fn, args, ctx } = e.data; let r, err;
+  try { if (ctx) { UI = ctx.ui || {}; CS.parsed = ctx.parsed || null; } r = CB[fn] ? CB[fn](...args) : self[fn](...args); } catch (x) { err = String(x && x.stack || x); }
+  postMessage({ id, r, err }); };`;
+      w = new Worker(URL.createObjectURL(new Blob([code], { type: 'text/javascript' })));
+      w.onmessage = e => { const p = wait.get(e.data.id); wait.delete(e.data.id); if (p) e.data.err ? p.no(new Error(e.data.err)) : p.ok(e.data.r); };
+      w.onerror = fail;
+    } catch (e) { w = null; }
+  };
+  const local = (fn, args) => new Promise((ok, no) => setTimeout(() => { try { ok(CB[fn] ? CB[fn](...args) : window[fn](...args)); } catch (x) { no(x); } }, 0));
+  return (fn, args, ctx) => { if (!tried) start();
+    if (!w) return local(fn, args); // no worker: same result, computed on the page
+    return new Promise((ok, no) => { const id = ++n; wait.set(id, { ok, no, retry: () => local(fn, args).then(ok, no) });
+      try { w.postMessage({ id, fn, args, ctx }); } catch (e) { wait.delete(id); local(fn, args).then(ok, no); } }); };
+})();
 function defenseFor(text, S){
   let h = 0; for (let i = 0; i < text.length; i++) h = (h * 31 + text.charCodeAt(i)) | 0;
   const key = [h, S.threat, S.ratioC, S.ratioD].join('|');
   if (DZ.key === key) return DZ.val;
+  // same export as last time: the saved result shows at once
+  try { const c = JSON.parse(store.get('og_defense') || 'null'); if (c && c.key === key) { DZ.key = key; DZ.val = c.val; return DZ.val; } } catch(e){}
   if (DZ.pending !== key) { DZ.pending = key; setTimeout(() => computeDefense(text, S, key), 30); }
   return null;
 }
@@ -1549,18 +1577,18 @@ async function computeDefense(text, S, key){
   const R = P.research || {}, sv = P.server || {};
   const msu = k => CB.U[k][1] + CB.U[k][2] * S.ratioC + CB.U[k][3] * S.ratioD;
   let fleet = 0; P.planets.forEach(p => Object.entries(SHIPKEY).forEach(([k, s]) => { if (!['EP', 'Col', 'Rec'].includes(k)) fleet += (p.b[s] || 0) * msu(k); }));
-  const byName = {}, orders = {};
-  for (const p of P.planets) {
-    if (DZ.pending !== key) return; // a newer export arrived
-    if (!p.stock) continue;
+  const byName = {}, orders = {}; const threatMsu = Math.max(5e5, S.threat * fleet);
+  const jobs = P.planets.filter(p => p.stock).map(p => {
     const have = {}; Object.entries(DEFKEY).forEach(([k, s]) => { have[k] = p.b[s] || 0; });
-    const d = CB.planDefense({ have, sy: p.b.shipyard || 0, R, stock: p.stock, ratioC: S.ratioC, ratioD: S.ratioD, dfShips: (sv.dfShips ?? 30) / 100, dfDef: (sv.dfDef ?? 0) / 100, dfDeut: sv.dfDeut !== false, lootPct: 0.5, threatMsu: Math.max(5e5, S.threat * fleet) });
-    d.threatMsu = Math.max(5e5, S.threat * fleet); d.have = have; byName[p.name] = d;
-    if (!d.safe && !d.noShipyard && Object.keys(d.add).length) orders[p.name] = { name: 'Défense : ' + defList(d.add), cost: d.cost };
-    await new Promise(r => setTimeout(r, 0));
-  }
-  if (DZ.pending !== key) return;
-  DZ.key = key; DZ.val = { byName, orders }; run();
+    return BG('planDefense', [{ have, sy: p.b.shipyard || 0, R, stock: p.stock, ratioC: S.ratioC, ratioD: S.ratioD, dfShips: (sv.dfShips ?? 30) / 100, dfDef: (sv.dfDef ?? 0) / 100, dfDeut: sv.dfDeut !== false, lootPct: 0.5, threatMsu }])
+      .then(d => { d.threatMsu = threatMsu; d.have = have; byName[p.name] = d;
+        if (!d.safe && !d.noShipyard && Object.keys(d.add).length) orders[p.name] = { name: 'Défense : ' + defList(d.add), cost: d.cost }; }, () => {});
+  });
+  await Promise.all(jobs);
+  if (DZ.pending !== key) return; // a newer export arrived meanwhile
+  DZ.key = key; DZ.val = { byName, orders };
+  try { store.set('og_defense', JSON.stringify({ key, val: DZ.val })); } catch(e){}
+  run();
 }
 const PLURAL = { RL: 'lanceurs de missiles', LL: 'artilleries laser légères', HL: 'artilleries laser lourdes', GC: 'canons de Gauss', IC: 'artilleries à ions', PT: 'lanceurs de plasma', SS: 'petit bouclier', LS: 'grand bouclier', Cr: 'croiseurs', BS: 'vaisseaux de bataille', Bo: 'bombardiers' };
 const unitName = (k, n) => n > 1 && PLURAL[k] ? PLURAL[k] : (k === 'GC' ? 'canon de Gauss' : CB.U[k][0].toLowerCase());
@@ -1903,7 +1931,7 @@ function renderTargets(){
   TG.cache = TG.cache || {};
   const todo = TG.list.filter(tg => !TG.cache[tg.key + tg.at + sig]);
   if (todo.length && !TG.busy) { TG.busy = true; $('tgMsg').textContent = `Calcul des flottes optimales… 0/${todo.length}`;
-    (async () => { let i = 0; for (const tg of todo) { TG.cache[tg.key + tg.at + sig] = evalTarget(tg, src, res.research, S, res.server || {}, minWin); i++; $('tgMsg').textContent = `Calcul des flottes optimales… ${i}/${todo.length}`; await new Promise(r => setTimeout(r, 0)); }
+    (async () => { let i = 0; const ctx = { ui: { tgDebris: { checked: $('tgDebris').checked }, tgProbes: { value: $('tgProbes').value } }, parsed: CS.parsed }; for (const tg of todo) { try { TG.cache[tg.key + tg.at + sig] = await BG('evalTarget', [tg, src, res.research, S, res.server || {}, minWin], ctx); } catch (e) { TG.cache[tg.key + tg.at + sig] = { r: CB.parseReport(tg.text), none: true }; } i++; $('tgMsg').textContent = `Calcul des flottes optimales… ${i}/${todo.length}`; await new Promise(r => setTimeout(r, 0)); }
       TG.busy = false; $('tgMsg').textContent = ''; renderTargets(); })(); return; }
   if (TG.busy) return;
   const rows = TG.list.map(tg => ({ tg, e: TG.cache[tg.key + tg.at + sig] })).filter(x => x.e && !x.e.none);
