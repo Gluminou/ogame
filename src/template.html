@@ -865,6 +865,12 @@ function renderSim(st, att, def, opts){
 const TG = { list: [] };
 function tgLoad(){ try { TG.list = JSON.parse(store.get('og_targets') || '[]'); } catch(e){ TG.list = []; } }
 function tgSave(){ store.set('og_targets', JSON.stringify(TG.list)); }
+// computed fleets are kept between visits: a report never changes, so a target is only recomputed when your fleet, research or settings change
+function tgCacheLoad(){ if (TG.cache) return; try { TG.cache = JSON.parse(store.get('og_tg_cache') || '{}') || {}; } catch(e){ TG.cache = {}; } }
+function tgCacheSave(sig){
+  const keep = {}; TG.list.forEach(tg => { const k = tg.key + tg.at + sig; if (TG.cache[k] && !TG.cache[k].err) keep[k] = TG.cache[k]; }); // only the current targets and settings
+  try { store.set('og_tg_cache', JSON.stringify(keep)); } catch(e){}
+}
 function parisToUtc(d){ // report times are in server time (Europe/Paris)
   const guess = Date.UTC(d.y, d.mo - 1, d.d, d.h, d.mi, d.s);
   try { const f = new Intl.DateTimeFormat('en-US', { timeZone: 'Europe/Paris', hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -965,11 +971,14 @@ function renderTargets(){
   if (!res || !srcs.length){ $('tgOut').innerHTML = '<div class="panel note">Colle d\'abord ton export de planètes (onglet Export) pour connaître ta flotte.</div>'; return; }
   const src = srcs.find(x => String(x.i) === sel.value) || srcs[0];
   const minWin = Math.min(1, Math.max(0.5, (+$('tgMinWin').value || 95) / 100));
-  const sig = JSON.stringify([src.i, minWin, probesSent(), $('tgDebris').checked, S.ratioC, S.ratioD, S.collector, CS.sig]);
-  TG.cache = TG.cache || {};
+  // what the result depends on: the source planet's fleet, research, shipyards (for the ideal fleet), fleet speed and the settings
+  const R0 = res.research || {}; const fleetSig = [CB.ATTACK_SHIPS.map(k => src.p.b[SHIPKEY[k]] || 0), src.p.coords, Math.max(0, ...res.planets.map(p => p.b.shipyard || 0)), (res.server || {}).speedWar,
+    ['rWeap', 'rShield', 'rArmour', 'rHyper', 'rComb', 'rImp', 'rHD', 'rEsp', 'rLaser', 'rIon', 'rPlasma'].map(k => R0[k] || 0)];
+  const sig = JSON.stringify([src.p.name, minWin, probesSent(), $('tgDebris').checked, S.ratioC, S.ratioD, S.collector, fleetSig]);
+  tgCacheLoad();
   const todo = TG.list.filter(tg => !TG.cache[tg.key + tg.at + sig]);
   if (todo.length && !TG.busy) { TG.busy = true; $('tgMsg').textContent = `Calcul des flottes optimales… 0/${todo.length}`;
-    (async () => { let i = 0; const ctx = { ui: { tgDebris: { checked: $('tgDebris').checked }, tgProbes: { value: $('tgProbes').value } }, parsed: CS.parsed }; for (const tg of todo) { try { TG.cache[tg.key + tg.at + sig] = await BG('evalTarget', [tg, src, res.research, S, res.server || {}, minWin], ctx); } catch (e) { TG.cache[tg.key + tg.at + sig] = { r: CB.parseReport(tg.text), none: true }; } i++; $('tgMsg').textContent = `Calcul des flottes optimales… ${i}/${todo.length}`; await new Promise(r => setTimeout(r, 0)); }
+    (async () => { let i = 0; const ctx = { ui: { tgDebris: { checked: $('tgDebris').checked }, tgProbes: { value: $('tgProbes').value } }, parsed: CS.parsed }; for (const tg of todo) { try { TG.cache[tg.key + tg.at + sig] = await BG('evalTarget', [tg, src, res.research, S, res.server || {}, minWin], ctx); } catch (e) { TG.cache[tg.key + tg.at + sig] = { r: CB.parseReport(tg.text), none: true, err: true }; } i++; tgCacheSave(sig); $('tgMsg').textContent = `Calcul des flottes optimales… ${i}/${todo.length}`; await new Promise(r => setTimeout(r, 0)); }
       TG.busy = false; $('tgMsg').textContent = ''; renderTargets(); })(); return; }
   if (TG.busy) return;
   const rows = TG.list.map(tg => ({ tg, e: TG.cache[tg.key + tg.at + sig] })).filter(x => x.e && !x.e.none);
