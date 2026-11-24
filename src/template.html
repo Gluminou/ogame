@@ -171,7 +171,7 @@ details.howto ol{margin:6px 0 6px;padding-left:22px}details.howto li{margin:4px 
       <div class="settings">
         <label>Partir de<select id="tgFrom"></select></label>
         <label>Victoire minimale (%)<input type="number" id="tgMinWin" value="95" min="50" max="100"></label>
-        <label>Trier par<select id="tgSort"><option value="gain">Rentabilité (gain par heure)</option><option value="age">Âge du rapport (plus récent d'abord)</option></select></label>
+        <select id="tgSort" hidden><option value="gain">gain</option><option value="age">age</option><option value="old">old</option></select>
         <label>Sondes envoyées par sondage<input type="number" id="tgProbes" value="4" min="1" max="999"></label>
         <label class="chk"><input type="checkbox" id="tgDebris" checked> Compter les débris dans le gain</label>
       </div>
@@ -358,7 +358,7 @@ details.howto ol{margin:6px 0 6px;padding-left:22px}details.howto li{margin:4px 
 /*COMBAT*/
 </script>
 <script>
-const APP_RELEASE="1.1.0";
+const APP_RELEASE="1.1.1";
 const APP_DATE="2026-11-24";
 const APP_VERSION="/*VERSION*/"; // stamped by tools/build.js; update checks live in updates.js
 const DEFAULT_DATA = /*DATA*/;
@@ -1042,7 +1042,9 @@ function renderTargets(){
       TG.busy = false; $('tgMsg').textContent = ''; renderTargets(); })(); return; }
   if (TG.busy) return;
   const rows = TG.list.map(tg => ({ tg, e: TG.cache[tg.key + tg.at + sig] })).filter(x => x.e && !x.e.none);
-  if ($('tgSort').value === 'age') rows.sort((a, b) => (b.tg.at || 0) - (a.tg.at || 0));
+  const mode = $('tgSort').value;
+  if (mode === 'age') rows.sort((a, b) => (b.tg.at || 0) - (a.tg.at || 0));
+  else if (mode === 'old') rows.sort((a, b) => (a.tg.at || 0) - (b.tg.at || 0));
   else rows.sort((a, b) => ((b.e.ok ? 2 : b.e.unknown ? 1 : 0) - (a.e.ok ? 2 : a.e.unknown ? 1 : 0)) || (b.e.perH || 0) - (a.e.perH || 0));
   const f = OG.fmt, now = Date.now();
   const age = at => { const m = Math.round((now - at) / 60000); return m < 60 ? m + ' min' : m < 2880 ? Math.round(m / 60) + ' h' : Math.round(m / 1440) + ' j'; };
@@ -1056,7 +1058,8 @@ function renderTargets(){
         <div class="grid3"><div><span>Butin</span>${f(e.lootWant)}</div><div><span>Défense</span>${e.defVal ? f(e.defVal) : '<span class="ok">aucune</span>'}</div><div><span>Vol A/R</span>${fmtDur(e.round)} · ${f(e.fuel)} D</div>
         <div><span>Victoire</span><b class="${e.ok ? 'ok' : 'red'}">${Math.round(e.ch.win * 100)} %</b>${e.ch.loss > 0 ? ` · pertes ${f(e.ch.loss)}` : ''}</div><div><span>Gain net</span><b class="${e.gain >= 0 ? 'ok' : 'red'}">${e.gain >= 0 ? '+' : ''}${f(e.gain)}</b></div><div><span>Gain / h</span>${e.ok ? f(e.perH) : '–'}</div></div></div>`;
     }).join('') + '</div>';
-  $('tgOut').innerHTML = cardsHtml + `<div class="panel tg-wide" style="padding:0;overflow-x:auto"><table class="mx" style="font-size:12.5px"><thead><tr><th style="text-align:left">Cible</th><th>Butin</th><th>Défense</th><th style="text-align:left">Flotte à envoyer</th><th>Vol A/R</th><th>Victoire</th><th>Gain net</th><th>Gain / h</th><th></th></tr></thead><tbody>${rows.map(({ tg, e }, i) => {
+  const sortBar = `<div class="tgsort" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 10px"><span class="note" style="margin-right:2px">Trier :</span>${[['gain', 'Plus rentables'], ['age', 'Plus récents'], ['old', 'Plus anciens']].map(([v, l]) => `<button class="${mode === v ? '' : 'ghost'}" data-sort="${v}" style="padding:6px 12px;font-size:13px">${l}</button>`).join('')}</div>`;
+  $('tgOut').innerHTML = sortBar + cardsHtml + `<div class="panel tg-wide" style="padding:0;overflow-x:auto"><table class="mx" style="font-size:12.5px"><thead><tr><th style="text-align:left">Cible</th><th>Butin</th><th>Défense</th><th style="text-align:left">Flotte à envoyer</th><th>Vol A/R</th><th>Victoire</th><th>Gain net</th><th>Gain / h</th><th></th></tr></thead><tbody>${rows.map(({ tg, e }, i) => {
     const old = now - tg.at > 3600000; const act = e.r.activity != null ? `activité ${e.r.activity} min` : '';
     if (e.unknown) return `<tr><td style="text-align:left;color:var(--txt)"><b>${esc(e.r.player || '?')}</b> <span class="note">[${esc(e.r.coords)}]${e.r.isMoon ? ' lune' : ''}</span><br><span class="${old ? 'warnc' : 'note'}" style="font-size:11px">rapport il y a ${age(tg.at)}${act ? ' · ' + act : ''}</span></td>
       <td>${f(e.lootWant)}</td><td class="warnc">${!e.r.defKnown ? 'non visible' : (e.defVal ? f(e.defVal) : 'aucune')}${!e.r.defKnown && e.r.summary && e.r.summary.def ? `<br><span class="note" style="font-size:11px">≈ ${f(e.r.summary.def)}</span>` : ''}</td>
@@ -1070,6 +1073,7 @@ function renderTargets(){
       <td class="${e.gain >= 0 ? 'ok' : 'red'}" style="font-weight:600">${e.gain >= 0 ? '+' : ''}${f(e.gain)}</td>
       <td>${e.ok ? f(e.perH) : '–'}</td>
       <td style="white-space:nowrap"><button class="ghost" style="padding:4px 8px;font-size:12px" data-sim="${i}">Simuler</button> <button class="ghost" style="padding:4px 8px;font-size:12px" data-del="${esc(tg.key)}" aria-label="Supprimer">✕</button></td></tr>`; }).join('')}</tbody></table></div>`;
+  $('tgOut').querySelectorAll('[data-sort]').forEach(b => b.onclick = () => { $('tgSort').value = b.dataset.sort; try { localStorage.setItem('og_tgsort', b.dataset.sort); } catch(e){} renderTargets(); });
   $('tgOut').querySelectorAll('[data-del]').forEach(b => b.onclick = () => { TG.list = TG.list.filter(x => x.key !== b.dataset.del); tgSave(); renderTargets(); });
   $('tgOut').querySelectorAll('[data-sim]').forEach(b => b.onclick = () => { const { tg, e } = rows[+b.dataset.sim];
     $('report').value = tg.text; $('aPlanet').value = String(src.i); fillAttFleet();

@@ -1,5 +1,12 @@
 [
   {
+    "version": "1.1.1",
+    "date": "2026-11-24",
+    "notes": [
+      "Cibles : boutons de tri bien visibles juste au-dessus de la liste (plus rentables, plus récents, plus anciens)."
+    ]
+  },
+  {
     "version": "1.1.0",
     "date": "2026-11-24",
     "notes": [

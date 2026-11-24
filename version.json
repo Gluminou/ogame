@@ -1,13 +1,8 @@
 {
-  "v": "202611240635",
-  "version": "1.1.0",
+  "v": "202611240643",
+  "version": "1.1.1",
   "date": "2026-11-24",
   "notes": [
-    "Missiles interplanétaires : dans Cibles, combien en envoyer, sur quelle défense, depuis quelle planète et ce que ça rapporte ; dans Combat, missiles appliqués avant la simulation.",
-    "Cibles : tri par rentabilité ou par âge du rapport.",
-    "Cibles : les flottes calculées sont gardées d'une ouverture à l'autre, et recalculées seulement si ta flotte ou tes réglages changent.",
-    "Application réactive dès l'ouverture : la défense des planètes et les flottes des cibles se calculent en arrière-plan.",
-    "Défense des planètes : chiffres complets, sans k ni M.",
-    "Chair à canon chiffrée : combien de chasseurs légers ajouter, dont combien à construire, et les pertes avant et après."
+    "Cibles : boutons de tri bien visibles juste au-dessus de la liste (plus rentables, plus récents, plus anciens)."
   ]
 }
