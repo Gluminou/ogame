@@ -171,6 +171,7 @@ details.howto ol{margin:6px 0 6px;padding-left:22px}details.howto li{margin:4px 
       <div class="settings">
         <label>Partir de<select id="tgFrom"></select></label>
         <label>Victoire minimale (%)<input type="number" id="tgMinWin" value="95" min="50" max="100"></label>
+        <label>Trier par<select id="tgSort"><option value="gain">Rentabilité (gain par heure)</option><option value="age">Âge du rapport (plus récent d'abord)</option></select></label>
         <label>Sondes envoyées par sondage<input type="number" id="tgProbes" value="4" min="1" max="999"></label>
         <label class="chk"><input type="checkbox" id="tgDebris" checked> Compter les débris dans le gain</label>
       </div>
@@ -1315,7 +1316,7 @@ if (typeof module !== 'undefined') module.exports = CB;
 <script>
 const APP_RELEASE="1.0.0";
 const APP_DATE="2026-11-21";
-const APP_VERSION="202611230700"; // stamped by tools/build.js; update checks live in updates.js
+const APP_VERSION="202611240620"; // stamped by tools/build.js; update checks live in updates.js
 const DEFAULT_DATA = "";
 const TEMPLATE = `Planete: NomDeLaPlanete
 Coordonnees: 1:100:8
@@ -1593,8 +1594,9 @@ async function computeDefense(text, S, key){
 const PLURAL = { RL: 'lanceurs de missiles', LL: 'artilleries laser légères', HL: 'artilleries laser lourdes', GC: 'canons de Gauss', IC: 'artilleries à ions', PT: 'lanceurs de plasma', SS: 'petit bouclier', LS: 'grand bouclier', Cr: 'croiseurs', BS: 'vaisseaux de bataille', Bo: 'bombardiers' };
 const unitName = (k, n) => n > 1 && PLURAL[k] ? PLURAL[k] : (k === 'GC' ? 'canon de Gauss' : CB.U[k][0].toLowerCase());
 const defList = add => Object.entries(add).filter(([, n]) => n > 0).map(([k, n]) => `${n} ${unitName(k, n)}`).join(', ');
+const fullCost = c => [c[0] ? Math.round(c[0]).toLocaleString('fr-FR') + ' métal' : null, c[1] ? Math.round(c[1]).toLocaleString('fr-FR') + ' cristal' : null, c[2] ? Math.round(c[2]).toLocaleString('fr-FR') + ' deutérium' : null].filter(Boolean).join(', ') || '0';
 function defBlock(d, x){
-  const f = OG.fmt; const wrap = (cls, html) => `<div style="margin:0 14px 12px;padding:8px 10px;border-radius:8px;background:#0e1529;font-size:12.5px"><span class="tag def">Défense</span>${html}</div>`;
+  const f = n => Math.round(n).toLocaleString('fr-FR'); /* full numbers here, no k / M */ const wrap = (cls, html) => `<div style="margin:0 14px 12px;padding:8px 10px;border-radius:8px;background:#0e1529;font-size:12.5px"><span class="tag def">Défense</span>${html}</div>`;
   if (!x.c.stockNow && !(x.p.stock)) return '';
   if (!d) return DZ.pending && DZ.key !== DZ.pending ? wrap('', '<span class="note">calcul en cours…</span>') : '';
   const who = `un attaquant jusqu'à ${f(d.threatMsu)} de flotte (${settings().threat} fois la tienne)`;
@@ -1613,7 +1615,7 @@ function defBlock(d, x){
   const alt = !(d.add && d.add.PT) && d.tried ? d.tried.filter(x => x.add.PT).sort((a, b) => a.v - b.v)[0] : null;
   const best = d.tried ? Math.min(...d.tried.map(x => x.v)) : 0;
   const altTxt = alt ? `<div class="note" style="margin-top:6px">Sans lanceur de plasma, c'est la défense la moins chère. Variante avec plasma, à construire : ${esc(defList(alt.add))}, pour ${f(alt.v)} au lieu de ${f(best)} (+${Math.round((alt.v / best - 1) * 100)} %). Plus solide contre les bombardiers et les grosses flottes.</div>` : '';
-  return wrap('', `<b class="warnc">Insuffisante.</b>${now}${table}<span class="note">Coût de ce qui est à construire : ${esc(OG.fmtCost(d.cost))}.</span>${after} L'objectif est recalculé à chaque export, selon le stock du moment.${altTxt}`);
+  return wrap('', `<b class="warnc">Insuffisante.</b>${now}${table}<span class="note">Coût de ce qui est à construire : ${esc(fullCost(d.cost))}.</span>${after} L'objectif est recalculé à chaque export, selon le stock du moment.${altTxt}`);
 }
 
 // ---------- Research tab ----------
@@ -1944,7 +1946,8 @@ function renderTargets(){
       TG.busy = false; $('tgMsg').textContent = ''; renderTargets(); })(); return; }
   if (TG.busy) return;
   const rows = TG.list.map(tg => ({ tg, e: TG.cache[tg.key + tg.at + sig] })).filter(x => x.e && !x.e.none);
-  rows.sort((a, b) => ((b.e.ok ? 2 : b.e.unknown ? 1 : 0) - (a.e.ok ? 2 : a.e.unknown ? 1 : 0)) || (b.e.perH || 0) - (a.e.perH || 0));
+  if ($('tgSort').value === 'age') rows.sort((a, b) => (b.tg.at || 0) - (a.tg.at || 0));
+  else rows.sort((a, b) => ((b.e.ok ? 2 : b.e.unknown ? 1 : 0) - (a.e.ok ? 2 : a.e.unknown ? 1 : 0)) || (b.e.perH || 0) - (a.e.perH || 0));
   const f = OG.fmt, now = Date.now();
   const age = at => { const m = Math.round((now - at) / 60000); return m < 60 ? m + ' min' : m < 2880 ? Math.round(m / 60) + ' h' : Math.round(m / 1440) + ' j'; };
   const cardsHtml = '<div class="tg-cards">' + rows.map(({ tg, e }, i) => {
@@ -2193,6 +2196,8 @@ function init(){
   $('tgPaste').onclick = async () => { try { const s = await navigator.clipboard.readText(); tgAdd(s); } catch(e){ $('tgIn').focus(); $('tgMsg').textContent = 'Collage automatique refusé : colle dans la case puis « Ajouter ».'; } };
   $('tgClear').onclick = () => { TG.list = []; tgSave(); renderTargets(); };
   try { const pv = localStorage.getItem('og_probes'); if (pv) $('tgProbes').value = pv; } catch(e){}
+  try { const sv = localStorage.getItem('og_tgsort'); if (sv) $('tgSort').value = sv; } catch(e){}
+  $('tgSort').addEventListener('change', () => { try { localStorage.setItem('og_tgsort', $('tgSort').value); } catch(e){} renderTargets(); });
   $('tgProbes').addEventListener('change', () => { try { localStorage.setItem('og_probes', probesSent()); } catch(e){} });
   ['tgFrom','tgMinWin','tgDebris','tgProbes'].forEach(id => $(id).addEventListener('change', renderTargets));
   ['exTop1','exFrom','exMult','exSlots'].forEach(id => $(id).addEventListener('change', () => { store.set('og_exp', JSON.stringify({ top1: $('exTop1').value, mult: $('exMult').value, slots: $('exSlots').value })); renderExpe(); }));
