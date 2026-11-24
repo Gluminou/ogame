@@ -1,5 +1,14 @@
 [
   {
+    "version": "1.2.0",
+    "date": "2026-11-25",
+    "notes": [
+      "Taux automatiques selon tes stocks : ce qui est rare vaut plus. Le plan monte plus de mines de cristal quand le cristal manque (réglable dans Export).",
+      "Plus de nouveau réservoir ou hangar conseillé pour une ressource en surplus : mieux vaut la dépenser.",
+      "L'alerte sur la ressource la plus rare se base sur tes stocks (heures de production en réserve), et non plus sur la seule production."
+    ]
+  },
+  {
     "version": "1.1.2",
     "date": "2026-11-25",
     "notes": [

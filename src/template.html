@@ -230,8 +230,10 @@ details.howto ol{margin:6px 0 6px;padding-left:22px}details.howto li{margin:4px 
     <div class="settings">
       <label>Vitesse économique de l'univers<input type="number" id="speed" min="1" max="20" step="1" value="8"></label>
       <label>Remplissage des hangars : alerte sous (heures)<input type="number" id="fill" min="1" max="200" value="24"></label>
+      <label class="chk"><input type="checkbox" id="autoRates" checked> Taux automatiques selon tes stocks</label>
       <label>Taux d'échange cristal (en métal)<input type="number" id="rc" step="0.1" value="1.5"></label>
       <label>Taux d'échange deutérium (en métal)<input type="number" id="rd" step="0.1" value="3"></label>
+      <p class="note" id="ratesNote" style="grid-column:1/-1;margin:0"></p>
       <label class="chk"><input type="checkbox" id="col" checked> Classe Collecteur</label>
       <label class="chk"><input type="checkbox" id="geo"> Officier Géologue</label>
       <label class="chk"><input type="checkbox" id="eng"> Officier Ingénieur</label>
@@ -358,7 +360,7 @@ details.howto ol{margin:6px 0 6px;padding-left:22px}details.howto li{margin:4px 
 /*COMBAT*/
 </script>
 <script>
-const APP_RELEASE="1.1.2";
+const APP_RELEASE="1.2.0";
 const APP_DATE="2026-11-25";
 const APP_VERSION="/*VERSION*/"; // stamped by tools/build.js; update checks live in updates.js
 const DEFAULT_DATA = /*DATA*/;
@@ -423,7 +425,9 @@ const store = { get(k){ try { return localStorage.getItem(k); } catch(e){ return
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const TAGS = { urgent:'Urgent', important:'Important', eco:'Production', infra:'Infrastructure', lf:'Formes de vie', def:'Défense', res:'Recherche' };
 
-function settings(){ return { speed:+$("speed").value||8, fillHours:+$('fill').value||24, ratioC:+$('rc').value||1.5, ratioD:+$('rd').value||3, collector:$('col').checked, geologist:$('geo').checked, engineer:$('eng').checked, allyTrader:$('ally').checked, extraPct:+$('extra').value||0, noCalib:$('nocalib').checked, planDays:+$('planDays').value||3, researchShare: $('rshare').value === '' ? 20 : +$('rshare').value, researchPlanet: $('rplanet').value || store.get('og_rplanet') || '', threat:+$('threat').value||2, defFirst:$('defFirst').checked }; }
+function settings(){ const S = { speed:+$("speed").value||8, fillHours:+$('fill').value||24, ratioC:+$('rc').value||1.5, ratioD:+$('rd').value||3, collector:$('col').checked, geologist:$('geo').checked, engineer:$('eng').checked, allyTrader:$('ally').checked, extraPct:+$('extra').value||0, noCalib:$('nocalib').checked, planDays:+$('planDays').value||3, researchShare: $('rshare').value === '' ? 20 : +$('rshare').value, researchPlanet: $('rplanet').value || store.get('og_rplanet') || '', threat:+$('threat').value||2, defFirst:$('defFirst').checked , autoRates: $('autoRates').checked };
+  if (S.autoRates && CS.rates) { S.ratioC = CS.rates.ratioC; S.ratioD = CS.rates.ratioD; S.surplus = CS.rates.surplus; }
+  return S; }
 
 function recLi(r, tag){
   return `<li><span class="tag ${tag||r.type}">${TAGS[tag||r.type]}</span><span class="t">${esc(r.title)}</span>
@@ -438,9 +442,14 @@ function fixExport(s){
 }
 function run(){
   const fixed = fixExport($('data').value); if (fixed !== $('data').value) $('data').value = fixed;
-  const text = $('data').value; const S = settings();
+  const text = $('data').value;
+  try { CS.rates = OG.autoRates(OG.parse(text)); } catch(e){ CS.rates = null; }
+  const S = settings();
   if (text !== store.get('og_data_v4')) store.set('og_data_time', String(Date.now()));
-  store.set('og_data_v4', text); store.set('og_settings_v2', JSON.stringify(S));
+  store.set('og_data_v4', text); store.set('og_settings_v2', JSON.stringify(Object.assign({}, S, { ratioC: +$('rc').value || 1.5, ratioD: +$('rd').value || 3, surplus: undefined })));
+  { const a = CS.rates, on = $('autoRates').checked; $('rc').disabled = $('rd').disabled = on && !!a;
+    const fh = h => h < 48 ? Math.round(h) + ' h' : Math.round(h / 24) + ' j';
+    $('ratesNote').innerHTML = !on ? 'Taux saisis à la main.' : a ? `Taux utilisés : 1 cristal = <b>${String(a.ratioC).replace('.', ',')}</b> métal, 1 deutérium = <b>${String(a.ratioD).replace('.', ',')}</b> métal. Ton stock représente ${fh(a.hours.m)} de production de métal, ${fh(a.hours.c)} de cristal et ${fh(a.hours.d)} de deutérium : ce qui est rare vaut plus.${a.surplus.d ? ' Deutérium en surplus : pas de nouveau réservoir conseillé.' : ''}${a.surplus.c ? ' Cristal en surplus : pas de nouveau hangar de cristal conseillé.' : ''}` : 'Taux automatiques : il faut un export avec les stocks et les productions (dernière version du favori).'; }
   $('err').textContent = '';
   let res;
   const dz = defenseFor(text, S); if (dz && S.defFirst) S.defense = dz.orders;
@@ -1265,9 +1274,9 @@ function init(){
   $('bmLink').onclick = e => { e.preventDefault(); $('bmMsg').textContent = 'Fais glisser le bouton dans ta barre de favoris (un clic ici ne fait rien).'; };
   $('bmCopy').onclick = async () => { try { await navigator.clipboard.writeText(BOOKMARKLET); $('bmMsg').textContent = 'Code copié.'; } catch(e){ $('bmMsg').textContent = 'Copie refusée par le navigateur.'; } };
   const saved = store.get('og_data_v4'); $('data').value = saved || DEFAULT_DATA; if (!$('data').value.trim()) { $('inputPanel').open = true; }
-  try { const s = JSON.parse(store.get('og_settings_v2')||'null'); if (s){ $('speed').value=s.speed; $('fill').value=s.fillHours; $('rc').value=s.ratioC; $('rd').value=s.ratioD; $('col').checked=s.collector; $('geo').checked=s.geologist; $('eng').checked=s.engineer; if (s.planDays) $('planDays').value=s.planDays; $('ally').checked=!!s.allyTrader; $('extra').value=s.extraPct||0; $('nocalib').checked=!!s.noCalib; if (s.researchShare != null) $('rshare').value=s.researchShare; if (s.threat) $('threat').value=s.threat; if (s.defFirst != null) $('defFirst').checked=!!s.defFirst; } } catch(e){}
+  try { const s = JSON.parse(store.get('og_settings_v2')||'null'); if (s){ $('speed').value=s.speed; $('fill').value=s.fillHours; $('rc').value=s.ratioC; $('rd').value=s.ratioD; $('col').checked=s.collector; $('geo').checked=s.geologist; $('eng').checked=s.engineer; if (s.planDays) $('planDays').value=s.planDays; $('ally').checked=!!s.allyTrader; $('extra').value=s.extraPct||0; $('nocalib').checked=!!s.noCalib; if (s.researchShare != null) $('rshare').value=s.researchShare; if (s.autoRates != null) $('autoRates').checked=!!s.autoRates; if (s.threat) $('threat').value=s.threat; if (s.defFirst != null) $('defFirst').checked=!!s.defFirst; } } catch(e){}
   $('go').onclick = run;
-  ['speed','fill','rc','rd','col','geo','eng','ally','extra','nocalib','planDays','rshare','threat','defFirst'].forEach(id => $(id).addEventListener('change', run));
+  ['speed','fill','rc','rd','autoRates','col','geo','eng','ally','extra','nocalib','planDays','rshare','threat','defFirst'].forEach(id => $(id).addEventListener('change', run));
   $('rplanet').addEventListener('change', () => { store.set('og_rplanet', $('rplanet').value); run(); });
   $('copyTpl').onclick = async () => { try { await navigator.clipboard.writeText(TEMPLATE); $('copyMsg').textContent = 'Modèle copié.'; } catch(e){ $('data').value = TEMPLATE; $('copyMsg').textContent = 'Copie refusée : le modèle a été placé dans la zone de texte.'; $('inputPanel').open = true; } };
   $('aPlanet').addEventListener('change', fillAttFleet);

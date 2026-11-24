@@ -1,8 +1,10 @@
 {
-  "v": "202611242311",
-  "version": "1.1.2",
+  "v": "202611242321",
+  "version": "1.2.0",
   "date": "2026-11-25",
   "notes": [
-    "Le conseil sur le deutérium ne propose plus d'échanger au Marchand, qui coûte de l'antimatière."
+    "Taux automatiques selon tes stocks : ce qui est rare vaut plus. Le plan monte plus de mines de cristal quand le cristal manque (réglable dans Export).",
+    "Plus de nouveau réservoir ou hangar conseillé pour une ressource en surplus : mieux vaut la dépenser.",
+    "L'alerte sur la ressource la plus rare se base sur tes stocks (heures de production en réserve), et non plus sur la seule production."
   ]
 }

@@ -258,7 +258,8 @@ const OG = (() => {
     // 7. storage that would fill up before you can pay for that build (or before your next login)
     let waitH = 0; K.forEach((r, j) => { const miss = cc[j] - (stock[r] || 0); if (miss > 0) waitH = Math.max(waitH, c.prod[r] > 0 ? miss / c.prod[r] : Infinity); });
     // a resource the build does not use keeps piling up: only your next login empties it
-    for (const [j, r] of K.entries()) { const lim = cc[j] > 0 ? Math.min(waitH, S.fillHours) : S.fillHours; if (fillLeft[r] < lim) return { key: ST[r], why: 'storage', fillLeft: fillLeft[r], waitH }; }
+    for (const [j, r] of K.entries()) { if (S.surplus && S.surplus[r]) continue; // full of a resource you have too much of: spend it rather than store it
+      const lim = cc[j] > 0 ? Math.min(waitH, S.fillHours) : S.fillHours; if (fillLeft[r] < lim) return { key: ST[r], why: 'storage', fillLeft: fillLeft[r], waitH }; }
     return pick;
   }
 
@@ -612,10 +613,25 @@ const OG = (() => {
     });
     planTransports(out, R, S);
     // warnings
-    if (tot.d < tot.m * 0.15) out.warnings.push(`Le deutérium est ton goulot d'étranglement (${fmt(tot.d)}/h contre ${fmt(tot.m)} métal/h). Monte les synthétiseurs de deutérium, en priorité sur tes planètes les plus froides. Le Marchand coûte de l'antimatière : à éviter, sauf si tu veux en dépenser.`);
+    const ar = autoRates({ planets }); out.rates = { ratioC: S.ratioC, ratioD: S.ratioD, auto: !!S.autoRates, hours: ar ? ar.hours : null };
+    if (ar) { const h = ar.hours, NM = { m: 'métal', c: 'cristal', d: 'deutérium' }; const ks = ['m', 'c', 'd'].sort((a, b) => h[a] - h[b]);
+      if (h[ks[0]] * 2 < h[ks[2]]) out.warnings.push(`Ta ressource la plus rare est le ${NM[ks[0]]} : tu as ${fmtH(h[ks[0]])} de production en stock, contre ${fmtH(h[ks[1]])} de ${NM[ks[1]]} et ${fmtH(h[ks[2]])} de ${NM[ks[2]]}.${ar.surplus.d ? ' Le deutérium est en surplus : dépense-le (recherche, centrales à fusion, vols) plutôt que d\'agrandir les réservoirs.' : ''}${ar.surplus.c ? ' Le cristal est en surplus : dépense-le plutôt que d\'agrandir les hangars.' : ''}`); }
     return out;
   }
 
-  return { parse, analyse, fmt, fmtCost, fmtH, planetCalc, storageCap, cost, flight };
+  // ---------- exchange rates from your own stocks: what is scarce is worth more ----------
+  // hours of stock = total stock / total production per hour. Crystal and deuterium are compared with metal:
+  // rate = usual rate x sqrt(metal hours / its hours), within bounds. A resource with 2.5x more hours than metal is a surplus.
+  function autoRates(parsed) {
+    const tot = { m: 0, c: 0, d: 0 }, pr = { m: 0, c: 0, d: 0 };
+    (parsed.planets || []).forEach(p => { const s = p.stock; if (!s) return; ['m', 'c', 'd'].forEach(k => { tot[k] += s[k] || 0; pr[k] += s['prod' + k] || 0; }); });
+    if (!(pr.m > 0 && pr.c > 0 && pr.d > 0)) return null;
+    const h = { m: Math.max(0.5, tot.m / pr.m), c: Math.max(0.5, tot.c / pr.c), d: Math.max(0.5, tot.d / pr.d) };
+    const clamp = (v, a, b) => Math.min(b, Math.max(a, v)); const r1 = v => Math.round(v * 10) / 10;
+    return { ratioC: r1(clamp(1.5 * Math.sqrt(h.m / h.c), 1, 4)), ratioD: r1(clamp(3 * Math.sqrt(h.m / h.d), 0.75, 5)), hours: h,
+      surplus: { c: h.c > 2.5 * h.m, d: h.d > 2.5 * h.m } };
+  }
+
+  return { parse, analyse, fmt, fmtCost, fmtH, planetCalc, storageCap, cost, flight, autoRates };
 })();
 if (typeof module !== 'undefined') module.exports = OG;
