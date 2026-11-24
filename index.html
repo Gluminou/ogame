@@ -968,7 +968,7 @@ const OG = (() => {
     });
     planTransports(out, R, S);
     // warnings
-    if (tot.d < tot.m * 0.15) out.warnings.push(`Le deutérium est ton goulot d'étranglement (${fmt(tot.d)}/h contre ${fmt(tot.m)} métal/h). Monte les synthétiseurs et échange ton surplus au Marchand.`);
+    if (tot.d < tot.m * 0.15) out.warnings.push(`Le deutérium est ton goulot d'étranglement (${fmt(tot.d)}/h contre ${fmt(tot.m)} métal/h). Monte les synthétiseurs de deutérium, en priorité sur tes planètes les plus froides. Le Marchand coûte de l'antimatière : à éviter, sauf si tu veux en dépenser.`);
     return out;
   }
 
@@ -1339,9 +1339,9 @@ if (typeof module !== 'undefined') module.exports = CB;
 
 </script>
 <script>
-const APP_RELEASE="1.1.1";
-const APP_DATE="2026-11-24";
-const APP_VERSION="202611240643"; // stamped by tools/build.js; update checks live in updates.js
+const APP_RELEASE="1.1.2";
+const APP_DATE="2026-11-25";
+const APP_VERSION="202611242311"; // stamped by tools/build.js; update checks live in updates.js
 const DEFAULT_DATA = "";
 const TEMPLATE = `Planete: NomDeLaPlanete
 Coordonnees: 1:100:8

@@ -612,7 +612,7 @@ const OG = (() => {
     });
     planTransports(out, R, S);
     // warnings
-    if (tot.d < tot.m * 0.15) out.warnings.push(`Le deutérium est ton goulot d'étranglement (${fmt(tot.d)}/h contre ${fmt(tot.m)} métal/h). Monte les synthétiseurs et échange ton surplus au Marchand.`);
+    if (tot.d < tot.m * 0.15) out.warnings.push(`Le deutérium est ton goulot d'étranglement (${fmt(tot.d)}/h contre ${fmt(tot.m)} métal/h). Monte les synthétiseurs de deutérium, en priorité sur tes planètes les plus froides. Le Marchand coûte de l'antimatière : à éviter, sauf si tu veux en dépenser.`);
     return out;
   }
 

@@ -1,8 +1,8 @@
 {
-  "v": "202611240643",
-  "version": "1.1.1",
-  "date": "2026-11-24",
+  "v": "202611242311",
+  "version": "1.1.2",
+  "date": "2026-11-25",
   "notes": [
-    "Cibles : boutons de tri bien visibles juste au-dessus de la liste (plus rentables, plus récents, plus anciens)."
+    "Le conseil sur le deutérium ne propose plus d'échanger au Marchand, qui coûte de l'antimatière."
   ]
 }
