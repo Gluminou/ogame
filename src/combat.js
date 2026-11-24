@@ -86,6 +86,7 @@ const CB = (() => {
     out.sections = sec;
     out.fleetKnown = sec.fleet === 'shown'; out.defKnown = sec.def === 'shown';
     const sv = (re) => { const m = text.match(re); return m ? num(norm(m[1])) : null; };
+    { const m = t.match(/missiles? d.?interception\s*:?\s*([0-9][0-9.]*)/); out.abm = m ? num(m[1]) : 0; }
     out.summary = { fleet: sv(/Flottes?\s*:\s*\n?\s*([0-9][0-9.,]*\s*[kKmM]?)/), def: sv(/D[ée]fenses?\s*:\s*\n?\s*([0-9][0-9.,]*\s*[kKmM]?)/) };
     const jm = text.match(/Joueur\s*:\s*([^\n]+)/i); if (jm) out.player = jm[1].trim();
     const am = t.match(/activite sur cette planete dans les (\d+) dernieres minutes/); if (am) out.activity = +am[1];
@@ -242,6 +243,24 @@ const CB = (() => {
     const per = drv === 'comb' ? 0.1 : drv === 'imp' ? 0.2 : 0.3;
     return base * (1 + per * lvl + (collector && (k === 'SC' || k === 'LC') ? 1 : 0));
   }
+  // ---------- interplanetary missiles (IPM): they destroy defences before the fleet arrives ----------
+  // each missile: 12 000 damage, +10 % per level of YOUR weapons; a defence holds (metal + crystal) / 10, +10 % per level of HIS armour.
+  // anti-ballistic missiles stop one IPM each. The chosen target is hit first, the rest goes to the other defences, cheapest first.
+  // Destroyed defences are not rebuilt at 70 % and leave no debris.
+  const IPM_COST = [12500, 2500, 10000];
+  const IPM_ORDER = ['RL', 'LL', 'HL', 'GC', 'IC', 'PT', 'SS', 'LS'];
+  function ipmStrike(units, n, cfg) {
+    const left = Object.assign({}, units); const destroyed = {};
+    const hits = Math.max(0, n - (cfg.abm || 0)); let dmg = hits * 12000 * (1 + 0.1 * (cfg.weap || 0));
+    const hull = k => (U[k][1] + U[k][2]) / 10 * (1 + 0.1 * (cfg.armour || 0));
+    const order = cfg.primary ? [cfg.primary, ...IPM_ORDER.filter(k => k !== cfg.primary)] : IPM_ORDER;
+    for (const k of order) { if (!(left[k] > 0) || dmg <= 0) continue; const kill = Math.min(left[k], Math.floor(dmg / hull(k))); if (kill <= 0) continue;
+      left[k] -= kill; destroyed[k] = kill; dmg -= kill * hull(k); if (!left[k]) delete left[k]; }
+    return { left, destroyed, hits, intercepted: n - hits };
+  }
+  const ipmRange = imp => Math.max(0, 5 * (imp || 0) - 1); // systems, same galaxy
+  const ipmFlightS = (dSys, speed) => (30 + 60 * dSys) / (speed || 1); // seconds
+
   // ---------- cannon fodder: how many light fighters to add to cut the losses of this fleet ----------
   // cfg: { ratioC, ratioD, spare: light fighters still on the planet, runs }
   function fodderPlan(att, def, opts, cfg) {
@@ -336,6 +355,6 @@ const CB = (() => {
     return { safe: false, add: best.add, cost: costOf(best.add), lootMsu, before: now, after: best.w, tried };
   }
 
-  return { U, SHIPS, ATTACK_SHIPS, DEFS, RF, parseReport, planDefense, DEF_REQ, fodderPlan, splitReports, simulate, optimize, buildSide, num, shipSpeed, FUEL };
+  return { U, SHIPS, ATTACK_SHIPS, DEFS, RF, parseReport, planDefense, DEF_REQ, fodderPlan, ipmStrike, ipmRange, ipmFlightS, IPM_COST, splitReports, simulate, optimize, buildSide, num, shipSpeed, FUEL };
 })();
 if (typeof module !== 'undefined') module.exports = CB;

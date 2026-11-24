@@ -22,6 +22,26 @@ affiche l'écart (« bonus non identifiés ») : objets, recherches de formes
 de vie, niveau de l'espèce, événements. Réglages manuels : classe
 d'alliance Marchands, bonus supplémentaires, ou désactiver le calage.
 
+## Missiles interplanétaires
+
+Chaque missile fait 12 000 dégâts (+10 % par niveau de ta technologie
+armes) ; une défense tient (métal + cristal) / 10 (+10 % par niveau de
+protection du défenseur). Chaque missile d'interception adverse en arrête
+un. La cible prioritaire est touchée d'abord, le reste va aux défenses les
+moins chères. Les défenses détruites ne se reconstruisent pas et ne
+laissent pas de débris. Portée : 5 x propulsion à impulsion - 1 systèmes,
+dans la même galaxie ; silo de missiles niveau 4 minimum, 2 places sur
+10 par niveau.
+
+Onglet Cibles : pour chaque cible dont la défense est visible,
+l'application essaie de 1 à 64 missiles (en plus de ses missiles
+d'interception) sur les 3 défenses qui pèsent le plus, puis recalcule la
+flotte. Elle affiche l'option si elle rapporte plus que sans missiles (ou
+rend possible une cible trop défendue), avec la planète de lancement, le
+silo nécessaire et la durée du vol. Onglet Combat : nombre de missiles,
+missiles d'interception (lus dans le rapport) et cible prioritaire,
+appliqués avant la simulation.
+
 ## Onglet Recherche
 
 Les recherches sont lancées sur une seule planète (par défaut celle qui a le
