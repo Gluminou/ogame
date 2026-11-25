@@ -360,7 +360,7 @@ details.howto ol{margin:6px 0 6px;padding-left:22px}details.howto li{margin:4px 
 /*COMBAT*/
 </script>
 <script>
-const APP_RELEASE="1.2.0";
+const APP_RELEASE="1.2.1";
 const APP_DATE="2026-11-25";
 const APP_VERSION="/*VERSION*/"; // stamped by tools/build.js; update checks live in updates.js
 const DEFAULT_DATA = /*DATA*/;
@@ -889,10 +889,20 @@ const TG = { list: [] };
 function tgLoad(){ try { TG.list = JSON.parse(store.get('og_targets') || '[]'); } catch(e){ TG.list = []; } }
 function tgSave(){ store.set('og_targets', JSON.stringify(TG.list)); }
 // computed fleets are kept between visits: a report never changes, so a target is only recomputed when your fleet, research or settings change
-function tgCacheLoad(){ if (TG.cache) return; try { TG.cache = JSON.parse(store.get('og_tg_cache') || '{}') || {}; } catch(e){ TG.cache = {}; } }
-function tgCacheSave(sig){
-  const keep = {}; TG.list.forEach(tg => { const k = tg.key + tg.at + sig; if (TG.cache[k] && !TG.cache[k].err) keep[k] = TG.cache[k]; }); // only the current targets and settings
-  try { store.set('og_tg_cache', JSON.stringify(keep)); } catch(e){}
+// one result per report, with the fleet and settings it was computed with ({ e, fp })
+function tgCacheLoad(){ if (TG.cache) return; try { TG.cache = JSON.parse(store.get('og_tg_cache2') || '{}') || {}; } catch(e){ TG.cache = {}; } }
+function tgCacheSave(){
+  const keep = {}; TG.list.forEach(tg => { const k = tg.key + tg.at; if (TG.cache[k] && !TG.cache[k].e.err) keep[k] = TG.cache[k]; }); // only the current targets
+  try { store.set('og_tg_cache2', JSON.stringify(keep)); localStorage.removeItem('og_tg_cache'); } catch(e){}
+}
+// recompute only for a real change: other settings or research, rates moved by 0.5 or more, or more than 10 % (and 2 ships) of one ship type.
+// Ships in flight at export time (probes, transports) do not trigger it.
+function tgChanged(a, b){
+  if (!a || a.set !== b.set) return true;
+  if (Math.abs(a.rc - b.rc) >= 0.5 || Math.abs(a.rd - b.rd) >= 0.5) return true;
+  const ks = new Set([...Object.keys(a.ships), ...Object.keys(b.ships)]);
+  for (const k of ks) { const x = a.ships[k] || 0, y = b.ships[k] || 0; if (Math.abs(x - y) > Math.max(2, 0.1 * Math.max(x, y))) return true; }
+  return false;
 }
 function parisToUtc(d){ // report times are in server time (Europe/Paris)
   const guess = Date.UTC(d.y, d.mo - 1, d.d, d.h, d.mi, d.s);
@@ -1043,14 +1053,17 @@ function renderTargets(){
   // what the result depends on: the source planet's fleet, research, shipyards (for the ideal fleet), fleet speed and the settings
   const R0 = res.research || {}; const fleetSig = [CB.ATTACK_SHIPS.map(k => src.p.b[SHIPKEY[k]] || 0), src.p.coords, Math.max(0, ...res.planets.map(p => p.b.shipyard || 0)), (res.server || {}).speedWar, res.planets.map(p => [p.b.silo || 0, p.b.dIPM || 0]), 'ipm1',
     ['rWeap', 'rShield', 'rArmour', 'rHyper', 'rComb', 'rImp', 'rHD', 'rEsp', 'rLaser', 'rIon', 'rPlasma'].map(k => R0[k] || 0)];
-  const sig = JSON.stringify([src.p.name, minWin, probesSent(), $('tgDebris').checked, S.ratioC, S.ratioD, S.collector, fleetSig]);
+  const ships = {}; CB.ATTACK_SHIPS.filter(k => !['EP', 'Col', 'Rec'].includes(k)).forEach(k => { const n = src.p.b[SHIPKEY[k]] || 0; if (n) ships[k] = n; });
+  const fp = { set: JSON.stringify([src.p.name, minWin, probesSent(), $('tgDebris').checked, S.collector, fleetSig.slice(1)]), rc: S.ratioC, rd: S.ratioD, ships };
   tgCacheLoad();
-  const todo = TG.list.filter(tg => !TG.cache[tg.key + tg.at + sig]);
-  if (todo.length && !TG.busy) { TG.busy = true; $('tgMsg').textContent = `Calcul des flottes optimales… 0/${todo.length}`;
-    (async () => { let i = 0; const ctx = { ui: { tgDebris: { checked: $('tgDebris').checked }, tgProbes: { value: $('tgProbes').value } }, parsed: CS.parsed }; for (const tg of todo) { try { TG.cache[tg.key + tg.at + sig] = await BG('evalTarget', [tg, src, res.research, S, res.server || {}, minWin], ctx); } catch (e) { TG.cache[tg.key + tg.at + sig] = { r: CB.parseReport(tg.text), none: true, err: true }; } i++; tgCacheSave(sig); $('tgMsg').textContent = `Calcul des flottes optimales… ${i}/${todo.length}`; await new Promise(r => setTimeout(r, 0)); }
-      TG.busy = false; $('tgMsg').textContent = ''; renderTargets(); })(); return; }
-  if (TG.busy) return;
-  const rows = TG.list.map(tg => ({ tg, e: TG.cache[tg.key + tg.at + sig] })).filter(x => x.e && !x.e.none);
+  const todo = TG.list.filter(tg => TG.force || tgChanged((TG.cache[tg.key + tg.at] || {}).fp, fp));
+  if (todo.length && !TG.busy) { TG.busy = true; TG.force = false; $('tgMsg').textContent = `Calcul des flottes optimales… 0/${todo.length}`;
+    (async () => { let i = 0; const ctx = { ui: { tgDebris: { checked: $('tgDebris').checked }, tgProbes: { value: $('tgProbes').value } }, parsed: CS.parsed };
+      for (const tg of todo) { let e; try { e = await BG('evalTarget', [tg, src, res.research, S, res.server || {}, minWin], ctx); } catch (x) { e = { r: CB.parseReport(tg.text), none: true, err: true }; }
+        TG.cache[tg.key + tg.at] = { e, fp }; i++; tgCacheSave(); $('tgMsg').textContent = `Calcul des flottes optimales… ${i}/${todo.length}`; await new Promise(r => setTimeout(r, 0)); }
+      TG.busy = false; $('tgMsg').textContent = ''; renderTargets(); })(); }
+  // results already known are shown at once, even while others are being computed
+  const rows = TG.list.map(tg => ({ tg, e: (TG.cache[tg.key + tg.at] || {}).e })).filter(x => x.e && !x.e.none);
   const mode = $('tgSort').value;
   if (mode === 'age') rows.sort((a, b) => (b.tg.at || 0) - (a.tg.at || 0));
   else if (mode === 'old') rows.sort((a, b) => (a.tg.at || 0) - (b.tg.at || 0));
@@ -1067,7 +1080,7 @@ function renderTargets(){
         <div class="grid3"><div><span>Butin</span>${f(e.lootWant)}</div><div><span>Défense</span>${e.defVal ? f(e.defVal) : '<span class="ok">aucune</span>'}</div><div><span>Vol A/R</span>${fmtDur(e.round)} · ${f(e.fuel)} D</div>
         <div><span>Victoire</span><b class="${e.ok ? 'ok' : 'red'}">${Math.round(e.ch.win * 100)} %</b>${e.ch.loss > 0 ? ` · pertes ${f(e.ch.loss)}` : ''}</div><div><span>Gain net</span><b class="${e.gain >= 0 ? 'ok' : 'red'}">${e.gain >= 0 ? '+' : ''}${f(e.gain)}</b></div><div><span>Gain / h</span>${e.ok ? f(e.perH) : '–'}</div></div></div>`;
     }).join('') + '</div>';
-  const sortBar = `<div class="tgsort" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 10px"><span class="note" style="margin-right:2px">Trier :</span>${[['gain', 'Plus rentables'], ['age', 'Plus récents'], ['old', 'Plus anciens']].map(([v, l]) => `<button class="${mode === v ? '' : 'ghost'}" data-sort="${v}" style="padding:6px 12px;font-size:13px">${l}</button>`).join('')}</div>`;
+  const sortBar = `<div class="tgsort" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 10px"><span class="note" style="margin-right:2px">Trier :</span>${[['gain', 'Plus rentables'], ['age', 'Plus récents'], ['old', 'Plus anciens']].map(([v, l]) => `<button class="${mode === v ? '' : 'ghost'}" data-sort="${v}" style="padding:6px 12px;font-size:13px">${l}</button>`).join('')}<button class="ghost" id="tgRedo" style="padding:6px 12px;font-size:13px;margin-left:auto" title="Refaire tous les calculs avec ta flotte actuelle">Recalculer</button></div>`;
   $('tgOut').innerHTML = sortBar + cardsHtml + `<div class="panel tg-wide" style="padding:0;overflow-x:auto"><table class="mx" style="font-size:12.5px"><thead><tr><th style="text-align:left">Cible</th><th>Butin</th><th>Défense</th><th style="text-align:left">Flotte à envoyer</th><th>Vol A/R</th><th>Victoire</th><th>Gain net</th><th>Gain / h</th><th></th></tr></thead><tbody>${rows.map(({ tg, e }, i) => {
     const old = now - tg.at > 3600000; const act = e.r.activity != null ? `activité ${e.r.activity} min` : '';
     if (e.unknown) return `<tr><td style="text-align:left;color:var(--txt)"><b>${esc(e.r.player || '?')}</b> <span class="note">[${esc(e.r.coords)}]${e.r.isMoon ? ' lune' : ''}</span><br><span class="${old ? 'warnc' : 'note'}" style="font-size:11px">rapport il y a ${age(tg.at)}${act ? ' · ' + act : ''}</span></td>
@@ -1082,6 +1095,7 @@ function renderTargets(){
       <td class="${e.gain >= 0 ? 'ok' : 'red'}" style="font-weight:600">${e.gain >= 0 ? '+' : ''}${f(e.gain)}</td>
       <td>${e.ok ? f(e.perH) : '–'}</td>
       <td style="white-space:nowrap"><button class="ghost" style="padding:4px 8px;font-size:12px" data-sim="${i}">Simuler</button> <button class="ghost" style="padding:4px 8px;font-size:12px" data-del="${esc(tg.key)}" aria-label="Supprimer">✕</button></td></tr>`; }).join('')}</tbody></table></div>`;
+  if ($('tgRedo')) $('tgRedo').onclick = () => { TG.force = true; renderTargets(); };
   $('tgOut').querySelectorAll('[data-sort]').forEach(b => b.onclick = () => { $('tgSort').value = b.dataset.sort; try { localStorage.setItem('og_tgsort', b.dataset.sort); } catch(e){} renderTargets(); });
   $('tgOut').querySelectorAll('[data-del]').forEach(b => b.onclick = () => { TG.list = TG.list.filter(x => x.key !== b.dataset.del); tgSave(); renderTargets(); });
   $('tgOut').querySelectorAll('[data-sim]').forEach(b => b.onclick = () => { const { tg, e } = rows[+b.dataset.sim];

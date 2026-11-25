@@ -1,10 +1,9 @@
 {
-  "v": "202611242321",
-  "version": "1.2.0",
+  "v": "202611250124",
+  "version": "1.2.1",
   "date": "2026-11-25",
   "notes": [
-    "Taux automatiques selon tes stocks : ce qui est rare vaut plus. Le plan monte plus de mines de cristal quand le cristal manque (réglable dans Export).",
-    "Plus de nouveau réservoir ou hangar conseillé pour une ressource en surplus : mieux vaut la dépenser.",
-    "L'alerte sur la ressource la plus rare se base sur tes stocks (heures de production en réserve), et non plus sur la seule production."
+    "Cibles : les flottes ne sont plus recalculées à chaque export. Seul un vrai changement relance le calcul : plus de 10 % d'un type de vaisseau, une recherche, un réglage, ou un taux qui bouge de 0,5. Les vaisseaux en vol au moment de l'export ne comptent pas.",
+    "Cibles : les résultats déjà connus restent affichés pendant un nouveau calcul, et un bouton Recalculer force la mise à jour."
   ]
 }
