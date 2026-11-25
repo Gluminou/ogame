@@ -1,9 +1,8 @@
 {
-  "v": "202611250124",
-  "version": "1.2.1",
+  "v": "202611250134",
+  "version": "1.2.2",
   "date": "2026-11-25",
   "notes": [
-    "Cibles : les flottes ne sont plus recalculées à chaque export. Seul un vrai changement relance le calcul : plus de 10 % d'un type de vaisseau, une recherche, un réglage, ou un taux qui bouge de 0,5. Les vaisseaux en vol au moment de l'export ne comptent pas.",
-    "Cibles : les résultats déjà connus restent affichés pendant un nouveau calcul, et un bouton Recalculer force la mise à jour."
+    "Historique : les rapports de combat copiés depuis la page des messages du jeu sont maintenant lus (butin, débris et vaisseaux perdus), même quand les chiffres arrivent collés. Un rapport déjà ajouté mais lu vide est corrigé en le recollant."
   ]
 }

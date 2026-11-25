@@ -1,5 +1,12 @@
 [
   {
+    "version": "1.2.2",
+    "date": "2026-11-25",
+    "notes": [
+      "Historique : les rapports de combat copiés depuis la page des messages du jeu sont maintenant lus (butin, débris et vaisseaux perdus), même quand les chiffres arrivent collés. Un rapport déjà ajouté mais lu vide est corrigé en le recollant."
+    ]
+  },
+  {
     "version": "1.2.1",
     "date": "2026-11-25",
     "notes": [

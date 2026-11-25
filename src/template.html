@@ -360,7 +360,7 @@ details.howto ol{margin:6px 0 6px;padding-left:22px}details.howto li{margin:4px 
 /*COMBAT*/
 </script>
 <script>
-const APP_RELEASE="1.2.1";
+const APP_RELEASE="1.2.2";
 const APP_DATE="2026-11-25";
 const APP_VERSION="/*VERSION*/"; // stamped by tools/build.js; update checks live in updates.js
 const DEFAULT_DATA = /*DATA*/;
@@ -1212,13 +1212,38 @@ function hiParse(msg){
     const debris = resOf(debPart);
     const lossM = n.match(/pertes?\s+(?:de\s+l.)?attaquant\s*:?\s*([0-9][0-9.,]*\s*(?:mrd|m|k)?)/) || n.match(/attaquant[\s\S]{0,120}?pertes?\s*:?\s*([0-9][0-9.,]*\s*(?:mrd|m|k)?)/);
     const lossD = n.match(/defenseur[\s\S]{0,120}?pertes?\s*:?\s*([0-9][0-9.,]*\s*(?:mrd|m|k)?)/);
-    return { kind: 'raid', at, coords, loot, debris, loss: lossM ? hiNum(lossM[1]) : 0, lossDef: lossD ? hiNum(lossD[1]) : 0, won: !/defaite|perdu le combat/.test(n) };
+    let lossV = lossM ? hiNum(lossM[1]) : 0, lossDef = lossD ? hiNum(lossD[1]) : 0, lossUnits = null;
+    // report copied from the game's message page: the numbers come glued together, without labels
+    const glued = s => (s.match(/\d{1,3}(?:\.\d{3})+|\d+/g) || []).map(x => +x.replace(/\./g, ''));
+    const L = msg.split(/\r?\n/).map(x => x.trim());
+    const after = re => { const i = L.findIndex(x => re.test(hiNorm(x))); return i >= 0 ? L.slice(i + 1).find(x => x && /^[0-9.]+$/.test(x)) : null; };
+    if (!loot.m && !loot.c && !loot.d) { const v = after(/^butin/); if (v) { const g = glued(v); loot.m = g[0] || 0; loot.c = g[1] || 0; loot.d = g[2] || 0; } }
+    if (!debris.m && !debris.c && !debris.d) { const v = after(/^debris/); if (v) { const g = glued(v); debris.m = g[0] || 0; debris.c = g[1] || 0; debris.d = g[2] || 0; } }
+    // attacker losses: each line is "<ship>-<lost><left>" (a lone "-" means none lost). The export tells how many are left, which splits the digits.
+    const ia = L.findIndex(x => /attaquant\s*:/.test(hiNorm(x))), idf = L.findIndex((x, i) => i > ia && /defenseur\s*:/.test(hiNorm(x)));
+    if (ia >= 0 && !lossV) {
+      const pc = (L[ia].match(/(\d+:\d+:\d+)/) || [])[1]; const pl = ((CS.parsed && CS.parsed.planets) || []).find(p => p.coords === pc);
+      const lost = {}; let unsure = false;
+      L.slice(ia + 1, idf > 0 ? idf : undefined).forEach(line => { const m = line.match(/^(.+?)-(\d*)$/); if (!m) return;
+        const nm = hiNorm(m[1]).trim(); const k = CB.SHIPS.find(s => CB.U[s][8].some(a => nm === a) || hiNorm(CB.U[s][0]) === nm); if (!k) return;
+        const dg = m[2]; const have = pl ? pl.b[SHIPKEY[k]] : undefined; let loss = null;
+        if (have != null) for (let i = 0; i <= dg.length - 1 && loss == null; i++) { const a = +(dg.slice(0, i) || 0), b = +dg.slice(i);
+          if (b === have || a + b === have) loss = a; } // export taken after the fight (left = what you have) or before it (lost + left)
+        if (loss == null) { if (dg.length <= 2) loss = 0; else unsure = true; }
+        if (loss) lost[k] = loss; });
+      if (Object.keys(lost).length) { lossUnits = lost; lossV = Object.entries(lost).reduce((a, [k, q]) => a + q * (CB.U[k][1] + CB.U[k][2] + CB.U[k][3]), 0); }
+      if (unsure && !lossUnits) lossUnits = { unsure: true };
+    }
+    return { kind: 'raid', at, coords, loot, debris, loss: lossV, lossUnits, lossDef, won: !/defaite|perdu le combat/.test(n) };
   }
   return null;
 }
 function hiAddText(text){
   let n = 0, skip = 0, bad = 0;
-  hiSplit(text).forEach(msg => { const id = hiHash(msg.replace(/\s+/g, ' ')); if (HI.list.some(x => x.id === id)) { skip++; return; }
+  hiSplit(text).forEach(msg => { const id = hiHash(msg.replace(/\s+/g, ' ')); const was = HI.list.findIndex(x => x.id === id);
+    if (was >= 0) { // already there: replace it only if it had been read empty (older reader), otherwise skip
+      const o = HI.list[was], z = r => !r || !(r.m || r.c || r.d); const e2 = o.kind === 'raid' && z(o.loot) && z(o.debris) && !o.loss ? hiParse(msg) : null;
+      if (e2 && (!z(e2.loot) || !z(e2.debris) || e2.loss)) { e2.id = id; HI.list[was] = e2; n++; } else skip++; return; }
     const e = hiParse(msg); if (!e) { bad++; return; } e.id = id; HI.list.push(e); n++; });
   hiSave(); $('hiMsg').textContent = `${n} message${n > 1 ? 's' : ''} ajouté${n > 1 ? 's' : ''}` + (skip ? `, ${skip} déjà connu${skip > 1 ? 's' : ''}` : '') + (bad ? `, ${bad} non reconnu${bad > 1 ? 's' : ''}` : '') + '.';
   renderHisto();
