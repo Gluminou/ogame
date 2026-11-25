@@ -30,7 +30,8 @@ textarea{width:100%;min-height:220px;background:#0a0f1e;color:var(--txt);border:
 .row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:10px}
 button{background:var(--acc);color:#1a1200;border:0;border-radius:8px;padding:9px 16px;font-weight:600;cursor:pointer;font-family:Inter}
 button.ghost{background:transparent;color:var(--txt);border:1px solid var(--line)}
-.settings{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-top:12px}
+.settings{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr));gap:10px;margin-top:12px}
+.settings > label{min-width:0}select{max-width:100%;min-width:0}
 .settings label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--mut)}
 .settings label.chk{flex-direction:row;align-items:center;gap:8px;color:var(--txt)}
 input[type=number],select{background:#0a0f1e;color:var(--txt);border:1px solid var(--line);border-radius:6px;padding:6px 8px;font:inherit}
@@ -1357,9 +1358,9 @@ if (typeof module !== 'undefined') module.exports = CB;
 
 </script>
 <script>
-const APP_RELEASE="1.2.2";
+const APP_RELEASE="1.3.0";
 const APP_DATE="2026-11-25";
-const APP_VERSION="202611250134"; // stamped by tools/build.js; update checks live in updates.js
+const APP_VERSION="202611250141"; // stamped by tools/build.js; update checks live in updates.js
 const DEFAULT_DATA = "";
 const TEMPLATE = `Planete: NomDeLaPlanete
 Coordonnees: 1:100:8
@@ -1641,7 +1642,7 @@ async function computeDefense(text, S, key){
   try { store.set('og_defense', JSON.stringify({ key, val: DZ.val })); } catch(e){}
   run();
 }
-const PLURAL = { RL: 'lanceurs de missiles', LL: 'artilleries laser légères', HL: 'artilleries laser lourdes', GC: 'canons de Gauss', IC: 'artilleries à ions', PT: 'lanceurs de plasma', SS: 'petit bouclier', LS: 'grand bouclier', Cr: 'croiseurs', BS: 'vaisseaux de bataille', Bo: 'bombardiers' };
+const PLURAL = { LF: 'chasseurs légers', HF: 'chasseurs lourds', SC: 'petits transporteurs', LC: 'grands transporteurs', Rec: 'recycleurs', EP: 'sondes d\'espionnage', Sat: 'satellites solaires', Col: 'vaisseaux de colonisation', BC: 'traqueurs', De: 'destructeurs', RIP: 'étoiles de la mort', Re: 'faucheurs', PF: 'éclaireurs', RL: 'lanceurs de missiles', LL: 'artilleries laser légères', HL: 'artilleries laser lourdes', GC: 'canons de Gauss', IC: 'artilleries à ions', PT: 'lanceurs de plasma', SS: 'petit bouclier', LS: 'grand bouclier', Cr: 'croiseurs', BS: 'vaisseaux de bataille', Bo: 'bombardiers' };
 const unitName = (k, n) => n > 1 && PLURAL[k] ? PLURAL[k] : (k === 'GC' ? 'canon de Gauss' : CB.U[k][0].toLowerCase());
 const defList = add => Object.entries(add).filter(([, n]) => n > 0).map(([k, n]) => `${n} ${unitName(k, n)}`).join(', ');
 const fullCost = c => [c[0] ? Math.round(c[0]).toLocaleString('fr-FR') + ' métal' : null, c[1] ? Math.round(c[1]).toLocaleString('fr-FR') + ' cristal' : null, c[2] ? Math.round(c[2]).toLocaleString('fr-FR') + ' deutérium' : null].filter(Boolean).join(', ') || '0';
@@ -2162,7 +2163,8 @@ function renderExpe(){
 
 // ---------- History tab ----------
 const HI = { list: [] };
-function hiLoad(){ try { HI.list = JSON.parse(store.get('og_hist') || '[]'); } catch(e){ HI.list = []; } }
+function hiLoad(){ try { HI.list = JSON.parse(store.get('og_hist') || '[]'); } catch(e){ HI.list = []; }
+  HI.list = HI.list.map(e => { if (e.kind === 'raid' && e.text) { try { const r = hiParse(e.text); if (r) { r.id = e.id; return r; } } catch(x){} } return e; }); }
 function hiSave(){ store.set('og_hist', JSON.stringify(HI.list)); }
 const hiNorm = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 function hiHash(s){ let h = 5381; for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return String(h >>> 0); }
@@ -2176,6 +2178,37 @@ function hiSplit(text){
     cur.push(l); });
   if (cur.length) out.push(cur.join('\n'));
   return out.map(s => s.trim()).filter(s => s.length > 20);
+}
+// details of a combat report copied from the game: both sides, units sent / lost, repaired defences, rounds, honour
+function hiDetail(msg, won){
+  const L = msg.split(/\r?\n/).map(x => x.trim()); const N = s => hiNorm(s);
+  const findU = nm => { nm = N(nm).replace(/[`’´]/g, "'").trim(); return [...CB.SHIPS, ...CB.DEFS].find(s => CB.U[s][8].some(a => nm === a) || N(CB.U[s][0]) === nm) || null; };
+  const ia = L.findIndex(x => /attaquant\s*:/.test(N(x))), idf = L.findIndex((x, i) => i > ia && /defenseur\s*:/.test(N(x)));
+  const ir = L.findIndex(x => /defense reparees|installations de defense reparees/.test(N(x)));
+  const side = (line) => { const m = (line || '').match(/^(.*?)\s+de\s+(.+?)\s+(\d+:\d+:\d+)/); return m ? { player: m[1].trim(), planet: m[2].trim(), coords: m[3] } : { player: '', planet: '', coords: '' }; };
+  const techs = (from, to) => { const l = L.slice(from, to).find(x => /armes/.test(N(x))) || ''; const p = (l.match(/(\d+)\s*%/g) || []).map(x => parseInt(x)); return { weap: p[0], shield: p[1], armour: p[2] }; };
+  const cls = (from, to) => { const l = L.slice(from, to).find(x => /^classe\s*:/.test(N(x))); return l ? l.replace(/^classe\s*:\s*/i, '') : ''; };
+  // each unit line: "<name>-<lost><left>"; known = how many you have now (export), to split the digits
+  const units = (from, to, known, allGone) => { const out = {};
+    L.slice(from, to).forEach(line => { const m = line.match(/^(.+?)-(\d*)$/); if (!m) return; const k = findU(m[1]); if (!k) return;
+      const dg = m[2]; let lost = null, left = null;
+      if (dg === '') { lost = 0; left = 0; }
+      else if (allGone && /0$/.test(dg)) { lost = +dg.slice(0, -1) || 0; left = 0; }
+      else if (known && known[k] != null) for (let i = 0; i < dg.length && lost == null; i++) { const a = +(dg.slice(0, i) || 0), b = +dg.slice(i); if (b === known[k]) { lost = a; left = b; } else if (a + b === known[k]) { lost = a; left = b; } }
+      if (lost == null) { if (dg.length <= 2) { lost = 0; left = +dg; } else { out[k] = { raw: dg }; return; } }
+      out[k] = { sent: lost + left, lost }; });
+    return out; };
+  const att = side(L[ia]), def = side(L[idf]);
+  const pl = ((CS.parsed && CS.parsed.planets) || []).find(p => p.coords === att.coords); const known = {};
+  if (pl) CB.SHIPS.forEach(k => { if (SHIPKEY[k]) known[k] = pl.b[SHIPKEY[k]] || 0; });
+  const repaired = {}; if (ir >= 0) L.slice(ir + 1).forEach(line => { const m = line.match(/^(.+?)\s*(\d+)$/); if (!m) return; const k = findU(m[1]); if (k) repaired[k] = +m[2]; });
+  const rounds = ((L.find(x => /rounds?\s*:/.test(N(x))) || '').match(/\d+(?=\s*$)/) || [])[0];
+  const hon = (msg.match(/\(([^()]*?):\s*([+-]?\d+)\)\s*vs\.?\s*\(([^()]*?):\s*([+-]?\d+)\)/) || []);
+  const rec = (msg.match(/=>\s*(\d+)\s*recycleur/i) || [])[1];
+  const fled = /flotte defensive s.est repliee/.test(N(msg)), retreat = (msg.match(/retrait tactique\s*:\s*([0-9:,.]+)/i) || [])[1] || '';
+  return { planetName: ((L[0] || '').match(/rapport de combat\s+(.+?)\s*\[/i) || [])[1] || '', att: Object.assign(att, { cls: cls(ia, idf), tech: techs(ia, idf), units: units(ia + 1, idf > 0 ? idf : undefined, known, false) }),
+    def: Object.assign(def, { cls: cls(idf, ir > 0 ? ir : undefined), tech: techs(idf, ir > 0 ? ir : undefined), units: units(idf + 1, ir > 0 ? ir : undefined, null, won) }),
+    repaired, rounds: rounds ? +rounds : null, honour: hon.length ? { att: { label: hon[1].trim(), pts: +hon[2] }, def: { label: hon[3].trim(), pts: +hon[4] } } : null, recyclers: rec ? +rec : null, fled, retreat };
 }
 function hiParse(msg){
   const n = hiNorm(msg); const dm = msg.match(/(\d{2})\.(\d{2})\.(\d{4})\s+(\d{2}):(\d{2}):(\d{2})/);
@@ -2231,7 +2264,9 @@ function hiParse(msg){
       if (Object.keys(lost).length) { lossUnits = lost; lossV = Object.entries(lost).reduce((a, [k, q]) => a + q * (CB.U[k][1] + CB.U[k][2] + CB.U[k][3]), 0); }
       if (unsure && !lossUnits) lossUnits = { unsure: true };
     }
-    return { kind: 'raid', at, coords, loot, debris, loss: lossV, lossUnits, lossDef, won: !/defaite|perdu le combat/.test(n) };
+    const won = !/defaite|perdu le combat/.test(n);
+    let detail = null; try { detail = hiDetail(msg, won); } catch(e){}
+    return { kind: 'raid', at, coords, loot, debris, loss: lossV, lossUnits, lossDef, won, detail, text: msg.length < 20000 ? msg : undefined };
   }
   return null;
 }
@@ -2239,11 +2274,42 @@ function hiAddText(text){
   let n = 0, skip = 0, bad = 0;
   hiSplit(text).forEach(msg => { const id = hiHash(msg.replace(/\s+/g, ' ')); const was = HI.list.findIndex(x => x.id === id);
     if (was >= 0) { // already there: replace it only if it had been read empty (older reader), otherwise skip
-      const o = HI.list[was], z = r => !r || !(r.m || r.c || r.d); const e2 = o.kind === 'raid' && z(o.loot) && z(o.debris) && !o.loss ? hiParse(msg) : null;
-      if (e2 && (!z(e2.loot) || !z(e2.debris) || e2.loss)) { e2.id = id; HI.list[was] = e2; n++; } else skip++; return; }
+      const o = HI.list[was], z = r => !r || !(r.m || r.c || r.d); const e2 = o.kind === 'raid' && ((z(o.loot) && z(o.debris) && !o.loss) || !o.detail) ? hiParse(msg) : null;
+      if (e2 && (!z(e2.loot) || !z(e2.debris) || e2.loss || e2.detail)) { e2.id = id; HI.list[was] = e2; n++; } else skip++; return; }
     const e = hiParse(msg); if (!e) { bad++; return; } e.id = id; HI.list.push(e); n++; });
   hiSave(); $('hiMsg').textContent = `${n} message${n > 1 ? 's' : ''} ajouté${n > 1 ? 's' : ''}` + (skip ? `, ${skip} déjà connu${skip > 1 ? 's' : ''}` : '') + (bad ? `, ${bad} non reconnu${bad > 1 ? 's' : ''}` : '') + '.';
   renderHisto();
+}
+const hiWhen = at => new Date(at).toLocaleString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+function hiItem(e, S){
+  const f = OG.fmt, msu = r => (r.m || 0) + (r.c || 0) * S.ratioC + (r.d || 0) * S.ratioD;
+  const del = `<button class="ghost" style="padding:2px 8px;font-size:12px" data-hdel="${e.id}" aria-label="Supprimer">✕</button>`;
+  if (e.kind !== 'raid') {
+    const TYPES = { res: 'Ressources', ships: 'Vaisseaux', dm: 'Antimatière', none: 'Rien', pirates: 'Pirates / aliens', hole: 'Trou noir', delay: 'Retard / avance', trader: 'Marchand', item: 'Objet' };
+    return `<div style="display:flex;gap:8px;align-items:center;justify-content:space-between;padding:8px 0;border-top:1px solid var(--line);font-size:13px"><span><span class="note">${esc(hiWhen(e.at))}</span><br>Expédition : ${esc(TYPES[e.type] || e.type)} ${e.type === 'res' ? '· ' + esc(OG.fmtCost([e.res.m, e.res.c, e.res.d])) : e.dm ? '· ' + f(e.dm) + ' AM' : ''}</span>${del}</div>`;
+  }
+  const d = e.detail || {}; const net = msu(e.loot) + msu(e.debris) - (e.loss || 0);
+  const who = d.def && d.def.player ? `${esc(d.def.player)} · ${esc(d.planetName || d.def.planet || '')}` : 'Raid';
+  const fleetTxtU = U => Object.entries(U || {}).filter(([, u]) => u.sent).map(([k, u]) => `${u.sent} ${unitName(k, u.sent)}`).join(', ');
+  const rows = (U, withRep) => Object.entries(U || {}).map(([k, u]) => `<tr><td style="text-align:left">${esc(CB.U[k][0])}</td><td>${u.raw ? '?' : f(u.sent)}</td><td class="${u.lost ? 'red' : ''}">${u.raw ? '?' : u.lost ? '−' + f(u.lost) : '0'}</td>${withRep ? `<td>${d.repaired && d.repaired[k] ? '+' + f(d.repaired[k]) : ''}</td>` : ''}</tr>`).join('');
+  const tbl = (title, U, withRep) => Object.keys(U || {}).length ? `<div class="sub2" style="margin-top:10px">${title}</div><div style="overflow-x:auto"><table class="mx" style="font-size:12px;width:100%"><thead><tr><th style="text-align:left">Unité</th><th>Avant</th><th>Perdus</th>${withRep ? '<th>Réparés</th>' : ''}</tr></thead><tbody>${rows(U, withRep)}</tbody></table></div>` : '';
+  const tech = tq => tq && tq.weap != null ? `armes ${tq.weap} %, boucliers ${tq.shield} %, coques ${tq.armour} %` : '';
+  const body = `
+    <div style="font-size:12.5px;line-height:1.55;margin-top:6px">
+      <div><b>Date :</b> ${esc(hiWhen(e.at))} (heure de ton téléphone)</div>
+      <div><b>Cible :</b> ${esc(d.def && d.def.player || '?')}, planète ${esc(d.planetName || (d.def && d.def.planet) || '?')} [${esc(e.coords)}]${d.def && d.def.cls ? ', classe ' + esc(d.def.cls) : ''}</div>
+      <div><b>Départ :</b> ${esc(d.att && d.att.planet || '?')} [${esc(d.att && d.att.coords || '?')}]${d.rounds ? ` · <b>${d.rounds}</b> round${d.rounds > 1 ? 's' : ''}` : ''}${d.fled ? ' · sa flotte s\'est repliée' : ''}</div>
+      <div><b>Butin :</b> ${esc(OG.fmtCost([e.loot.m, e.loot.c, e.loot.d]) || '0')} · <b>Débris :</b> ${esc(OG.fmtCost([e.debris.m, e.debris.c, e.debris.d]) || '0')}${d.recyclers ? ` (${d.recyclers} recycleur${d.recyclers > 1 ? 's' : ''})` : ''}</div>
+      <div><b>Tes pertes :</b> ${e.loss ? f(e.loss) : '0'} · <b>Gain net :</b> <b class="${net >= 0 ? 'ok' : 'red'}">${net >= 0 ? '+' : ''}${f(net)}</b> <span class="note">(butin + débris − pertes, équiv. métal)</span></div>
+      ${d.honour ? `<div><b>Honneur :</b> toi ${d.honour.att.pts > 0 ? '+' : ''}${d.honour.att.pts} (${esc(d.honour.att.label)}), lui ${d.honour.def.pts > 0 ? '+' : ''}${d.honour.def.pts}</div>` : ''}
+      ${tech(d.att && d.att.tech) ? `<div class="note">Toi : ${tech(d.att.tech)} · Lui : ${tech(d.def && d.def.tech)}</div>` : ''}
+      ${tbl('Ta flotte', d.att && d.att.units, false)}
+      ${tbl('Son camp', d.def && d.def.units, true)}
+      ${!e.detail ? '<p class="note">Détail indisponible pour ce message : recolle le rapport pour le voir.</p>' : ''}
+    </div>`;
+  return `<details style="border-top:1px solid var(--line);padding:8px 0"><summary style="cursor:pointer;list-style:none;display:flex;gap:8px;align-items:center;justify-content:space-between;font-size:13px">
+      <span style="min-width:0"><span class="note">${esc(hiWhen(e.at))}</span><br><b>${who}</b> <span class="note">[${esc(e.coords)}]</span><br><span class="note">${esc(fleetTxtU(d.att && d.att.units)) || ''}</span></span>
+      <span style="text-align:right;white-space:nowrap"><b class="${net >= 0 ? 'ok' : 'red'}">${net >= 0 ? '+' : ''}${f(net)}</b><br><span class="note" style="font-size:11px">butin ${f(msu(e.loot))}</span></span>${del}</summary>${body}</details>`;
 }
 function renderHisto(){
   if (!$('hiOut')) return;
@@ -2282,7 +2348,7 @@ function renderHisto(){
       <div class="kpi"><small>Moyenne par expédition</small><b>${f(exps.length ? (msu(expRes) + shipVal) / exps.length : 0)}</b><small>équivalent métal</small></div></div>
       <table class="mx" style="margin-top:12px"><tbody>${Object.entries(TYPES).filter(([k]) => counts[k]).map(([k, lab]) => `<tr><td>${lab}</td><td>${counts[k]}</td><td>${Math.round(counts[k] / exps.length * 100)} %</td></tr>`).join('')}</tbody></table>
       ${sugg}</div>
-    <div class="panel"><h2>Derniers messages</h2><table class="mx"><tbody>${L.slice().sort((a, b) => b.at - a.at).slice(0, 15).map(e => `<tr><td style="color:var(--txt)">${new Date(e.at).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</td><td style="text-align:left">${e.kind === 'raid' ? 'Raid' : 'Expédition : ' + (TYPES[e.type] || e.type)} <span class="note">${esc(e.coords ? '[' + e.coords + ']' : '')}</span></td><td>${e.kind === 'raid' ? esc(OG.fmtCost([e.loot.m, e.loot.c, e.loot.d]) || '0') : e.type === 'res' ? esc(OG.fmtCost([e.res.m, e.res.c, e.res.d])) : e.dm ? f(e.dm) + ' AM' : ''}</td><td><button class="ghost" style="padding:2px 8px;font-size:12px" data-hdel="${e.id}" aria-label="Supprimer">✕</button></td></tr>`).join('')}</tbody></table></div>`;
+    <div class="panel"><h2>Derniers messages</h2><p class="note" style="margin:0 0 8px">Touche un raid pour voir le détail du combat.</p>${L.slice().sort((a, b) => b.at - a.at).slice(0, 30).map(e => hiItem(e, S)).join('')}</div>`;
   $('hiOut').querySelectorAll('[data-hdel]').forEach(b => b.onclick = () => { HI.list = HI.list.filter(x => x.id !== b.dataset.hdel); hiSave(); renderHisto(); });
   const ap = $('hiApply'); if (ap) ap.onclick = () => { const m = ap.parentElement.querySelector('b').textContent.replace(',', '.'); $('exMult').value = m; $('exMult').dispatchEvent(new Event('change')); $('hiMsg').textContent = 'Multiplicateur appliqué dans l\'onglet Expéditions.'; renderHisto(); };
 }

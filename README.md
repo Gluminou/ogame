@@ -160,6 +160,9 @@ expéditions (répartition des résultats, ressources, antimatière, vaisseaux,
 moyenne). La plus grosse découverte sert à proposer le multiplicateur de
 l'onglet Expéditions. Saisie manuelle possible.
 
+
+Chaque raid se déplie pour le détail du combat : date, cible (joueur, planète, classe), planète de départ, nombre de rounds, butin, débris et recycleurs, tes pertes, gain net, honneur, technologies des deux camps, ta flotte (envoyés, perdus) et son camp (avant, détruits, défenses réparées). Le texte du rapport est gardé : les améliorations du lecteur s'appliquent aussi aux anciens raids.
+
 ## Onglet Export (premier onglet)
 
 C'est l'onglet d'ouverture : bouton « Coller mon export » (qui bascule

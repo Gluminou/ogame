@@ -1,8 +1,9 @@
 {
-  "v": "202611250134",
-  "version": "1.2.2",
+  "v": "202611250141",
+  "version": "1.3.0",
   "date": "2026-11-25",
   "notes": [
-    "Historique : les rapports de combat copiés depuis la page des messages du jeu sont maintenant lus (butin, débris et vaisseaux perdus), même quand les chiffres arrivent collés. Un rapport déjà ajouté mais lu vide est corrigé en le recollant."
+    "Historique : chaque raid se déplie pour voir le détail du combat : date, cible, planète de départ, rounds, butin, débris, pertes, gain net, honneur, technologies, ta flotte envoyée et perdue, son camp avec les défenses détruites et réparées.",
+    "Historique : affichage corrigé sur iPhone (la liste ne dépasse plus de l'écran)."
   ]
 }
