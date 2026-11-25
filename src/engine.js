@@ -171,13 +171,22 @@ const OG = (() => {
     const bonC = 1 + (CRYS_POS[p.pos] || 0) + collector + geo + plasma * 0.0066 + (b.lfFPP || 0) * 0.015 + (b.rtRefinery || 0) * 0.02 + crawlerBonus + lfProd;
     const bonD = 1 + collector + geo + plasma * 0.0033 + (b.lfFPP || 0) * 0.01 + (b.rtDeutSynth || 0) * 0.02 + crawlerBonus + lfProd;
     const eTech = R.rEnergy || 0;
-    const plantBonus = 1 + (S.collector ? 0.10 : 0) + (S.engineer ? 0.10 : 0);
+    let plantBonus = 1 + (S.collector ? 0.10 : 0) + (S.engineer ? 0.10 : 0);
     const solarE = l => 20 * l * 1.1 ** l;
     const fusionE = l => 30 * l * (1.05 + 0.01 * eTech) ** l;
-    const satE = Math.max(1, Math.floor(t / 4 + 20));
-    const eProd = (solarE(b.solar || 0) + fusionE(b.fusion || 0)) * plantBonus + (b.sats || 0) * satE;
+    let satE = Math.max(1, Math.floor(t / 4 + 20));
     const crawlerE = (b.crawlers || 0) * 50;
-    const eUse = mineEnergy.metal(b.metal || 0) + mineEnergy.crystal(b.crystal || 0) + mineEnergy.deut(b.deut || 0) + crawlerE;
+    // energy: calibrated on the game's own figures when the export has them (life-form bonuses, items... are not all modelled)
+    const st0 = p.stock || {}; let eCal = p.eCalFixed || null;
+    if (!eCal && !S.noCalib && st0.eProd > 0 && st0.eUse > 0) {
+      const rawP = (solarE(b.solar || 0) + fusionE(b.fusion || 0)) * plantBonus + (b.sats || 0) * satE;
+      const rawU = mineEnergy.metal(b.metal || 0) + mineEnergy.crystal(b.crystal || 0) + mineEnergy.deut(b.deut || 0) + crawlerE;
+      const kp = rawP > 0 ? st0.eProd / rawP : 1, ku = rawU > 0 ? st0.eUse / rawU : 1;
+      if (kp > 0.6 && kp < 1.6 && ku > 0.6 && ku < 1.6) eCal = { p: kp, u: ku };
+    }
+    if (eCal) { plantBonus *= eCal.p; satE *= eCal.p; }
+    const eProd = (solarE(b.solar || 0) + fusionE(b.fusion || 0)) * plantBonus + (b.sats || 0) * satE;
+    const eUse = (mineEnergy.metal(b.metal || 0) + mineEnergy.crystal(b.crystal || 0) + mineEnergy.deut(b.deut || 0) + crawlerE) * (eCal ? eCal.u : 1);
     const factor = eUse > 0 ? Math.min(1, eProd / eUse) : 1;
     const fusionDeut = 10 * (b.fusion || 0) * 1.1 ** (b.fusion || 0) * sp;
     const prod = {
@@ -209,7 +218,7 @@ const OG = (() => {
     const capRatio = p.capRatio || {};
     for (const r of ['m', 'c', 'd']) { if (st['cap' + r]) { capRatio[r] = st['cap' + r] / cap[r]; cap[r] = st['cap' + r]; } else if (p.capRatio && p.capRatio[r]) cap[r] = Math.round(cap[r] * p.capRatio[r]); }
     const fill2 = { m: cap.m / Math.max(prod.m, 1), c: cap.c / Math.max(prod.c, 1), d: prod.d > 0 ? cap.d / prod.d : Infinity };
-    return { lfProd, t, bonM: bm, bonC: bc, bonD: bd, eProd, eUse, factor, prod, cap, fill: fill2, satE, solarE, plantBonus, fusionDeut, calib, capRatio, modelBon: { m: bonM, c: bonC, d: bonD } };
+    return { lfProd, t, bonM: bm, bonC: bc, bonD: bd, eProd, eUse, eCal, factor, prod, cap, fill: fill2, satE, solarE, plantBonus, fusionDeut, calib, capRatio, modelBon: { m: bonM, c: bonC, d: bonD } };
   }
 
   const fmt = n => { const a = Math.abs(n); if (a >= 1e6) return (n / 1e6).toFixed(a >= 1e7 ? 1 : 2).replace('.', ',') + ' M'; if (a >= 1e3) return Math.round(n / 1e3) + 'k'; return Math.round(n).toString(); };
@@ -266,7 +275,7 @@ const OG = (() => {
   // opt.share: part of stock and production kept for research (sent to the research planet); opt.labTarget; opt.defense: { name, cost } paid first (shipyard queue)
   function simulatePlan(p0, R0, S, startStock, hours, opt = {}) {
     const c0 = planetCalc(p0, R0, S); const R = Object.assign({}, R0);
-    const p = { name: p0.name, pos: p0.pos, coords: p0.coords, temp: p0.temp, b: Object.assign({}, p0.b), lfr: p0.lfr, calibFixed: c0.calib, capRatio: c0.capRatio, labTarget: opt.labTarget || 0 };
+    const p = { name: p0.name, pos: p0.pos, coords: p0.coords, temp: p0.temp, b: Object.assign({}, p0.b), lfr: p0.lfr, calibFixed: c0.calib, eCalFixed: c0.eCal, capRatio: c0.capRatio, labTarget: opt.labTarget || 0 };
     const keep = 1 - (opt.share || 0); const stock = { m: (startStock.m || 0) * keep, c: (startStock.c || 0) * keep, d: (startStock.d || 0) * keep };
     const K = ['m', 'c', 'd']; const steps = []; const pending = []; let T = 0; let guard = 0;
     let bFree = 0; let defLeft = opt.defense ? opt.defense.cost.slice() : null;

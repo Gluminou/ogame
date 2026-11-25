@@ -1,8 +1,8 @@
 {
-  "v": "202611250145",
-  "version": "1.4.0",
-  "date": "2026-11-25",
+  "v": "202611252328",
+  "version": "1.4.1",
+  "date": "2026-11-26",
   "notes": [
-    "Cibles : chaque cible indique si tu l'as déjà attaquée (d'après l'onglet Historique) : nombre de raids, date et butin du dernier, et un avertissement si ce raid a eu lieu après le rapport d'espionnage."
+    "Énergie des planètes calée sur les chiffres réels du jeu (bonus de forme de vie compris) : Megfidis affiche le bon solde au lieu d'une estimation"
   ]
 }

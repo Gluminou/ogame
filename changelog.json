@@ -1,5 +1,12 @@
 [
   {
+    "version": "1.4.1",
+    "date": "2026-11-26",
+    "notes": [
+      "Énergie des planètes calée sur les chiffres réels du jeu (bonus de forme de vie compris) : Megfidis affiche le bon solde au lieu d'une estimation"
+    ]
+  },
+  {
     "version": "1.4.0",
     "date": "2026-11-25",
     "notes": [
