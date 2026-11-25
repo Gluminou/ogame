@@ -1358,9 +1358,9 @@ if (typeof module !== 'undefined') module.exports = CB;
 
 </script>
 <script>
-const APP_RELEASE="1.3.0";
+const APP_RELEASE="1.4.0";
 const APP_DATE="2026-11-25";
-const APP_VERSION="202611250141"; // stamped by tools/build.js; update checks live in updates.js
+const APP_VERSION="202611250145"; // stamped by tools/build.js; update checks live in updates.js
 const DEFAULT_DATA = "";
 const TEMPLATE = `Planete: NomDeLaPlanete
 Coordonnees: 1:100:8
@@ -2038,6 +2038,15 @@ function idealHtml(e){
   return `<div style="font-size:12.5px;margin-top:6px;padding:6px 8px;border-radius:6px;background:#0e1529"><b>Flotte idéale :</b> construis <b>${esc(fleetTxt(x.build))}</b> (${f(x.cost)})<br>
     puis envoie ${esc(fleetTxt(x.units))} : victoire ${Math.round(x.win * 100)} %, gain <b class="${x.gain >= 0 ? 'ok' : 'red'}">${x.gain >= 0 ? '+' : ''}${f(x.gain)}</b> par raid, ${pay}.</div>`;
 }
+// have I already raided this place? (from the History tab)
+function raidBadge(coords, reportAt){
+  if (!HI.loaded) { hiLoad(); HI.loaded = true; }
+  const R = HI.list.filter(x => x.kind === 'raid' && x.coords === coords).sort((a, b) => b.at - a.at); if (!R.length) return '';
+  const last = R[0], f = OG.fmt, ago = h => h < 1 ? Math.max(1, Math.round(h * 60)) + ' min' : h < 48 ? Math.round(h) + ' h' : Math.round(h / 24) + ' j';
+  const loot = (last.loot.m || 0) + (last.loot.c || 0) + (last.loot.d || 0);
+  const after = last.at > reportAt; // raided after this spy report: its resources are gone
+  return `<br><span class="${after ? 'warnc' : 'note'}" style="font-size:11px">Déjà attaqué${R.length > 1 ? ` ${R.length} fois` : ''} · dernier raid il y a ${ago((Date.now() - last.at) / 3600000)}, butin ${f(loot)}${after ? ' · <b>après ce rapport : resonde</b>' : ''}</span>`;
+}
 function renderTargets(){
   if (!$('tgOut')) return;
   const res = CS.parsed; const S = settings();
@@ -2070,7 +2079,7 @@ function renderTargets(){
   const age = at => { const m = Math.round((now - at) / 60000); return m < 60 ? m + ' min' : m < 2880 ? Math.round(m / 60) + ' h' : Math.round(m / 1440) + ' j'; };
   const cardsHtml = '<div class="tg-cards">' + rows.map(({ tg, e }, i) => {
       const old = now - tg.at > 3600000; const act = e.r.activity != null ? ` · activité ${e.r.activity} min` : '';
-      const head = `<div class="hd"><div><b>${esc(e.r.player || '?')}</b> <span class="note">[${esc(e.r.coords)}]${e.r.isMoon ? ' lune' : ''}</span><br><span class="${old ? 'warnc' : 'note'}" style="font-size:11px">rapport il y a ${age(tg.at)}${act}</span></div>
+      const head = `<div class="hd"><div><b>${esc(e.r.player || '?')}</b> <span class="note">[${esc(e.r.coords)}]${e.r.isMoon ? ' lune' : ''}</span><br><span class="${old ? 'warnc' : 'note'}" style="font-size:11px">rapport il y a ${age(tg.at)}${act}</span>${raidBadge(e.r.coords, tg.at)}</div>
         <div class="btns">${e.unknown ? '' : `<button class="ghost" style="padding:4px 8px;font-size:12px" data-sim="${i}">Simuler</button>`}<button class="ghost" style="padding:4px 8px;font-size:12px" data-del="${esc(tg.key)}" aria-label="Supprimer">✕</button></div></div>`;
       if (e.unknown) return `<div class="tgc">${head}<div class="grid3"><div><span>Butin</span>${f(e.lootWant)}</div><div><span>Défense</span><b class="warnc">${e.r.defKnown ? (e.defVal ? f(e.defVal) : 'aucune') : 'non visible'}</b></div><div><span>Résumé</span>${e.r.summary && e.r.summary.def ? '≈ ' + f(e.r.summary.def) : '–'}</div></div><div class="warnc" style="font-size:12.5px"><b>À resonder.</b> ${esc(e.warn)}</div></div>`;
       return `<div class="tgc">${head}
@@ -2081,11 +2090,11 @@ function renderTargets(){
   const sortBar = `<div class="tgsort" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 10px"><span class="note" style="margin-right:2px">Trier :</span>${[['gain', 'Plus rentables'], ['age', 'Plus récents'], ['old', 'Plus anciens']].map(([v, l]) => `<button class="${mode === v ? '' : 'ghost'}" data-sort="${v}" style="padding:6px 12px;font-size:13px">${l}</button>`).join('')}<button class="ghost" id="tgRedo" style="padding:6px 12px;font-size:13px;margin-left:auto" title="Refaire tous les calculs avec ta flotte actuelle">Recalculer</button></div>`;
   $('tgOut').innerHTML = sortBar + cardsHtml + `<div class="panel tg-wide" style="padding:0;overflow-x:auto"><table class="mx" style="font-size:12.5px"><thead><tr><th style="text-align:left">Cible</th><th>Butin</th><th>Défense</th><th style="text-align:left">Flotte à envoyer</th><th>Vol A/R</th><th>Victoire</th><th>Gain net</th><th>Gain / h</th><th></th></tr></thead><tbody>${rows.map(({ tg, e }, i) => {
     const old = now - tg.at > 3600000; const act = e.r.activity != null ? `activité ${e.r.activity} min` : '';
-    if (e.unknown) return `<tr><td style="text-align:left;color:var(--txt)"><b>${esc(e.r.player || '?')}</b> <span class="note">[${esc(e.r.coords)}]${e.r.isMoon ? ' lune' : ''}</span><br><span class="${old ? 'warnc' : 'note'}" style="font-size:11px">rapport il y a ${age(tg.at)}${act ? ' · ' + act : ''}</span></td>
+    if (e.unknown) return `<tr><td style="text-align:left;color:var(--txt)"><b>${esc(e.r.player || '?')}</b> <span class="note">[${esc(e.r.coords)}]${e.r.isMoon ? ' lune' : ''}</span><br><span class="${old ? 'warnc' : 'note'}" style="font-size:11px">rapport il y a ${age(tg.at)}${act ? ' · ' + act : ''}</span>${raidBadge(e.r.coords, tg.at)}</td>
       <td>${f(e.lootWant)}</td><td class="warnc">${!e.r.defKnown ? 'non visible' : (e.defVal ? f(e.defVal) : 'aucune')}${!e.r.defKnown && e.r.summary && e.r.summary.def ? `<br><span class="note" style="font-size:11px">≈ ${f(e.r.summary.def)}</span>` : ''}</td>
       <td colspan="5" style="text-align:left;white-space:normal;font-size:12px" class="warnc"><b>À resonder.</b> ${esc(e.warn)}</td>
       <td style="white-space:nowrap"><button class="ghost" style="padding:4px 8px;font-size:12px" data-del="${esc(tg.key)}" aria-label="Supprimer">✕</button></td></tr>`;
-    return `<tr><td style="text-align:left;color:var(--txt)"><b>${esc(e.r.player || '?')}</b> <span class="note">[${esc(e.r.coords)}]${e.r.isMoon ? ' lune' : ''}</span><br><span class="${old ? 'warnc' : 'note'}" style="font-size:11px">rapport il y a ${age(tg.at)}${act ? ' · ' + act : ''}</span></td>
+    return `<tr><td style="text-align:left;color:var(--txt)"><b>${esc(e.r.player || '?')}</b> <span class="note">[${esc(e.r.coords)}]${e.r.isMoon ? ' lune' : ''}</span><br><span class="${old ? 'warnc' : 'note'}" style="font-size:11px">rapport il y a ${age(tg.at)}${act ? ' · ' + act : ''}</span>${raidBadge(e.r.coords, tg.at)}</td>
       <td>${f(e.lootWant)}</td><td>${e.defVal ? f(e.defVal) : '<span class="ok">aucune</span>'}</td>
       <td style="text-align:left;white-space:normal;min-width:160px">${e.ok ? '' : '<span class="red" style="font-size:11px">Trop défendue pour ta flotte</span><br><span class="note" style="font-size:11px">meilleur essai : </span>'}${esc(fleetTxt(e.ch.units))}${e.ok && e.lcShort ? `<br><span class="warnc" style="font-size:11px">manque ${e.lcShort} GT pour tout le butin</span>` : ''}${ipmHtml(e)}${idealHtml(e)}${e.fodder && !e.fodder.none ? `<div style="font-size:12px;margin-top:6px" class="warnc">${fodderText(e.fodder)}</div>` : ''}</td>
       <td>${fmtDur(e.round)}<br><span class="note" style="font-size:11px">${f(e.fuel)} D</span></td>
@@ -2163,7 +2172,7 @@ function renderExpe(){
 
 // ---------- History tab ----------
 const HI = { list: [] };
-function hiLoad(){ try { HI.list = JSON.parse(store.get('og_hist') || '[]'); } catch(e){ HI.list = []; }
+function hiLoad(){ HI.loaded = true; try { HI.list = JSON.parse(store.get('og_hist') || '[]'); } catch(e){ HI.list = []; }
   HI.list = HI.list.map(e => { if (e.kind === 'raid' && e.text) { try { const r = hiParse(e.text); if (r) { r.id = e.id; return r; } } catch(x){} } return e; }); }
 function hiSave(){ store.set('og_hist', JSON.stringify(HI.list)); }
 const hiNorm = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();

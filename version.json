@@ -1,9 +1,8 @@
 {
-  "v": "202611250141",
-  "version": "1.3.0",
+  "v": "202611250145",
+  "version": "1.4.0",
   "date": "2026-11-25",
   "notes": [
-    "Historique : chaque raid se déplie pour voir le détail du combat : date, cible, planète de départ, rounds, butin, débris, pertes, gain net, honneur, technologies, ta flotte envoyée et perdue, son camp avec les défenses détruites et réparées.",
-    "Historique : affichage corrigé sur iPhone (la liste ne dépasse plus de l'écran)."
+    "Cibles : chaque cible indique si tu l'as déjà attaquée (d'après l'onglet Historique) : nombre de raids, date et butin du dernier, et un avertissement si ce raid a eu lieu après le rapport d'espionnage."
   ]
 }

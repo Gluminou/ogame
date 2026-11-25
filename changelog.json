@@ -1,5 +1,12 @@
 [
   {
+    "version": "1.4.0",
+    "date": "2026-11-25",
+    "notes": [
+      "Cibles : chaque cible indique si tu l'as déjà attaquée (d'après l'onglet Historique) : nombre de raids, date et butin du dernier, et un avertissement si ce raid a eu lieu après le rapport d'espionnage."
+    ]
+  },
+  {
     "version": "1.3.0",
     "date": "2026-11-25",
     "notes": [
