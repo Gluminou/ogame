@@ -1,8 +1,8 @@
 {
-  "v": "202611260023",
-  "version": "1.5.0",
+  "v": "202611260041",
+  "version": "1.5.1",
   "date": "2026-11-26",
   "notes": [
-    "Synchronisation entre appareils par GitHub (onglet Export) : export, cibles, historique et réglages partagés entre l'iPhone et l'ordinateur"
+    "Combat : le libellé « Cible prioritaire » des missiles ne s'affiche plus lettre par lettre sur ordinateur"
   ]
 }

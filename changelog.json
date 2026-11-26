@@ -1,5 +1,12 @@
 [
   {
+    "version": "1.5.1",
+    "date": "2026-11-26",
+    "notes": [
+      "Combat : le libellé « Cible prioritaire » des missiles ne s'affiche plus lettre par lettre sur ordinateur"
+    ]
+  },
+  {
     "version": "1.5.0",
     "date": "2026-11-26",
     "notes": [

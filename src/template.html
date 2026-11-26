@@ -349,7 +349,7 @@ details.howto ol{margin:6px 0 6px;padding-left:22px}details.howto li{margin:4px 
         <div class="ugrid wide">
           <label><span>Missiles envoyés</span><input type="number" min="0" id="ipmN" value="0"></label>
           <label><span>Ses missiles d'interception</span><input type="number" min="0" id="ipmABM" value="0"></label>
-          <label><span>Cible prioritaire</span><select id="ipmPrim"></select></label>
+          <label style="grid-column:1/-1"><span style="flex:0 0 auto">Cible prioritaire</span><select id="ipmPrim" style="flex:1 1 auto;min-width:0;max-width:340px"></select></label>
         </div>
       </div>
     </div>
@@ -375,7 +375,7 @@ details.howto ol{margin:6px 0 6px;padding-left:22px}details.howto li{margin:4px 
 /*COMBAT*/
 </script>
 <script>
-const APP_RELEASE="1.5.0";
+const APP_RELEASE="1.5.1";
 const APP_DATE="2026-11-26";
 const APP_VERSION="/*VERSION*/"; // stamped by tools/build.js; update checks live in updates.js
 const DEFAULT_DATA = /*DATA*/;
