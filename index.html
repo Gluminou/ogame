@@ -351,6 +351,7 @@ details.howto ol{margin:6px 0 6px;padding-left:22px}details.howto li{margin:4px 
           <label><span>Ses missiles d'interception</span><input type="number" min="0" id="ipmABM" value="0"></label>
           <label style="grid-column:1/-1"><span style="flex:0 0 auto">Cible prioritaire</span><select id="ipmPrim" style="flex:1 1 auto;min-width:0;max-width:340px"></select></label>
         </div>
+        <div id="ipmAdvice" style="margin-top:8px"></div>
       </div>
     </div>
     <div class="panel">
@@ -1381,9 +1382,9 @@ if (typeof module !== 'undefined') module.exports = CB;
 
 </script>
 <script>
-const APP_RELEASE="1.5.1";
+const APP_RELEASE="1.6.0";
 const APP_DATE="2026-11-26";
-const APP_VERSION="202611260041"; // stamped by tools/build.js; update checks live in updates.js
+const APP_VERSION="202611260049"; // stamped by tools/build.js; update checks live in updates.js
 const DEFAULT_DATA = "";
 const TEMPLATE = `Planete: NomDeLaPlanete
 Coordonnees: 1:100:8
@@ -1784,6 +1785,7 @@ function readReport(auto){
   CS.lastReport = r; const hw = hiddenWarning(r); if (hw) msgs.push('ATTENTION : ' + hw);
   if (r.activity != null && r.activity < 60) msgs.push(`Activité il y a ${r.activity} min : le joueur est peut-être connecté et peut mettre sa flotte et ses ressources à l'abri.`);
   $('readMsg').textContent = msgs.join(' ');
+  ipmAdvise();
   return true;
 }
 
@@ -1841,6 +1843,33 @@ function runOptimize(){
     if ($('useOptF')) $('useOptF').onclick = () => { CB.ATTACK_SHIPS.forEach(k => { const el = $('aU_' + k); if (el) el.value = (b.units[k] || 0) + (k === 'LF' ? fp.m : 0); }); attSource('Flotte optimale avec chair à canon (dont ' + fp.toBuild + ' chasseurs légers à construire)'); runSim(); };
   }, 20);
 }
+// how many missiles to fire and at what, for the report read in the Combat tab (same reckoning as the Targets tab, in the background)
+let IPA = 0;
+async function ipmAdvise(){
+  const box = $('ipmAdvice'); const res = CS.parsed || { planets: [] }; const p = res.planets[+$('aPlanet').value]; const txt = $('report').value;
+  if (!p || !txt.trim()) { box.innerHTML = ''; return; }
+  const me = ++IPA; box.innerHTML = '<span class="note">Calcul du nombre de missiles conseillé…</span>';
+  const S = settings(), minWin = Math.min(1, Math.max(0.5, val('optWin') / 100));
+  const ctx = { ui: { tgDebris: { checked: $('tgDebris').checked }, tgProbes: { value: $('tgProbes').value } }, parsed: CS.parsed };
+  let e; try { e = await BG('evalTarget', [{ text: txt }, { p }, res.research || {}, S, res.server || {}, minWin], ctx); } catch (x) { e = null; }
+  if (me !== IPA) return; const f = OG.fmt;
+  const note = s => `<div class="note" style="font-size:12.5px">${s}</div>`;
+  if (!e || e.none) { box.innerHTML = note('Conseil missiles indisponible pour ce rapport.'); return; }
+  if (e.unknown) { box.innerHTML = note('Sa défense n\'est pas visible dans le rapport : impossible de dire combien de missiles envoyer.'); return; }
+  if (!CB.DEFS.some(k => (e.r.units[k] || 0) > 0)) { box.innerHTML = note('Aucune défense : pas besoin de missiles.'); return; }
+  const x = e.ipm;
+  if (!x || x.none) { box.innerHTML = note(e.ok ? `Pas besoin de missiles : ${esc(p.name)} gagne sans (gain ${f(e.gain)}).` : 'Même avec des missiles, aucune flotte de ' + esc(p.name) + ' ne passe.'); return; }
+  if (x.worse) { box.innerHTML = note(`Pas de missiles conseillés : ils coûteraient plus qu'ils ne rapportent (sans missiles : gain ${e.gain >= 0 ? '+' : ''}${f(e.gain)}).`); return; }
+  const killed = Object.entries(x.destroyed).map(([k, n]) => `${n} ${unitName(k, n)}`).join(', ');
+  const where = x.ready ? `Lance-les depuis ${esc(x.launch)} (${x.launchIPM} en stock), vol ${Math.max(1, Math.round(x.flightMin))} min.`
+    : x.launch ? `Depuis ${esc(x.launch)} il faut un silo niveau ${x.siloNeed} (tu as ${x.launchSilo}) et ${x.n} missiles (tu en as ${x.launchIPM}).`
+    : `Aucune de tes planètes n'est à portée (${x.range} systèmes).`;
+  box.innerHTML = `<div class="warn" style="margin:0"><b>Conseil : envoie ${x.n} missile${x.n > 1 ? 's' : ''}, cible prioritaire ${esc(unitName(x.primary, 2))}.</b>${x.abm ? ` ${x.abm} seront arrêtés par ses missiles d'interception.` : ''} Ils détruisent ${esc(killed)}.
+    Puis envoie ${esc(fleetTxt(x.units))} : victoire ${Math.round(x.win * 100)} %, gain <b class="ok">${x.gain >= 0 ? '+' : ''}${f(x.gain)}</b> missiles compris (${e.ok ? `${e.gain >= 0 ? '+' : ''}${f(e.gain)} sans missiles` : 'trop défendu sans missiles'}). ${where}
+    <div class="row" style="margin-top:6px"><button class="ghost" id="ipmUse" style="padding:4px 10px">Appliquer les missiles et cette flotte</button></div></div>`;
+  $('ipmUse').onclick = () => { $('ipmN').value = x.n; $('ipmPrim').value = x.primary; $('ipmABM').value = x.abm || 0;
+    CB.ATTACK_SHIPS.forEach(k => { const el = $('aU_' + k); if (el) el.value = x.units[k] || 0; }); attSource('Flotte conseillée après les missiles'); runSim(); };
+}
 function runSim(){
   const att = { units: {}, tech: { weap: val('aT_weap'), shield: val('aT_shield'), armour: val('aT_armour') } };
   CB.ATTACK_SHIPS.forEach(k => { const n = val('aU_'+k); if (n) att.units[k] = n; });
@@ -1851,7 +1880,11 @@ function runSim(){
   if (!Object.keys(att.units).length){ $('simMsg').textContent = 'Ajoute au moins un vaisseau à ta flotte.'; return; }
   const opts = { runs: Math.min(2000, Math.max(20, val('runs'))), lootPct: val('lootPct')/100, dfShips: val('dfShips')/100, dfDef: val('dfDef')/100, dfDeut: $('dfDeut').checked, hyperA: val('aT_hyper'), attackerCollector: $('col').checked };
   $('simMsg').textContent = 'Simulation en cours…';
-  setTimeout(() => { const t0 = performance.now(); const st = CB.simulate(att, def, opts); $('simMsg').textContent = `${st.n} combats simulés en ${Math.round(performance.now()-t0)} ms.`; renderSim(st, att, def, opts); }, 20);
+  setTimeout(() => { const t0 = performance.now(); let st = CB.simulate(att, def, opts), added = 0;
+    // not enough hold for the loot: add the large cargos needed to the fleet (a few passes: they change the fight a little)
+    for (let i = 0; i < 3; i++) { const need = lcMissing(st, opts); if (need <= 0 || st.A / st.n < 0.6) break;
+      att.units.LC = (att.units.LC || 0) + need; added += need; $('aU_LC').value = att.units.LC; st = CB.simulate(att, def, opts); }
+    $('simMsg').textContent = `${st.n} combats simulés en ${Math.round(performance.now()-t0)} ms.`; renderSim(st, att, def, opts, added); }, 20);
 }
 // text for a fodder suggestion (CB.fodderPlan)
 function fodderText(fp){
@@ -1860,7 +1893,9 @@ function fodderText(fp){
   return `Ajoute <b>${fp.m} chasseurs légers</b>${src} : tes pertes passent de ${f(fp.before)} à <b>${f(fp.after)}</b> par raid${fp.toBuild ? `, construction remboursée en ${fp.raids} raid${fp.raids > 1 ? 's' : ''}` : ''}.`;
 }
 function spareLF(units){ const p = (CS.parsed || { planets: [] }).planets[+$('aPlanet').value]; return p ? Math.max(0, (p.b[SHIPKEY.LF] || 0) - (units.LF || 0)) : 0; }
-function renderSim(st, att, def, opts){
+const lcCapOf = opts => 25000 * (1 + 0.05 * opts.hyperA + (opts.attackerCollector ? 0.25 : 0));
+const lcMissing = (st, opts) => Math.ceil(Math.max(0, st.lootAvail[0] + st.lootAvail[1] + st.lootAvail[2] - st.cargo) / lcCapOf(opts));
+function renderSim(st, att, def, opts, lcAdded){
   const f = OG.fmt, n = st.n, pa = st.A/n*100, pd = st.D/n*100, pn = st.draw/n*100;
   const S = settings(); const msu = c => c[0] + c[1]*S.ratioC + c[2]*S.ratioD;
   const verdict = pa >= 95 ? ['Victoire quasi certaine', 'ok'] : pa >= 60 ? ['Victoire probable, mais risquée', ''] : pd >= 50 ? ['Défaite probable', 'red'] : ['Issue incertaine (souvent match nul)', ''];
@@ -1883,7 +1918,9 @@ function renderSim(st, att, def, opts){
     tips.push(fp && !fp.none ? { html: `Tu gagnes, mais tu perds en moyenne ${f(msu(st.costA))} de vaisseaux. ${fodderText(fp)} <button class="ghost" id="addFodder" style="margin-top:6px;padding:4px 10px">Ajouter à la flotte</button>` }
       : `Tu gagnes, mais tu perds en moyenne ${f(msu(st.costA))} de vaisseaux. Ajouter des chasseurs légers ne réduirait pas ces pertes ici.`);
   }
-  if (lcNeeded > 0 && pa >= 60) tips.push(`Ta soute ne suffit pas pour tout le butin : ajoute ${lcNeeded} grand${lcNeeded>1?'s':''} transporteur${lcNeeded>1?'s':''} (${f(lcCap)} chacun) pour emporter ${f(lootWant)}.`);
+  if (lcAdded) { const pl = (CS.parsed || { planets: [] }).planets[+$('aPlanet').value]; const have = pl ? pl.b[SHIPKEY.LC] || 0 : null, short = have != null ? Math.max(0, (att.units.LC || 0) - have) : 0;
+    tips.push(`${lcAdded} grand${lcAdded > 1 ? 's' : ''} transporteur${lcAdded > 1 ? 's' : ''} ajouté${lcAdded > 1 ? 's' : ''} à ta flotte pour emporter tout le butin (${f(lootWant)}).${short ? ` Il t'en manque ${short} sur ${pl.name}.` : ''}`); }
+  else if (lcNeeded > 0 && pa >= 60) tips.push(`Ta soute ne suffit pas pour tout le butin : il faudrait ${lcNeeded} grand${lcNeeded>1?'s':''} transporteur${lcNeeded>1?'s':''} de plus.`);
   if (debrisTot > 0) tips.push(`Envoie ${Math.ceil(debrisTot/recCap)} recycleur${Math.ceil(debrisTot/recCap)>1?'s':''} pour récupérer le champ de débris (${f(recCap)} chacun).`);
   $('simOut').innerHTML = `
   <div class="panel">
@@ -2543,7 +2580,7 @@ function init(){
   ['speed','fill','rc','rd','autoRates','col','geo','eng','ally','extra','nocalib','planDays','rshare','threat','defFirst'].forEach(id => $(id).addEventListener('change', run));
   $('rplanet').addEventListener('change', () => { store.set('og_rplanet', $('rplanet').value); run(); });
   $('copyTpl').onclick = async () => { try { await navigator.clipboard.writeText(TEMPLATE); $('copyMsg').textContent = 'Modèle copié.'; } catch(e){ $('data').value = TEMPLATE; $('copyMsg').textContent = 'Copie refusée : le modèle a été placé dans la zone de texte.'; $('inputPanel').open = true; } };
-  $('aPlanet').addEventListener('change', fillAttFleet);
+  $('aPlanet').addEventListener('change', () => { fillAttFleet(); if (CS.lastReport) ipmAdvise(); });
   $('aClear').onclick = () => { CB.ATTACK_SHIPS.forEach(k => $('aU_'+k).value = 0); $('aSrc').textContent = ''; };
   $('aAll').onclick = fillAttFleet;
   $('dClear').onclick = () => { [...CB.SHIPS, ...CB.DEFS].forEach(k => $('dU_'+k).value = 0); ['dR_m','dR_c','dR_d','dT_weap','dT_shield','dT_armour'].forEach(id => $(id).value = 0); $('report').value=''; $('readMsg').textContent=''; CS.lastReport = null; };

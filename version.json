@@ -1,8 +1,9 @@
 {
-  "v": "202611260041",
-  "version": "1.5.1",
+  "v": "202611260049",
+  "version": "1.6.0",
   "date": "2026-11-26",
   "notes": [
-    "Combat : le libellé « Cible prioritaire » des missiles ne s'affiche plus lettre par lettre sur ordinateur"
+    "Combat : nombre de missiles interplanétaires et cible prioritaire conseillés après la lecture d'un rapport, avec un bouton pour les appliquer",
+    "Combat : les grands transporteurs nécessaires au butin sont ajoutés d'office à la flotte simulée"
   ]
 }
