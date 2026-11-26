@@ -84,8 +84,8 @@ table.t th{color:var(--mut);font-weight:500}
 .tgc{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:10px;font-size:13px}
 .tgc .hd{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
 .tgc .hd b{font-size:15px}.tgc .grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:8px 0}
-.tgc .grid3 div{background:#0e1529;border-radius:6px;padding:5px 7px}.tgc .grid3 span{display:block;color:var(--mut);font-size:11px}
-.tgc .fl{margin:6px 0}.tgc .btns{display:flex;gap:6px;justify-content:flex-end}
+.tgc .grid3 div{background:#0e1529;border-radius:6px;padding:5px 7px}.tgc .grid3>div>span:first-child{display:block;color:var(--mut);font-size:11px}
+.tg-sortm{display:none}@media (max-width:759px){.tg-sortm{display:flex}}.tgc .fl{margin:6px 0}.tgc .btns{display:flex;gap:6px;justify-content:flex-end}
 .pstat b.red{color:var(--urg)}.pstat{display:flex;flex-wrap:wrap;gap:4px 14px;padding:8px 14px;font-size:12px;color:var(--mut);border-bottom:1px solid var(--line)}.pstat b{color:var(--txt)}
 .lv3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;padding:10px 14px;font-size:12px}
 .lvh{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--acc);margin-bottom:4px;font-weight:600}
@@ -172,7 +172,6 @@ details.howto ol{margin:6px 0 6px;padding-left:22px}details.howto li{margin:4px 
       <div class="settings">
         <label>Partir de<select id="tgFrom"></select></label>
         <label>Victoire minimale (%)<input type="number" id="tgMinWin" value="95" min="50" max="100"></label>
-        <select id="tgSort" hidden><option value="gain">gain</option><option value="age">age</option><option value="old">old</option></select>
         <label>Sondes envoyées par sondage<input type="number" id="tgProbes" value="4" min="1" max="999"></label>
         <label class="chk"><input type="checkbox" id="tgDebris" checked> Compter les débris dans le gain</label>
       </div>
@@ -366,7 +365,7 @@ details.howto ol{margin:6px 0 6px;padding-left:22px}details.howto li{margin:4px 
 /*COMBAT*/
 </script>
 <script>
-const APP_RELEASE="1.8.0";
+const APP_RELEASE="1.9.0";
 const APP_DATE="2026-11-26";
 const APP_VERSION="/*VERSION*/"; // stamped by tools/build.js; update checks live in updates.js
 const DEFAULT_DATA = /*DATA*/;
@@ -1085,14 +1084,14 @@ function idealHtml(e){
     puis envoie ${esc(fleetTxt(x.units))} : victoire ${Math.round(x.win * 100)} %, gain <b class="${x.gain >= 0 ? 'ok' : 'red'}">${x.gain >= 0 ? '+' : ''}${f(x.gain)}</b> par raid, ${pay}.</div>`;
 }
 // have I already raided this place? (from the History tab)
-function raidBadge(coords, reportAt){
+function raidInfo(coords, reportAt){
   if (!HI.loaded) { hiLoad(); HI.loaded = true; }
-  const R = HI.list.filter(x => x.kind === 'raid' && x.coords === coords).sort((a, b) => b.at - a.at); if (!R.length) return '';
-  const last = R[0], f = OG.fmt, ago = h => h < 1 ? Math.max(1, Math.round(h * 60)) + ' min' : h < 48 ? Math.round(h) + ' h' : Math.round(h / 24) + ' j';
-  const loot = (last.loot.m || 0) + (last.loot.c || 0) + (last.loot.d || 0);
-  const after = last.at > reportAt; // raided after this spy report: its resources are gone
-  return `<br><span class="${after ? 'warnc' : 'note'}" style="font-size:11px">Déjà attaqué${R.length > 1 ? ` ${R.length} fois` : ''} · dernier raid il y a ${ago((Date.now() - last.at) / 3600000)}, butin ${f(loot)}${after ? ' · <b>après ce rapport : resonde</b>' : ''}</span>`;
+  const R = HI.list.filter(x => x.kind === 'raid' && x.coords === coords).sort((a, b) => b.at - a.at); if (!R.length) return null;
+  const l = R[0]; return { n: R.length, at: l.at, loot: (l.loot.m || 0) + (l.loot.c || 0) + (l.loot.d || 0), after: l.at > reportAt };
 }
+function tgPrefs(){ let p = null; try { p = JSON.parse(store.get('og_tgview') || 'null'); } catch(e){}
+  if (!p || !p.col) { const old = store.get('og_tgsort'); p = { col: old === 'age' || old === 'old' ? 'age' : 'perH', dir: old === 'old' ? -1 : old === 'age' ? 1 : -1 }; }
+  p.f = p.f || {}; return p; }
 function renderTargets(){
   if (!$('tgOut')) return;
   const res = CS.parsed; const S = settings();
@@ -1118,38 +1117,68 @@ function renderTargets(){
       TG.busy = false; $('tgMsg').textContent = ''; renderTargets(); })(); }
   // results already known are shown at once, even while others are being computed
   const rows = TG.list.map(tg => ({ tg, e: (TG.cache[tg.key + tg.at] || {}).e })).filter(x => x.e && !x.e.none);
-  const mode = $('tgSort').value;
-  if (mode === 'age') rows.sort((a, b) => (b.tg.at || 0) - (a.tg.at || 0));
-  else if (mode === 'old') rows.sort((a, b) => (a.tg.at || 0) - (b.tg.at || 0));
-  else rows.sort((a, b) => ((b.e.ok ? 2 : b.e.unknown ? 1 : 0) - (a.e.ok ? 2 : a.e.unknown ? 1 : 0)) || (b.e.perH || 0) - (a.e.perH || 0));
   const f = OG.fmt, now = Date.now();
-  const age = at => { const m = Math.round((now - at) / 60000); return m < 60 ? m + ' min' : m < 2880 ? Math.round(m / 60) + ' h' : Math.round(m / 1440) + ' j'; };
-  const cardsHtml = '<div class="tg-cards">' + rows.map(({ tg, e }, i) => {
-      const old = now - tg.at > 3600000; const act = e.r.activity != null ? ` · activité ${e.r.activity} min` : '';
-      const head = `<div class="hd"><div><b>${esc(e.r.player || '?')}</b> <span class="note">[${esc(e.r.coords)}]${e.r.isMoon ? ' lune' : ''}</span><br><span class="${old ? 'warnc' : 'note'}" style="font-size:11px">rapport il y a ${age(tg.at)}${act}</span>${raidBadge(e.r.coords, tg.at)}</div>
-        <div class="btns">${e.unknown ? '' : `<button class="ghost" style="padding:4px 8px;font-size:12px" data-sim="${i}">Simuler</button>`}<button class="ghost" style="padding:4px 8px;font-size:12px" data-del="${esc(tg.key)}" aria-label="Supprimer">✕</button></div></div>`;
-      if (e.unknown) return `<div class="tgc">${head}<div class="grid3"><div><span>Butin</span>${f(e.lootWant)}</div><div><span>Défense</span><b class="warnc">${e.r.defKnown ? (e.defVal ? f(e.defVal) : 'aucune') : 'non visible'}</b></div><div><span>Résumé</span>${e.r.summary && e.r.summary.def ? '≈ ' + f(e.r.summary.def) : '–'}</div></div><div class="warnc" style="font-size:12.5px"><b>À resonder</b></div></div>`;
-      return `<div class="tgc">${head}
-        <div class="grid3"><div><span>Butin</span>${f(e.lootWant)}</div><div><span>Défense</span>${e.defVal ? f(e.defVal) : '<span class="ok">aucune</span>'}</div>
-        <div><span>Victoire</span><b class="${e.ok ? 'ok' : 'red'}">${Math.round(e.ch.win * 100)} %</b>${e.ch.loss > 0 ? `<br><span class="note" style="font-size:11px">pertes ${f(e.ch.loss)}</span>` : ''}</div><div><span>Gain net</span><b class="${e.gain >= 0 ? 'ok' : 'red'}">${e.gain >= 0 ? '+' : ''}${f(e.gain)}</b></div><div><span>Gain / h</span>${e.ok ? f(e.perH) : '–'}</div></div></div>`;
-    }).join('') + '</div>';
-  const sortBar = `<div class="tgsort" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 10px"><span class="note" style="margin-right:2px">Trier :</span>${[['gain', 'Plus rentables'], ['age', 'Plus récents'], ['old', 'Plus anciens']].map(([v, l]) => `<button class="${mode === v ? '' : 'ghost'}" data-sort="${v}" style="padding:6px 12px;font-size:13px">${l}</button>`).join('')}<button class="${moved ? '' : 'ghost'}" id="tgRedo" style="padding:6px 12px;font-size:13px;margin-left:auto" title="Refaire tous les calculs avec ta flotte actuelle">Recalculer</button>${moved ? `<span class="warnc" style="flex-basis:100%;font-size:12px">Ta flotte ou tes missiles ont changé depuis le calcul de ${moved} cible${moved > 1 ? 's' : ''} (vaisseaux en vol au moment de l'export ?). Les résultats affichés restent ceux d'avant : « Recalculer » les met à jour.</span>` : ''}</div>`;
-  $('tgOut').innerHTML = sortBar + cardsHtml + `<div class="panel tg-wide" style="padding:0;overflow-x:auto"><table class="mx" style="font-size:12.5px"><thead><tr><th style="text-align:left">Cible</th><th>Butin</th><th>Défense</th><th>Victoire</th><th>Gain net</th><th>Gain / h</th><th></th></tr></thead><tbody>${rows.map(({ tg, e }, i) => {
-    const old = now - tg.at > 3600000; const act = e.r.activity != null ? `activité ${e.r.activity} min` : '';
-    if (e.unknown) return `<tr><td style="text-align:left;color:var(--txt)"><b>${esc(e.r.player || '?')}</b> <span class="note">[${esc(e.r.coords)}]${e.r.isMoon ? ' lune' : ''}</span><br><span class="${old ? 'warnc' : 'note'}" style="font-size:11px">rapport il y a ${age(tg.at)}${act ? ' · ' + act : ''}</span>${raidBadge(e.r.coords, tg.at)}</td>
-      <td>${f(e.lootWant)}</td><td class="warnc">${!e.r.defKnown ? 'non visible' : (e.defVal ? f(e.defVal) : 'aucune')}${!e.r.defKnown && e.r.summary && e.r.summary.def ? `<br><span class="note" style="font-size:11px">≈ ${f(e.r.summary.def)}</span>` : ''}</td>
-      <td colspan="3" style="text-align:left;white-space:normal;font-size:12px" class="warnc"><b>À resonder</b></td>
-      <td style="white-space:nowrap"><button class="ghost" style="padding:4px 8px;font-size:12px" data-del="${esc(tg.key)}" aria-label="Supprimer">✕</button></td></tr>`;
-    return `<tr><td style="text-align:left;color:var(--txt)"><b>${esc(e.r.player || '?')}</b> <span class="note">[${esc(e.r.coords)}]${e.r.isMoon ? ' lune' : ''}</span><br><span class="${old ? 'warnc' : 'note'}" style="font-size:11px">rapport il y a ${age(tg.at)}${act ? ' · ' + act : ''}</span>${raidBadge(e.r.coords, tg.at)}</td>
-      <td>${f(e.lootWant)}</td><td>${e.defVal ? f(e.defVal) : '<span class="ok">aucune</span>'}</td>
-      <td class="${e.ok ? 'ok' : 'red'}">${Math.round(e.ch.win * 100)} %${e.ch.loss > 0 ? `<br><span class="note" style="font-size:11px">pertes ${f(e.ch.loss)}</span>` : ''}</td>
-      <td class="${e.gain >= 0 ? 'ok' : 'red'}" style="font-weight:600">${e.gain >= 0 ? '+' : ''}${f(e.gain)}</td>
-      <td>${e.ok ? f(e.perH) : '–'}</td>
-      <td style="white-space:nowrap"><button class="ghost" style="padding:4px 8px;font-size:12px" data-sim="${i}">Simuler</button> <button class="ghost" style="padding:4px 8px;font-size:12px" data-del="${esc(tg.key)}" aria-label="Supprimer">✕</button></td></tr>`; }).join('')}</tbody></table></div>`;
+  const ago = ms => { const m = Math.max(1, Math.round(ms / 60000)); return m < 60 ? m + ' min' : m < 2880 ? Math.round(m / 60) + ' h' : Math.round(m / 1440) + ' j'; };
+  // sort (column headers, or the list on a phone) and filters, kept between visits and shared by the sync
+  const P = tgPrefs(), F = P.f;
+  const val = { name: x => (x.e.r.player || '').toLowerCase(), age: x => now - (x.tg.at || now), loot: x => x.e.lootWant || 0, def: x => x.e.unknown && !x.e.r.defKnown ? null : x.e.defVal || 0,
+    win: x => x.e.unknown ? null : x.e.ch.win, gain: x => x.e.unknown ? null : x.e.gain, perH: x => x.e.ok ? x.e.perH : null, raid: x => x.raid ? now - x.raid.at : null };
+  rows.forEach(x => { x.raid = raidInfo(x.e.r.coords, x.tg.at); });
+  const all = rows.length, q = (F.q || '').trim().toLowerCase();
+  const shown = rows.filter(x => { const e = x.e;
+    if (F.ok && !e.ok) return false; if (F.pos && (e.unknown || !(e.gain > 0))) return false; if (F.noRaid && x.raid) return false;
+    if (F.age && now - x.tg.at > F.age * 3600000) return false; if (F.loot && (e.lootWant || 0) < F.loot) return false; if (F.noUnknown && e.unknown) return false;
+    if (q && !((e.r.player || '').toLowerCase().includes(q) || (e.r.coords || '').includes(q))) return false; return true; });
+  const vf = val[P.col] || val.perH, tie = (a, b) => (val.perH(b) ?? -1e18) - (val.perH(a) ?? -1e18);
+  shown.sort((a, b) => { const va = vf(a), vb = vf(b); if (va == null || vb == null) return va == null && vb == null ? tie(a, b) : va == null ? 1 : -1;
+    const c = typeof va === 'string' ? va.localeCompare(vb) : va - vb; return c ? c * P.dir : tie(a, b); });
+  const COLS = [['name', 'Cible', 1], ['age', 'Rapport', 1], ['loot', 'Butin', -1], ['def', 'Défense', 1], ['win', 'Victoire', -1], ['gain', 'Gain net', -1], ['perH', 'Gain / h', -1], ['raid', 'Dernier raid', 1]];
+  const arrow = c => P.col === c ? (P.dir > 0 ? ' ▲' : ' ▼') : '';
+  const repCell = x => `<span class="${now - x.tg.at > 3600000 ? 'warnc' : ''}">${ago(now - x.tg.at)}</span>${x.e.r.activity != null ? `<br><span class="note" style="font-size:11px">activité ${x.e.r.activity} min</span>` : ''}`;
+  const raidCell = x => x.raid ? `<span class="${x.raid.after ? 'warnc' : 'note'}" title="${x.raid.n} raid${x.raid.n > 1 ? 's' : ''}, dernier butin ${f(x.raid.loot)}${x.raid.after ? ', après ce rapport : resonde' : ''}">${ago(now - x.raid.at)}${x.raid.after ? ' ⚠' : ''}</span>` : '<span class="note">–</span>';
+  const defCell = e => e.unknown && !e.r.defKnown ? '<span class="warnc">non visible</span>' : e.defVal ? f(e.defVal) : '<span class="ok">aucune</span>';
+  const winCell = e => `<b class="${e.ok ? 'ok' : 'red'}">${Math.round(e.ch.win * 100)} %</b>${e.ch.loss > 0 ? `<br><span class="note" style="font-size:11px">pertes ${f(e.ch.loss)}</span>` : ''}`;
+  const gainCell = e => `<b class="${e.gain >= 0 ? 'ok' : 'red'}">${e.gain >= 0 ? '+' : ''}${f(e.gain)}</b>`;
+  const btn = (x, i) => `${x.e.unknown ? '' : `<button class="ghost" style="padding:4px 8px;font-size:12px" data-sim="${i}">Simuler</button> `}<button class="ghost" style="padding:4px 8px;font-size:12px" data-del="${esc(x.tg.key)}" aria-label="Supprimer">✕</button>`;
+  const name = e => `<b>${esc(e.r.player || '?')}</b> <span class="note">[${esc(e.r.coords)}]${e.r.isMoon ? ' lune' : ''}</span>`;
+  const cardsHtml = '<div class="tg-cards">' + shown.map((x, i) => { const e = x.e;
+      const cells = [['Rapport', repCell(x)], ['Butin', f(e.lootWant)], ['Défense', defCell(e)]].concat(e.unknown ? [['Victoire', '<b class="warnc">À resonder</b>']] :
+        [['Victoire', winCell(e)], ['Gain net', gainCell(e)], ['Gain / h', e.ok ? f(e.perH) : '–']]).concat(x.raid ? [['Dernier raid', raidCell(x)]] : []);
+      return `<div class="tgc"><div class="hd"><div>${name(e)}</div><div class="btns">${btn(x, i)}</div></div><div class="grid3">${cells.map(([l, v]) => `<div><span>${l}</span>${v}</div>`).join('')}</div></div>`; }).join('') + '</div>';
+  const nF = ['ok', 'pos', 'noRaid', 'age', 'loot', 'noUnknown'].filter(k => F[k]).length + (q ? 1 : 0);
+  const opt = (id, cur, list) => `<select id="${id}" style="padding:5px 8px;font-size:13px">${list.map(([v, l]) => `<option value="${v}"${String(cur) === String(v) ? ' selected' : ''}>${l}</option>`).join('')}</select>`;
+  const chk = (k, l) => `<label class="chk" style="font-size:13px;margin:0"><input type="checkbox" data-f="${k}"${F[k] ? ' checked' : ''}> ${l}</label>`;
+  const bar = `<div class="tgsort" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 10px">
+    <span class="tg-sortm" style="gap:6px;align-items:center"><span class="note">Trier :</span>${opt('tgCol', P.col, COLS.map(([c, l]) => [c, l]))}<button class="ghost" id="tgDir" style="padding:5px 10px;font-size:13px" aria-label="Inverser l'ordre">${P.dir > 0 ? '▲' : '▼'}</button></span>
+    <button class="${nF ? '' : 'ghost'}" id="tgFiltBtn" style="padding:6px 12px;font-size:13px">Filtres${nF ? ` (${nF})` : ''}</button>
+    <span class="note" style="font-size:12px">${shown.length === all ? all + ' cible' + (all > 1 ? 's' : '') : `${shown.length} sur ${all}`}</span>
+    <button class="${moved ? '' : 'ghost'}" id="tgRedo" style="padding:6px 12px;font-size:13px;margin-left:auto" title="Refaire tous les calculs avec ta flotte actuelle">Recalculer</button>
+    ${moved ? `<span class="warnc" style="flex-basis:100%;font-size:12px">Ta flotte ou tes missiles ont changé depuis le calcul de ${moved} cible${moved > 1 ? 's' : ''}. « Recalculer » met les résultats à jour.</span>` : ''}
+    <div id="tgFilt" style="flex-basis:100%;display:${TG.fOpen ? 'flex' : 'none'};flex-wrap:wrap;gap:8px 16px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px">
+      ${chk('ok', 'Victoire assurée')}${chk('pos', 'Gain positif')}${chk('noRaid', 'Jamais attaquées')}${chk('noUnknown', 'Masquer « À resonder »')}
+      <label style="font-size:13px;display:flex;gap:6px;align-items:center;margin:0">Rapport de moins de ${opt('tgFAge', F.age || 0, [[0, 'tout âge'], [1, '1 h'], [6, '6 h'], [24, '24 h'], [72, '3 j'], [168, '7 j']])}</label>
+      <label style="font-size:13px;display:flex;gap:6px;align-items:center;margin:0">Butin mini ${opt('tgFLoot', F.loot || 0, [[0, 'aucun'], [1e5, '100k'], [5e5, '500k'], [1e6, '1 M'], [2e6, '2 M'], [5e6, '5 M']])}</label>
+      <input id="tgFQ" type="search" placeholder="Joueur ou coordonnées" value="${esc(F.q || '')}" style="flex:1;min-width:150px;padding:5px 8px;font-size:16px">
+      ${nF ? '<button class="ghost" id="tgFReset" style="padding:5px 10px;font-size:13px">Tout afficher</button>' : ''}
+    </div></div>`;
+  $('tgOut').innerHTML = bar + (shown.length ? cardsHtml + `<div class="panel tg-wide" style="padding:0;overflow-x:auto"><table class="mx" style="font-size:12.5px"><thead><tr>${COLS.map(([c, l]) => `<th data-col="${c}" style="cursor:pointer;user-select:none;white-space:nowrap${c === 'name' ? ';text-align:left' : ''}">${l}${arrow(c)}</th>`).join('')}<th></th></tr></thead><tbody>${shown.map((x, i) => { const e = x.e;
+    return `<tr><td style="text-align:left;color:var(--txt);white-space:nowrap">${name(e)}</td><td>${repCell(x)}</td><td>${f(e.lootWant)}</td><td>${defCell(e)}</td>
+      ${e.unknown ? '<td colspan="3" class="warnc" style="text-align:center"><b>À resonder</b></td>' : `<td>${winCell(e)}</td><td style="font-weight:600">${gainCell(e)}</td><td>${e.ok ? f(e.perH) : '–'}</td>`}
+      <td>${raidCell(x)}</td><td style="white-space:nowrap">${btn(x, i)}</td></tr>`; }).join('')}</tbody></table></div>` : '<div class="panel note">Aucune cible ne passe ces filtres.</div>');
+  const save = () => { store.set('og_tgview', JSON.stringify(P)); renderTargets(); };
+  $('tgOut').querySelectorAll('th[data-col]').forEach(th => th.onclick = () => { const c = th.dataset.col; if (P.col === c) P.dir = -P.dir; else { P.col = c; P.dir = COLS.find(x => x[0] === c)[2]; } save(); });
+  $('tgCol').onchange = () => { P.col = $('tgCol').value; P.dir = COLS.find(x => x[0] === P.col)[2]; save(); };
+  $('tgDir').onclick = () => { P.dir = -P.dir; save(); };
+  $('tgFiltBtn').onclick = () => { TG.fOpen = !TG.fOpen; renderTargets(); };
+  $('tgOut').querySelectorAll('[data-f]').forEach(c => c.onchange = () => { F[c.dataset.f] = c.checked; save(); });
+  $('tgFAge').onchange = () => { F.age = +$('tgFAge').value; save(); };
+  $('tgFLoot').onchange = () => { F.loot = +$('tgFLoot').value; save(); };
+  let qt; $('tgFQ').oninput = () => { clearTimeout(qt); qt = setTimeout(() => { F.q = $('tgFQ').value; const pos = $('tgFQ').selectionStart; save(); const el = $('tgFQ'); el.focus(); try { el.setSelectionRange(pos, pos); } catch(e){} }, 300); };
+  if ($('tgFReset')) $('tgFReset').onclick = () => { P.f = {}; save(); };
+  const rowsOut = shown;
   if ($('tgRedo')) $('tgRedo').onclick = () => { TG.force = true; renderTargets(); };
-  $('tgOut').querySelectorAll('[data-sort]').forEach(b => b.onclick = () => { $('tgSort').value = b.dataset.sort; try { localStorage.setItem('og_tgsort', b.dataset.sort); } catch(e){} renderTargets(); });
   $('tgOut').querySelectorAll('[data-del]').forEach(b => b.onclick = () => { TG.list = TG.list.filter(x => x.key !== b.dataset.del); tgSave(); renderTargets(); });
-  $('tgOut').querySelectorAll('[data-sim]').forEach(b => b.onclick = () => { const { tg, e } = rows[+b.dataset.sim];
+  $('tgOut').querySelectorAll('[data-sim]').forEach(b => b.onclick = () => { const { tg, e } = rowsOut[+b.dataset.sim];
     $('report').value = tg.text; $('aPlanet').value = String(src.i); fillAttFleet();
     const useIdeal = !e.ok && e.ideal && e.ideal.units; const units = useIdeal ? e.ideal.units : e.ch.units;
     CB.ATTACK_SHIPS.forEach(k => { const el = $('aU_' + k); if (el) el.value = units[k] || 0; });
@@ -1426,7 +1455,7 @@ function importFromHash(){
 // ---------- Synchronisation entre appareils : sync.js, commun à toutes les apps ----------
 // Les données passent par data.json dans le dépôt privé Gluminou/ogame-data, avec une clé GitHub par personne.
 // L'ancien gist « ogame-conseiller.json » n'est plus utilisé ; il reste sur GitHub en sauvegarde.
-const APP_SYNC = { app: 'ogame', keys: ['og_data_v4', 'og_data_time', 'og_settings_v2', 'og_rplanet', 'og_exp', 'og_probes', 'og_research_good', 'og_targets', 'og_hist'] };
+const APP_SYNC = { app: 'ogame', keys: ['og_data_v4', 'og_data_time', 'og_settings_v2', 'og_rplanet', 'og_exp', 'og_probes', 'og_research_good', 'og_targets', 'og_hist', 'og_tgview'] };
 // Un autre appareil a envoyé des données : sync.js les a écrites dans le stockage, on recharge ce qui est affiché.
 function syRefresh(ch){
   if (!ch.size) return;
@@ -1485,8 +1514,6 @@ function init(){
   $('tgPaste').onclick = async () => { try { const s = await navigator.clipboard.readText(); tgAdd(s); } catch(e){ $('tgIn').focus(); $('tgMsg').textContent = 'Collage automatique refusé : colle dans la case puis « Ajouter ».'; } };
   $('tgClear').onclick = () => { TG.list = []; tgSave(); renderTargets(); };
   try { const pv = localStorage.getItem('og_probes'); if (pv) $('tgProbes').value = pv; } catch(e){}
-  try { const sv = localStorage.getItem('og_tgsort'); if (sv) $('tgSort').value = sv; } catch(e){}
-  $('tgSort').addEventListener('change', () => { try { localStorage.setItem('og_tgsort', $('tgSort').value); } catch(e){} renderTargets(); });
   $('tgProbes').addEventListener('change', () => store.set('og_probes', String(probesSent())));
   ['tgFrom','tgMinWin','tgDebris','tgProbes'].forEach(id => $(id).addEventListener('change', renderTargets));
   ['exTop1','exFrom','exMult','exSlots'].forEach(id => $(id).addEventListener('change', () => { store.set('og_exp', JSON.stringify({ top1: $('exTop1').value, mult: $('exMult').value, slots: $('exSlots').value })); renderExpe(); }));

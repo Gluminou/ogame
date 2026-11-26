@@ -1,5 +1,13 @@
 [
   {
+    "version": "1.9.0",
+    "date": "2026-11-26",
+    "notes": [
+      "Cibles : colonnes « Rapport » (âge du rapport) et « Dernier raid », plus de seconde ligne sous les cibles",
+      "Cibles : tri en touchant l'en-tête d'une colonne (liste « Trier » sur iPhone), et filtres : victoire assurée, gain positif, jamais attaquées, âge du rapport, butin minimum, recherche par joueur ou coordonnées"
+    ]
+  },
+  {
     "version": "1.8.0",
     "date": "2026-11-26",
     "notes": [
