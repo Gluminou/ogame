@@ -100,7 +100,7 @@ table.t th{color:var(--mut);font-weight:500}
 .mx{width:100%;border-collapse:collapse;font-size:13px}.mx th{padding:8px 10px;text-align:right;font-family:Rajdhani,Inter,sans-serif;font-size:16px;white-space:nowrap}.mx th small{display:block;font-family:Inter;font-size:11px;color:var(--mut);font-weight:400}
 .mx td{padding:4px 10px;text-align:right;font-variant-numeric:tabular-nums;border-bottom:1px solid #1d2747;white-space:nowrap}.mx td:first-child{text-align:left;color:var(--mut)}
 .mx tr.grp td{color:var(--acc);font-size:10px;letter-spacing:.08em;text-transform:uppercase;font-weight:600;padding-top:12px;border-bottom:0}
-.mx .z{color:#55618a}.mx tr.hasx td{border-bottom:0}.mx .hl{background:var(--acc);color:#1a1200;border-radius:6px;padding:1px 7px;font-weight:700}.mx sup{color:var(--acc);font-size:10px;margin-left:3px}
+.mx .z{color:#55618a}.mx .hl{background:var(--acc);color:#1a1200;border-radius:6px;padding:1px 7px;font-weight:700}.mx sup{color:var(--acc);font-size:10px;margin-left:3px}
 .tops{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
 .topc{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:6px}
 .topc h3{font-size:17px}.topc .it{display:flex;gap:8px;font-size:12.5px;align-items:baseline}.topc .it .rk{width:18px;height:18px;font-size:11px}
@@ -376,7 +376,7 @@ details.howto ol{margin:6px 0 6px;padding-left:22px}details.howto li{margin:4px 
 /*COMBAT*/
 </script>
 <script>
-const APP_RELEASE="1.6.4";
+const APP_RELEASE="1.6.5";
 const APP_DATE="2026-11-26";
 const APP_VERSION="/*VERSION*/"; // stamped by tools/build.js; update checks live in updates.js
 const DEFAULT_DATA = /*DATA*/;
@@ -835,6 +835,12 @@ function runOptimize(){
       ${fp && !fp.none ? `<div class="warn"><b>Avec de la chair à canon :</b> ${fodderText(fp)}</div>` : ''}
       <div class="row"><button id="useOpt">Utiliser cette flotte</button>${fp && !fp.none ? '<button class="ghost" id="useOptF">Utiliser avec la chair à canon</button>' : ''}</div>
       <p class="note">Méthode : départ de toute la flotte disponible (et de chaque type de vaisseau seul), puis retrait de vaisseaux tant que la victoire reste au-dessus du seuil et que le coût (pertes + deutérium) ne remonte pas. Les grands transporteurs nécessaires au butin sont ajoutés d'office.</p></div>`;
+    if (o.impossible) { // what to build so that the raid passes and pays
+      const box = document.createElement('div'); box.innerHTML = '<p class="note">Calcul de la flotte idéale à construire…</p>'; $('optOut').firstElementChild.appendChild(box);
+      const ctx = { ui: { tgDebris: { checked: $('tgDebris').checked }, tgProbes: { value: $('tgProbes').value } }, parsed: CS.parsed };
+      BG('idealFleet', [avail, def, p, r.coords, res.research || {}, S, res.server || {}, minWin, res.planets], ctx)
+        .then(x => { box.innerHTML = x ? idealHtml({ ideal: x }) : '<p class="note">Pas de flotte idéale trouvée.</p>'; }, () => { box.innerHTML = ''; });
+    }
     $('useOpt').onclick = () => { CB.ATTACK_SHIPS.forEach(k => { const el = $('aU_' + k); if (el) el.value = b.units[k] || 0; }); attSource('Flotte optimale proposée'); runSim(); };
     if ($('useOptF')) $('useOptF').onclick = () => { CB.ATTACK_SHIPS.forEach(k => { const el = $('aU_' + k); if (el) el.value = (b.units[k] || 0) + (k === 'LF' ? fp.m : 0); }); attSource('Flotte optimale avec chair à canon (dont ' + fp.toBuild + ' chasseurs légers à construire)'); runSim(); };
   }, 20);
@@ -1028,7 +1034,7 @@ function idealFleet(avail, def, p, coords, R, S, server, minWin, planets){
   out.sort((a, b) => (a.raids - b.raids) || (a.cost - b.cost));
   return out[0];
 }
-function evalTarget(tg, src, R, S, server, minWin){
+function evalTarget(tg, src, R, S, server, minWin, lite){ // lite: the Targets tab only ranks raids (advice is in the Combat tab)
   const r = CB.parseReport(tg.text); const p = src.p; const avail = {}; CB.ATTACK_SHIPS.forEach(k => avail[k] = p.b[SHIPKEY[k]] || 0);
   const myTech = { weap: R.rWeap || 0, shield: R.rShield || 0, armour: R.rArmour || 0 };
   const defTech = r.tech.weap != null ? { weap: r.tech.weap || 0, shield: r.tech.shield || 0, armour: r.tech.armour || 0 } : myTech;
@@ -1040,6 +1046,7 @@ function evalTarget(tg, src, R, S, server, minWin){
   const b = o.best; const debris = $('tgDebris').checked ? o.debris : 0;
   const gain = o.lootExp + debris - b.loss - o.trip.msu;
   const defVal = Object.entries(r.units).reduce((a, [k, n]) => a + n * (CB.U[k] ? CB.U[k][1] + CB.U[k][2] + CB.U[k][3] : 0), 0);
+  if (lite) return { r, ch: { units: b.units, win: b.win, loss: b.loss }, ok: !o.impossible, round: o.trip.h, fuel: o.trip.fuel, gain, perH: gain / Math.max(o.trip.h, 1 / 60), lootWant: o.lootWant, defVal, lcShort: o.lcShort };
   const ideal = o.impossible ? idealFleet(avail, def, p, r.coords, R, S, server, minWin, (CS.parsed && CS.parsed.planets) || [p]) : null;
   const fodder = !o.impossible && b.loss > 1e4 ? CB.fodderPlan({ units: b.units, tech: o.tech }, def, o.opts, { ratioC: S.ratioC, ratioD: S.ratioD, spare: Math.max(0, (avail.LF || 0) - (b.units.LF || 0)), runs: 40 }) : null;
   const ipm = ipmOption(r, def, avail, p, R, S, server, minWin);
@@ -1080,16 +1087,6 @@ function ipmOption(r, def, avail, p, R, S, server, minWin, base){
   return { n: best.n, primary: best.pr, destroyed: best.st.destroyed, abm, cost, gain, units: o.best.units, win: o.best.win, loss: o.best.loss, round: o.trip.h,
     launch: launch ? launch.name : null, launchSilo: launch ? launch.b.silo || 0 : 0, launchIPM: launch ? launch.b.dIPM || 0 : 0, siloNeed, range, flightMin, ready: !!ready.length };
 }
-function ipmHtml(e){
-  const x = e.ipm; if (!x || x.none || x.worse) return ''; const f = OG.fmt;
-  const killed = Object.entries(x.destroyed).map(([k, n]) => `${n} ${unitName(k, n)}`).join(', ');
-  const where = x.ready ? `depuis <b>${esc(x.launch)}</b> (silo ${x.launchSilo}, ${x.launchIPM} missiles en stock), vol ${Math.max(1, Math.round(x.flightMin))} min`
-    : x.launch ? `depuis ${esc(x.launch)} : il faut un silo de missiles niveau ${x.siloNeed} (tu as ${x.launchSilo}) et ${x.n} missiles (tu en as ${x.launchIPM})`
-    : `aucune de tes planètes n'est à portée (${x.range} systèmes avec ta propulsion à impulsion)`;
-  const before = e.ok ? `au lieu de ${e.gain >= 0 ? '+' : ''}${f(e.gain)} sans missiles` : 'alors que la cible est trop défendue sans missiles';
-  return `<div style="font-size:12.5px;margin-top:6px;padding:6px 8px;border-radius:6px;background:#0e1529"><b>Missiles interplanétaires :</b> ${x.n} missile${x.n > 1 ? 's' : ''} (${f(x.cost)})${x.abm ? `, dont ${x.abm} arrêtés par ses missiles d'interception` : ''}, cible prioritaire : ${esc(unitName(x.primary, 2))}. Ils détruisent ${esc(killed)}.<br>
-    Puis envoie ${esc(fleetTxt(x.units))} : victoire ${Math.round(x.win * 100)} %, gain <b class="${x.gain >= 0 ? 'ok' : 'red'}">${x.gain >= 0 ? '+' : ''}${f(x.gain)}</b> missiles compris, ${before}.<br><span class="note">Lancement ${where}.</span></div>`;
-}
 function idealHtml(e){
   const x = e.ideal; if (!x) return ''; const f = OG.fmt;
   if (x.none) return `<div class="note" style="font-size:12px;margin-top:4px">Flotte idéale : aucun renfort que tu peux construire ne gagne pour moins de ${f(x.budget)} (30 raids de butin). Cible à laisser pour l'instant.</div>`;
@@ -1105,12 +1102,6 @@ function raidBadge(coords, reportAt){
   const loot = (last.loot.m || 0) + (last.loot.c || 0) + (last.loot.d || 0);
   const after = last.at > reportAt; // raided after this spy report: its resources are gone
   return `<br><span class="${after ? 'warnc' : 'note'}" style="font-size:11px">Déjà attaqué${R.length > 1 ? ` ${R.length} fois` : ''} · dernier raid il y a ${ago((Date.now() - last.at) / 3600000)}, butin ${f(loot)}${after ? ' · <b>après ce rapport : resonde</b>' : ''}</span>`;
-}
-// advice under a target in the wide table (missiles, fleet to build, fodder, hold): shown only when there is some
-function tgExtra(e){
-  const parts = [e.ok ? '' : '<span class="red">Trop défendue pour ta flotte.</span>', e.ok && e.lcShort ? `<span class="warnc">Il manque ${e.lcShort} GT pour tout le butin.</span>` : '',
-    ipmHtml(e), idealHtml(e), e.fodder && !e.fodder.none ? `<div class="warnc" style="margin-top:4px">${fodderText(e.fodder)}</div>` : ''].filter(Boolean);
-  return parts.length ? `<tr><td colspan="7" style="text-align:left;white-space:normal;font-size:12px;padding-top:0">${parts.join('')}</td></tr>` : '';
 }
 function renderTargets(){
   if (!$('tgOut')) return;
@@ -1132,7 +1123,7 @@ function renderTargets(){
   const moved = TG.list.filter(tg => { const c = TG.cache[tg.key + tg.at]; return c && !tgChanged(c.fp, fp) && tgFleetMoved(c.fp, fp); }).length;
   if (todo.length && !TG.busy) { TG.busy = true; TG.force = false; $('tgMsg').textContent = `Calcul des flottes optimales… 0/${todo.length}`;
     (async () => { let i = 0; const ctx = { ui: { tgDebris: { checked: $('tgDebris').checked }, tgProbes: { value: $('tgProbes').value } }, parsed: CS.parsed };
-      for (const tg of todo) { let e; try { e = await BG('evalTarget', [tg, src, res.research, S, res.server || {}, minWin], ctx); } catch (x) { e = { r: CB.parseReport(tg.text), none: true, err: true }; }
+      for (const tg of todo) { let e; try { e = await BG('evalTarget', [tg, src, res.research, S, res.server || {}, minWin, true], ctx); } catch (x) { e = { r: CB.parseReport(tg.text), none: true, err: true }; }
         TG.cache[tg.key + tg.at] = { e, fp }; i++; tgCacheSave(); $('tgMsg').textContent = `Calcul des flottes optimales… ${i}/${todo.length}`; await new Promise(r => setTimeout(r, 0)); }
       TG.busy = false; $('tgMsg').textContent = ''; renderTargets(); })(); }
   // results already known are shown at once, even while others are being computed
@@ -1149,9 +1140,8 @@ function renderTargets(){
         <div class="btns">${e.unknown ? '' : `<button class="ghost" style="padding:4px 8px;font-size:12px" data-sim="${i}">Simuler</button>`}<button class="ghost" style="padding:4px 8px;font-size:12px" data-del="${esc(tg.key)}" aria-label="Supprimer">✕</button></div></div>`;
       if (e.unknown) return `<div class="tgc">${head}<div class="grid3"><div><span>Butin</span>${f(e.lootWant)}</div><div><span>Défense</span><b class="warnc">${e.r.defKnown ? (e.defVal ? f(e.defVal) : 'aucune') : 'non visible'}</b></div><div><span>Résumé</span>${e.r.summary && e.r.summary.def ? '≈ ' + f(e.r.summary.def) : '–'}</div></div><div class="warnc" style="font-size:12.5px"><b>À resonder.</b> ${esc(e.warn)}</div></div>`;
       return `<div class="tgc">${head}
-        <div class="fl">${e.ok ? '' : '<span class="red">Trop défendue pour ta flotte. Meilleur essai : </span>'}<b>${esc(fleetTxt(e.ch.units))}</b>${e.ok && e.lcShort ? `<br><span class="warnc" style="font-size:12px">manque ${e.lcShort} GT pour tout le butin</span>` : ''}${ipmHtml(e)}${idealHtml(e)}${e.fodder && !e.fodder.none ? `<div style="font-size:12px;margin-top:6px" class="warnc">${fodderText(e.fodder)}</div>` : ''}</div>
-        <div class="grid3"><div><span>Butin</span>${f(e.lootWant)}</div><div><span>Défense</span>${e.defVal ? f(e.defVal) : '<span class="ok">aucune</span>'}</div><div><span>Vol A/R</span>${fmtDur(e.round)} · ${f(e.fuel)} D</div>
-        <div><span>Victoire</span><b class="${e.ok ? 'ok' : 'red'}">${Math.round(e.ch.win * 100)} %</b>${e.ch.loss > 0 ? ` · pertes ${f(e.ch.loss)}` : ''}</div><div><span>Gain net</span><b class="${e.gain >= 0 ? 'ok' : 'red'}">${e.gain >= 0 ? '+' : ''}${f(e.gain)}</b></div><div><span>Gain / h</span>${e.ok ? f(e.perH) : '–'}</div></div></div>`;
+        <div class="grid3"><div><span>Butin</span>${f(e.lootWant)}</div><div><span>Défense</span>${e.defVal ? f(e.defVal) : '<span class="ok">aucune</span>'}</div>
+        <div><span>Victoire</span><b class="${e.ok ? 'ok' : 'red'}">${Math.round(e.ch.win * 100)} %</b>${e.ch.loss > 0 ? `<br><span class="note" style="font-size:11px">pertes ${f(e.ch.loss)}</span>` : ''}</div><div><span>Gain net</span><b class="${e.gain >= 0 ? 'ok' : 'red'}">${e.gain >= 0 ? '+' : ''}${f(e.gain)}</b></div><div><span>Gain / h</span>${e.ok ? f(e.perH) : '–'}</div></div></div>`;
     }).join('') + '</div>';
   const sortBar = `<div class="tgsort" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 10px"><span class="note" style="margin-right:2px">Trier :</span>${[['gain', 'Plus rentables'], ['age', 'Plus récents'], ['old', 'Plus anciens']].map(([v, l]) => `<button class="${mode === v ? '' : 'ghost'}" data-sort="${v}" style="padding:6px 12px;font-size:13px">${l}</button>`).join('')}<button class="${moved ? '' : 'ghost'}" id="tgRedo" style="padding:6px 12px;font-size:13px;margin-left:auto" title="Refaire tous les calculs avec ta flotte actuelle">Recalculer</button>${moved ? `<span class="warnc" style="flex-basis:100%;font-size:12px">Ta flotte ou tes missiles ont changé depuis le calcul de ${moved} cible${moved > 1 ? 's' : ''} (vaisseaux en vol au moment de l'export ?). Les résultats affichés restent ceux d'avant : « Recalculer » les met à jour.</span>` : ''}</div>`;
   $('tgOut').innerHTML = sortBar + cardsHtml + `<div class="panel tg-wide" style="padding:0;overflow-x:auto"><table class="mx" style="font-size:12.5px"><thead><tr><th style="text-align:left">Cible</th><th>Butin</th><th>Défense</th><th>Victoire</th><th>Gain net</th><th>Gain / h</th><th></th></tr></thead><tbody>${rows.map(({ tg, e }, i) => {
@@ -1160,13 +1150,12 @@ function renderTargets(){
       <td>${f(e.lootWant)}</td><td class="warnc">${!e.r.defKnown ? 'non visible' : (e.defVal ? f(e.defVal) : 'aucune')}${!e.r.defKnown && e.r.summary && e.r.summary.def ? `<br><span class="note" style="font-size:11px">≈ ${f(e.r.summary.def)}</span>` : ''}</td>
       <td colspan="3" style="text-align:left;white-space:normal;font-size:12px" class="warnc"><b>À resonder.</b> ${esc(e.warn)}</td>
       <td style="white-space:nowrap"><button class="ghost" style="padding:4px 8px;font-size:12px" data-del="${esc(tg.key)}" aria-label="Supprimer">✕</button></td></tr>`;
-    const ex = tgExtra(e);
-    return `<tr${ex ? ' class="hasx"' : ''}><td style="text-align:left;color:var(--txt)"><b>${esc(e.r.player || '?')}</b> <span class="note">[${esc(e.r.coords)}]${e.r.isMoon ? ' lune' : ''}</span><br><span class="${old ? 'warnc' : 'note'}" style="font-size:11px">rapport il y a ${age(tg.at)}${act ? ' · ' + act : ''}</span>${raidBadge(e.r.coords, tg.at)}</td>
+    return `<tr><td style="text-align:left;color:var(--txt)"><b>${esc(e.r.player || '?')}</b> <span class="note">[${esc(e.r.coords)}]${e.r.isMoon ? ' lune' : ''}</span><br><span class="${old ? 'warnc' : 'note'}" style="font-size:11px">rapport il y a ${age(tg.at)}${act ? ' · ' + act : ''}</span>${raidBadge(e.r.coords, tg.at)}</td>
       <td>${f(e.lootWant)}</td><td>${e.defVal ? f(e.defVal) : '<span class="ok">aucune</span>'}</td>
       <td class="${e.ok ? 'ok' : 'red'}">${Math.round(e.ch.win * 100)} %${e.ch.loss > 0 ? `<br><span class="note" style="font-size:11px">pertes ${f(e.ch.loss)}</span>` : ''}</td>
       <td class="${e.gain >= 0 ? 'ok' : 'red'}" style="font-weight:600">${e.gain >= 0 ? '+' : ''}${f(e.gain)}</td>
       <td>${e.ok ? f(e.perH) : '–'}</td>
-      <td style="white-space:nowrap"><button class="ghost" style="padding:4px 8px;font-size:12px" data-sim="${i}">Simuler</button> <button class="ghost" style="padding:4px 8px;font-size:12px" data-del="${esc(tg.key)}" aria-label="Supprimer">✕</button></td></tr>${ex}`; }).join('')}</tbody></table></div>`;
+      <td style="white-space:nowrap"><button class="ghost" style="padding:4px 8px;font-size:12px" data-sim="${i}">Simuler</button> <button class="ghost" style="padding:4px 8px;font-size:12px" data-del="${esc(tg.key)}" aria-label="Supprimer">✕</button></td></tr>`; }).join('')}</tbody></table></div>`;
   if ($('tgRedo')) $('tgRedo').onclick = () => { TG.force = true; renderTargets(); };
   $('tgOut').querySelectorAll('[data-sort]').forEach(b => b.onclick = () => { $('tgSort').value = b.dataset.sort; try { localStorage.setItem('og_tgsort', b.dataset.sort); } catch(e){} renderTargets(); });
   $('tgOut').querySelectorAll('[data-del]').forEach(b => b.onclick = () => { syDel('tg', [b.dataset.del]); TG.list = TG.list.filter(x => x.key !== b.dataset.del); tgSave(); renderTargets(); });

@@ -1,5 +1,13 @@
 [
   {
+    "version": "1.6.5",
+    "date": "2026-11-26",
+    "notes": [
+      "Cibles : vue réduite à l'essentiel pour choisir où raider (butin, défense, victoire, gain), sur ordinateur et sur iPhone ; calcul plus rapide",
+      "Combat : la flotte idéale à construire s'affiche quand aucune flotte ne passe"
+    ]
+  },
+  {
     "version": "1.6.4",
     "date": "2026-11-26",
     "notes": [
