@@ -1,5 +1,12 @@
 [
   {
+    "version": "1.8.0",
+    "date": "2026-11-26",
+    "notes": [
+      "L'app demande maintenant une clé avant d'afficher quoi que ce soit."
+    ]
+  },
+  {
     "version": "1.7.0",
     "date": "2026-11-26",
     "notes": [

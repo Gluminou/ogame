@@ -1,8 +1,8 @@
 {
-  "v": "202611260258",
-  "version": "1.7.0",
+  "v": "202611260452",
+  "version": "1.8.0",
   "date": "2026-11-26",
   "notes": [
-    "Synchronisation : même système que les autres apps. Les données passent par le dépôt privé Gluminou/ogame-data avec ta clé GitHub ; l'ancien gist reste en sauvegarde."
+    "L'app demande maintenant une clé avant d'afficher quoi que ce soit."
   ]
 }
