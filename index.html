@@ -116,7 +116,7 @@ details.howto ol{margin:6px 0 6px;padding-left:22px}details.howto li{margin:4px 
 
   <nav class="tabs" style="flex-wrap:wrap"><a href="#export" id="tab-export">Export</a><a href="#vue" id="tab-vue">Vue générale</a><a href="#planetes" id="tab-planetes">Planètes</a><a href="#plan" id="tab-plan">Plan</a><a href="#recherche" id="tab-recherche">Recherche</a><a href="#combat" id="tab-combat">Combat</a><a href="#cibles" id="tab-cibles">Cibles</a><a href="#expe" id="tab-expe">Expéditions</a><a href="#histo" id="tab-histo">Historique</a></nav>
   <section id="view-planetes">
-  <div class="note" style="display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;margin:0 0 14px"><span id="dataStamp2">Aucune donnée pour l'instant.</span><a href="#export" style="color:var(--acc);font-weight:600">Mettre à jour</a><span id="syStat2"></span></div>
+  <div class="note" style="display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;margin:0 0 14px"><span id="dataStamp2">Aucune donnée pour l'instant.</span><a href="#export" style="color:var(--acc);font-weight:600">Mettre à jour</a></div>
   <div class="panel">
     <h2>Vue d'ensemble</h2>
     <div class="note" id="speedNote"></div>
@@ -226,18 +226,8 @@ details.howto ol{margin:6px 0 6px;padding-left:22px}details.howto li{margin:4px 
       </ol>
     </div>
     <div class="panel" id="syncPanel">
-      <h2>Synchroniser mes appareils</h2>
-      <p class="note" id="syStat" style="margin:6px 0 10px"></p>
-      <div id="syOn" class="hidden"><div class="row"><button id="syNow">Synchroniser maintenant</button><button class="ghost" id="syOff">Déconnecter cet appareil</button></div>
-        <p class="note" style="margin:10px 0 0">Ton export, tes rapports d'espionnage (Cibles), ton historique et tes réglages sont partagés entre tous les appareils connectés. La synchro se fait à l'ouverture de l'application et à chaque ajout.</p></div>
-      <div id="syOffBox">
-        <ol class="note" style="margin:0 0 12px;padding-left:20px;line-height:1.6">
-          <li>Ouvre <a href="https://github.com/settings/tokens/new?scopes=gist&amp;description=OGame%20conseiller" target="_blank" rel="noopener" style="color:var(--acc);font-weight:600">cette page GitHub</a> (connecté à ton compte). La case <b>gist</b> est déjà cochée : c'est le seul droit nécessaire.</li>
-          <li>Choisis une durée (<b>No expiration</b> pour ne pas avoir à recommencer), puis <b>Generate token</b>, et copie le code qui commence par <b>ghp_</b>.</li>
-          <li>Colle-le ici puis <b>Connecter</b>. Refais la même chose sur chaque appareil (iPhone, Safari, ordinateur) avec le même code.</li>
-        </ol>
-        <div class="row"><input id="syTok" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="ghp_…" style="flex:1;min-width:180px;font-size:16px"><button id="syGo">Connecter</button></div>
-      </div>
+      <div id="app-sync"></div>
+      <p class="note" style="margin:6px 0 0;text-align:center">Ton export, tes rapports d'espionnage (Cibles), ton historique et tes réglages sont partagés entre tous les appareils connectés, par le dépôt privé Gluminou/ogame-data.</p>
     </div>
     <details class="panel" id="inputPanel">
     <summary>Mes données (export texte) et réglages</summary>
@@ -1393,9 +1383,9 @@ if (typeof module !== 'undefined') module.exports = CB;
 
 </script>
 <script>
-const APP_RELEASE="1.6.7";
+const APP_RELEASE="1.7.0";
 const APP_DATE="2026-11-26";
-const APP_VERSION="202611260229"; // stamped by tools/build.js; update checks live in updates.js
+const APP_VERSION="202611260258"; // stamped by tools/build.js; update checks live in updates.js
 const DEFAULT_DATA = "";
 const TEMPLATE = `Planete: NomDeLaPlanete
 Coordonnees: 1:100:8
@@ -1454,7 +1444,7 @@ Vitesse de développement : x1
 Vitesse de recherche : x1`;
 
 const $ = id => document.getElementById(id);
-const store = { get(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }, set(k,v){ try { const was = localStorage.getItem(k); localStorage.setItem(k,v); if (was !== v) syTouch(k); } catch(e){} } };
+const store = { get(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }, set(k,v){ try { localStorage.setItem(k,v); } catch(e){} } };
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const TAGS = { urgent:'Urgent', important:'Important', eco:'Production', infra:'Infrastructure', lf:'Formes de vie', def:'Défense', res:'Recherche' };
 
@@ -2175,7 +2165,7 @@ function renderTargets(){
       <td style="white-space:nowrap"><button class="ghost" style="padding:4px 8px;font-size:12px" data-sim="${i}">Simuler</button> <button class="ghost" style="padding:4px 8px;font-size:12px" data-del="${esc(tg.key)}" aria-label="Supprimer">✕</button></td></tr>`; }).join('')}</tbody></table></div>`;
   if ($('tgRedo')) $('tgRedo').onclick = () => { TG.force = true; renderTargets(); };
   $('tgOut').querySelectorAll('[data-sort]').forEach(b => b.onclick = () => { $('tgSort').value = b.dataset.sort; try { localStorage.setItem('og_tgsort', b.dataset.sort); } catch(e){} renderTargets(); });
-  $('tgOut').querySelectorAll('[data-del]').forEach(b => b.onclick = () => { syDel('tg', [b.dataset.del]); TG.list = TG.list.filter(x => x.key !== b.dataset.del); tgSave(); renderTargets(); });
+  $('tgOut').querySelectorAll('[data-del]').forEach(b => b.onclick = () => { TG.list = TG.list.filter(x => x.key !== b.dataset.del); tgSave(); renderTargets(); });
   $('tgOut').querySelectorAll('[data-sim]').forEach(b => b.onclick = () => { const { tg, e } = rows[+b.dataset.sim];
     $('report').value = tg.text; $('aPlanet').value = String(src.i); fillAttFleet();
     const useIdeal = !e.ok && e.ideal && e.ideal.units; const units = useIdeal ? e.ideal.units : e.ch.units;
@@ -2429,7 +2419,7 @@ function renderHisto(){
       <table class="mx" style="margin-top:12px"><tbody>${Object.entries(TYPES).filter(([k]) => counts[k]).map(([k, lab]) => `<tr><td>${lab}</td><td>${counts[k]}</td><td>${Math.round(counts[k] / exps.length * 100)} %</td></tr>`).join('')}</tbody></table>
       ${sugg}</div>
     <div class="panel"><h2>Derniers messages</h2><p class="note" style="margin:0 0 8px">Touche un raid pour voir le détail du combat.</p>${L.slice().sort((a, b) => b.at - a.at).slice(0, 30).map(e => hiItem(e, S)).join('')}</div>`;
-  $('hiOut').querySelectorAll('[data-hdel]').forEach(b => b.onclick = () => { syDel('hi', [b.dataset.hdel]); HI.list = HI.list.filter(x => x.id !== b.dataset.hdel); hiSave(); renderHisto(); });
+  $('hiOut').querySelectorAll('[data-hdel]').forEach(b => b.onclick = () => { HI.list = HI.list.filter(x => x.id !== b.dataset.hdel); hiSave(); renderHisto(); });
   const ap = $('hiApply'); if (ap) ap.onclick = () => { const m = ap.parentElement.querySelector('b').textContent.replace(',', '.'); $('exMult').value = m; $('exMult').dispatchEvent(new Event('change')); $('hiMsg').textContent = 'Multiplicateur appliqué dans l\'onglet Expéditions.'; renderHisto(); };
 }
 
@@ -2450,64 +2440,11 @@ function importFromHash(){
     store.set('og_data_v4', txt); store.set('og_data_time', String(Date.now())); history.replaceState(null, '', location.pathname + '#planetes'); return true; }
   catch(e){ history.replaceState(null, '', location.pathname); return false; }
 }
-// ---------- Sync between devices (secret GitHub gist) ----------
-// The app keeps its data in the browser; each browser (and on iPhone the home-screen app and Safari) has its own copy.
-// With a GitHub code that only opens gists, every device reads and writes one secret gist:
-// settings and the export: the newest wins (the newest export date for the export); targets and history are merged, deletions included.
-const SY_FILE = 'ogame-conseiller.json';
-const SY_KV = ['og_data_v4', 'og_settings_v2', 'og_rplanet', 'og_exp', 'og_probes', 'og_research_good'];
-const SY_COL = ['og_targets', 'og_hist'];
-const SY = { on: false, cfg: null, busy: false, again: false, applying: false, tm: 0, last: 0, err: '' };
-const syJ = (s, d) => { try { const v = JSON.parse(s); return v == null ? d : v; } catch(e){ return d; } };
-function syMeta(){ const m = syJ(localStorage.getItem('og_sync_meta'), {}); m.t = m.t || {}; m.del = m.del || {}; m.del.tg = m.del.tg || {}; m.del.hi = m.del.hi || {}; return m; }
-function syMetaSave(m){ try { localStorage.setItem('og_sync_meta', JSON.stringify(m)); } catch(e){} }
-function syTouch(k){
-  if (SY.applying || (!SY_KV.includes(k) && !SY_COL.includes(k))) return;
-  if (SY_KV.includes(k)) { const m = syMeta(); m.t[k] = Date.now(); syMetaSave(m); }
-  sySchedule();
-}
-function syDel(kind, ids){ const m = syMeta(), now = Date.now(); ids.forEach(id => { m.del[kind][id] = now; }); syMetaSave(m); }
-function sySchedule(){ if (!SY.on) return; clearTimeout(SY.tm); SY.tm = setTimeout(sySync, 800); }
-const syExpDate = s => { const m = String(s || '').match(/Date export\s*:\s*(\d{10,})/); return m ? +m[1] : 0; };
-function sySnap(){
-  const m = syMeta(), kv = {};
-  SY_KV.forEach(k => { const v = localStorage.getItem(k); if (v != null) kv[k] = { v, t: m.t[k] || (k === 'og_data_v4' ? +localStorage.getItem('og_data_time') || 0 : 0) }; });
-  return { v: 1, kv, del: m.del, tg: syJ(localStorage.getItem('og_targets'), []), hi: syJ(localStorage.getItem('og_hist'), []) };
-}
-function syMerge(L, R){
-  R = R || {}; const Rkv = R.kv || {}, Rdel = R.del || {};
-  const M = { v: 1, kv: {}, del: { tg: {}, hi: {} }, tg: [], hi: [] }, cut = Date.now() - 60 * 864e5;
-  for (const kind of ['tg', 'hi']) for (const src of [Rdel, L.del]) for (const [id, t] of Object.entries(src[kind] || {})) if (t > cut && t > (M.del[kind][id] || 0)) M.del[kind][id] = t;
-  for (const k of new Set([...Object.keys(Rkv), ...Object.keys(L.kv)])) {
-    const a = L.kv[k], b = Rkv[k];
-    if (!a || !b) { M.kv[k] = b || a; continue; }
-    if (k === 'og_data_v4') { const da = syExpDate(a.v), db = syExpDate(b.v); if (da && db && da !== db) { M.kv[k] = da > db ? a : b; continue; } }
-    M.kv[k] = a.t > b.t ? a : b; // same time: the copy already shared wins
-  }
-  const tg = new Map();
-  for (const x of [...(R.tg || []), ...(L.tg || [])]) { if (!x || !x.key) continue; const o = tg.get(x.key); if (!o || (x.at || 0) > (o.at || 0) || (x.at || 0) === (o.at || 0) && (x.added || 0) > (o.added || 0)) tg.set(x.key, x); }
-  // dropped only when deleted after it was pasted (pasted again after a deletion: kept)
-  M.tg = [...tg.values()].filter(x => { const d = M.del.tg[x.key]; return !(d && d >= Math.max(x.at || 0, x.added || 0)); });
-  const hi = new Map();
-  for (const x of [...(R.hi || []), ...(L.hi || [])]) { if (!x || !x.id) continue; const o = hi.get(x.id); if (!o || (!o.detail && x.detail) || !!o.detail === !!x.detail && (x.added || 0) > (o.added || 0)) hi.set(x.id, x); }
-  M.hi = [...hi.values()].filter(x => { const d = M.del.hi[x.id]; return !(d && d >= (x.added || 0)); }).sort((a, b) => (a.at || 0) - (b.at || 0));
-  return M;
-}
-function syApply(M){
-  const ch = new Set(), m = syMeta(); SY.applying = true;
-  try {
-    for (const [k, e] of Object.entries(M.kv)) {
-      if (localStorage.getItem(k) !== e.v) { localStorage.setItem(k, e.v); ch.add(k); if (k === 'og_data_v4') localStorage.setItem('og_data_time', String(e.t || Date.now())); }
-      m.t[k] = e.t;
-    }
-    const tg = JSON.stringify(M.tg), hi = JSON.stringify(M.hi);
-    if (tg !== (localStorage.getItem('og_targets') || '[]')) { localStorage.setItem('og_targets', tg); ch.add('og_targets'); }
-    if (hi !== (localStorage.getItem('og_hist') || '[]')) { localStorage.setItem('og_hist', hi); ch.add('og_hist'); }
-    m.del = M.del; syMetaSave(m);
-  } finally { SY.applying = false; }
-  return ch;
-}
-// show what another device sent; only the visible tab is redrawn (run does that)
+// ---------- Synchronisation entre appareils : sync.js, commun à toutes les apps ----------
+// Les données passent par data.json dans le dépôt privé Gluminou/ogame-data, avec une clé GitHub par personne.
+// L'ancien gist « ogame-conseiller.json » n'est plus utilisé ; il reste sur GitHub en sauvegarde.
+const APP_SYNC = { app: 'ogame', keys: ['og_data_v4', 'og_data_time', 'og_settings_v2', 'og_rplanet', 'og_exp', 'og_probes', 'og_research_good', 'og_targets', 'og_hist'] };
+// Un autre appareil a envoyé des données : sync.js les a écrites dans le stockage, on recharge ce qui est affiché.
 function syRefresh(ch){
   if (!ch.size) return;
   if (ch.has('og_research_good')) { try { OG.setResearchFallback(JSON.parse(store.get('og_research_good') || 'null')); } catch(e){} }
@@ -2518,82 +2455,9 @@ function syRefresh(ch){
   if (ch.has('og_rplanet')) { const v = store.get('og_rplanet'); if ([...$('rplanet').options].some(o => o.value === v)) $('rplanet').value = v; }
   if (ch.has('og_targets')) tgLoad();
   if (ch.has('og_hist')) hiLoad();
-  const keys = [...ch].map(k => ({ og_data_v4: 'export', og_targets: 'cibles', og_hist: 'historique' })[k]).filter(Boolean);
-  SY.got = [SY.rescued || '', keys.length ? 'Reçu d\'un autre appareil : ' + keys.join(', ') + '.' : ''].filter(Boolean).join(' '); SY.rescued = '';
   run();
 }
-async function syApi(path, opt = {}){
-  const headers = { Authorization: 'Bearer ' + SY.cfg.tok, Accept: 'application/vnd.github+json' };
-  if (opt.body) headers['Content-Type'] = 'application/json';
-  let r; try { r = await fetch('https://api.github.com' + path, Object.assign({ cache: 'no-store' }, opt, { headers })); } catch(e){ throw new Error('pas de connexion à GitHub'); }
-  if (!r.ok) { const e = new Error(r.status === 401 ? 'code GitHub refusé ou expiré' : r.status === 403 || r.status === 404 && !path.startsWith('/gists/') ? 'ce code n\'a pas le droit « gist »' : r.status === 404 ? 'fichier de synchronisation introuvable' : 'GitHub a répondu ' + r.status); e.status = r.status; throw e; }
-  return r.json();
-}
-async function syPull(){
-  const g = await syApi('/gists/' + SY.cfg.id), f = g.files && g.files[SY_FILE]; if (!f) return null;
-  let txt = f.content; if (f.truncated) txt = await (await fetch(f.raw_url, { cache: 'no-store' })).text();
-  return syJ(txt, null);
-}
-const syPush = M => syApi('/gists/' + SY.cfg.id, { method: 'PATCH', body: JSON.stringify({ files: { [SY_FILE]: { content: JSON.stringify(M) } } }) });
-async function sySync(){
-  if (!SY.on) return; if (SY.busy) { SY.again = true; return; }
-  clearTimeout(SY.tm); SY.busy = true; syShow('Synchronisation…');
-  try {
-    let R; try { R = await syPull(); } catch(e){ if (e.status !== 404) throw e; await syFind(); R = await syPull(); } // gist deleted on GitHub: find or make another
-    const R0 = R || { v: 1, kv: {}, del: { tg: {}, hi: {} }, tg: [], hi: [] };
-    const L = sySnap(); await syRescue(L);
-    const M = syMerge(L, R0), ch = syApply(M);
-    if (JSON.stringify(M) !== JSON.stringify(syMerge({ kv: {}, del: {}, tg: [], hi: [] }, R0))) await syPush(M);
-    SY.last = Date.now(); SY.err = ''; try { localStorage.setItem('og_sync_last', String(SY.last)); } catch(e){}
-    syRefresh(ch);
-  } catch(e){ SY.err = e.message || String(e); }
-  finally { SY.busy = false; syShow(); if (SY.again) { SY.again = false; sySync(); } }
-}
-// 1.5.0 to 1.6.2 dropped, while merging, history entries saved before 1.5.0 (no "added" date).
-// Once per device: take back from the gist's first versions what was lost, unless it was deleted on purpose.
-async function syRescue(L){
-  if (localStorage.getItem('og_sync_rescue1')) return;
-  try {
-    let vs = [];
-    for (let page = 1; page <= 10; page++) { const c = await syApi(`/gists/${SY.cfg.id}/commits?per_page=100&page=${page}`); vs = vs.concat(c); if (c.length < 100) break; }
-    const oldest = vs.slice(-3).reverse(); const have = new Set(L.hi.map(x => x.id)); let nH = 0;
-    for (const v of oldest) {
-      const g = await syApi(`/gists/${SY.cfg.id}/${v.version}`), f = g.files && g.files[SY_FILE]; if (!f) continue;
-      const old = syJ(f.truncated ? await (await fetch(f.raw_url, { cache: 'no-store' })).text() : f.content, null); if (!old) continue;
-      for (const x of old.hi || []) if (x && x.id && !have.has(x.id) && !(L.del.hi || {})[x.id]) { L.hi.push(x); have.add(x.id); nH++; }
-    }
-    if (nH) SY.rescued = `${nH} entrée${nH > 1 ? 's' : ''} d'historique récupérée${nH > 1 ? 's' : ''}.`;
-    localStorage.setItem('og_sync_rescue1', String(Date.now()));
-  } catch(e){}
-}
-async function syFind(){
-  const list = await syApi('/gists?per_page=100'), g = list.find(x => x.files && x.files[SY_FILE]);
-  if (g) SY.cfg.id = g.id;
-  else { const c = await syApi('/gists', { method: 'POST', body: JSON.stringify({ description: 'OGame conseiller : synchronisation entre appareils', public: false, files: { [SY_FILE]: { content: JSON.stringify(sySnap()) } } }) }); SY.cfg.id = c.id; }
-  try { localStorage.setItem('og_sync', JSON.stringify(SY.cfg)); } catch(e){}
-}
-async function syConnect(){
-  const tok = $('syTok').value.trim(); if (!tok) { $('syTok').focus(); return; }
-  SY.cfg = { tok }; SY.err = ''; syShow('Connexion…');
-  try { await syFind(); $('syTok').value = ''; SY.on = true; await sySync(); }
-  catch(e){ SY.cfg = null; SY.on = false; SY.err = e.message || String(e); syShow(); }
-}
-function syOff(){ SY.on = false; SY.cfg = null; clearTimeout(SY.tm); try { localStorage.removeItem('og_sync'); } catch(e){} SY.err = ''; syShow(); }
-const syHm = t => new Date(t).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-function syShow(msg){
-  const on = SY.on && SY.cfg;
-  $('syOn').classList.toggle('hidden', !on); $('syOffBox').classList.toggle('hidden', !!on);
-  const last = SY.last || +localStorage.getItem('og_sync_last') || 0;
-  const txt = msg || (SY.err ? `<span class="warnc">Synchronisation impossible : ${esc(SY.err)}.${/refusé|droit/.test(SY.err) ? (on ? ' Déconnecte cet appareil et colle un nouveau code.' : ' Vérifie le code (droit « gist » coché) et réessaie.') : ''}</span>`
-    : on ? (last ? `Synchronisé le <b>${syHm(last)}</b>.` : 'Connecté.') + (SY.got ? ' ' + esc(SY.got) : '') : 'Cet appareil n\'est pas synchronisé.');
-  $('syStat').innerHTML = txt; const s2 = $('syStat2'); if (s2) s2.innerHTML = on ? (SY.err ? '<span class="warnc">Synchro en erreur (onglet Export)</span>' : msg ? esc(msg) : last ? 'Synchro ' + syHm(last) : '') : '';
-}
-function syInit(){
-  $('syGo').onclick = syConnect; $('syNow').onclick = () => sySync(); $('syOff').onclick = syOff;
-  SY.cfg = syJ(localStorage.getItem('og_sync'), null); SY.on = !!(SY.cfg && SY.cfg.tok && SY.cfg.id);
-  document.addEventListener('visibilitychange', () => { if (!SY.on) return; if (document.visibilityState === 'visible') sySync(); else if (SY.tm) sySync(); });
-  syShow(); if (SY.on) sySync();
-}
+function syInit(){ window.addEventListener('appsync', e => syRefresh(new Set(e.detail.keys))); }
 function loadSettings(){
   try { const s = JSON.parse(store.get('og_settings_v2')||'null'); if (s){ $('speed').value=s.speed; $('fill').value=s.fillHours; $('rc').value=s.ratioC; $('rd').value=s.ratioD; $('col').checked=s.collector; $('geo').checked=s.geologist; $('eng').checked=s.engineer; if (s.planDays) $('planDays').value=s.planDays; $('ally').checked=!!s.allyTrader; $('extra').value=s.extraPct||0; $('nocalib').checked=!!s.noCalib; if (s.researchShare != null) $('rshare').value=s.researchShare; if (s.autoRates != null) $('autoRates').checked=!!s.autoRates; if (s.threat) $('threat').value=s.threat; if (s.defFirst != null) $('defFirst').checked=!!s.defFirst; } } catch(e){}
 }
@@ -2636,7 +2500,7 @@ function init(){
   tgLoad();
   $('tgAdd').onclick = () => { tgAdd($('tgIn').value); $('tgIn').value = ''; };
   $('tgPaste').onclick = async () => { try { const s = await navigator.clipboard.readText(); tgAdd(s); } catch(e){ $('tgIn').focus(); $('tgMsg').textContent = 'Collage automatique refusé : colle dans la case puis « Ajouter ».'; } };
-  $('tgClear').onclick = () => { syDel('tg', TG.list.map(x => x.key)); TG.list = []; tgSave(); renderTargets(); };
+  $('tgClear').onclick = () => { TG.list = []; tgSave(); renderTargets(); };
   try { const pv = localStorage.getItem('og_probes'); if (pv) $('tgProbes').value = pv; } catch(e){}
   try { const sv = localStorage.getItem('og_tgsort'); if (sv) $('tgSort').value = sv; } catch(e){}
   $('tgSort').addEventListener('change', () => { try { localStorage.setItem('og_tgsort', $('tgSort').value); } catch(e){} renderTargets(); });
@@ -2657,6 +2521,7 @@ function init(){
 }
 init();
 </script>
+<script src="sync.js"></script>
 <script src="updates.js"></script>
 </body>
 </html>

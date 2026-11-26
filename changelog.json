@@ -1,5 +1,12 @@
 [
   {
+    "version": "1.7.0",
+    "date": "2026-11-26",
+    "notes": [
+      "Synchronisation : même système que les autres apps. Les données passent par le dépôt privé Gluminou/ogame-data avec ta clé GitHub ; l'ancien gist reste en sauvegarde."
+    ]
+  },
+  {
     "version": "1.6.7",
     "date": "2026-11-26",
     "notes": [

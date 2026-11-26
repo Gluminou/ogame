@@ -1,8 +1,8 @@
 {
-  "v": "202611260229",
-  "version": "1.6.7",
+  "v": "202611260258",
+  "version": "1.7.0",
   "date": "2026-11-26",
   "notes": [
-    "Historique : gains des raids alignés à droite"
+    "Synchronisation : même système que les autres apps. Les données passent par le dépôt privé Gluminou/ogame-data avec ta clé GitHub ; l'ancien gist reste en sauvegarde."
   ]
 }
