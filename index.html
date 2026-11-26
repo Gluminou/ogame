@@ -1393,9 +1393,9 @@ if (typeof module !== 'undefined') module.exports = CB;
 
 </script>
 <script>
-const APP_RELEASE="1.6.1";
+const APP_RELEASE="1.6.2";
 const APP_DATE="2026-11-26";
-const APP_VERSION="202611260053"; // stamped by tools/build.js; update checks live in updates.js
+const APP_VERSION="202611260109"; // stamped by tools/build.js; update checks live in updates.js
 const DEFAULT_DATA = "";
 const TEMPLATE = `Planete: NomDeLaPlanete
 Coordonnees: 1:100:8
@@ -1966,11 +1966,14 @@ function tgCacheSave(){
   const keep = {}; TG.list.forEach(tg => { const k = tg.key + tg.at; if (TG.cache[k] && !TG.cache[k].e.err) keep[k] = TG.cache[k]; }); // only the current targets
   try { store.set('og_tg_cache2', JSON.stringify(keep)); localStorage.removeItem('og_tg_cache'); } catch(e){}
 }
-// recompute only for a real change: other settings or research, rates moved by 0.5 or more, or more than 10 % (and 2 ships) of one ship type.
-// Ships in flight at export time (probes, transports) do not trigger it.
+// recomputed by itself only for a real change: other settings or research, or rates moved by 0.5 or more.
+// A fleet that changed (ships out on a raid at export time, missiles fired) only flags the result: "Recalculer" redoes it.
 function tgChanged(a, b){
   if (!a || a.set !== b.set) return true;
-  if (Math.abs(a.rc - b.rc) >= 0.5 || Math.abs(a.rd - b.rd) >= 0.5) return true;
+  return Math.abs(a.rc - b.rc) >= 0.5 || Math.abs(a.rd - b.rd) >= 0.5;
+}
+function tgFleetMoved(a, b){
+  if (!a) return false; if (JSON.stringify(a.ipm || null) !== JSON.stringify(b.ipm || null)) return true;
   const ks = new Set([...Object.keys(a.ships), ...Object.keys(b.ships)]);
   for (const k of ks) { const x = a.ships[k] || 0, y = b.ships[k] || 0; if (Math.abs(x - y) > Math.max(2, 0.1 * Math.max(x, y))) return true; }
   return false;
@@ -2131,12 +2134,13 @@ function renderTargets(){
   const src = srcs.find(x => String(x.i) === sel.value) || srcs[0];
   const minWin = Math.min(1, Math.max(0.5, (+$('tgMinWin').value || 95) / 100));
   // what the result depends on: the source planet's fleet, research, shipyards (for the ideal fleet), fleet speed and the settings
-  const R0 = res.research || {}; const fleetSig = [CB.ATTACK_SHIPS.map(k => src.p.b[SHIPKEY[k]] || 0), src.p.coords, Math.max(0, ...res.planets.map(p => p.b.shipyard || 0)), (res.server || {}).speedWar, res.planets.map(p => [p.b.silo || 0, p.b.dIPM || 0]), 'ipm1',
+  const R0 = res.research || {}; const fleetSig = [CB.ATTACK_SHIPS.map(k => src.p.b[SHIPKEY[k]] || 0), src.p.coords, Math.max(0, ...res.planets.map(p => p.b.shipyard || 0)), (res.server || {}).speedWar, res.planets.map(p => p.b.silo || 0), 'v2',
     ['rWeap', 'rShield', 'rArmour', 'rHyper', 'rComb', 'rImp', 'rHD', 'rEsp', 'rLaser', 'rIon', 'rPlasma'].map(k => R0[k] || 0)];
   const ships = {}; CB.ATTACK_SHIPS.filter(k => !['EP', 'Col', 'Rec'].includes(k)).forEach(k => { const n = src.p.b[SHIPKEY[k]] || 0; if (n) ships[k] = n; });
-  const fp = { set: JSON.stringify([src.p.name, minWin, probesSent(), $('tgDebris').checked, S.collector, fleetSig.slice(1)]), rc: S.ratioC, rd: S.ratioD, ships };
+  const fp = { set: JSON.stringify([src.p.name, minWin, probesSent(), $('tgDebris').checked, S.collector, fleetSig.slice(1)]), rc: S.ratioC, rd: S.ratioD, ships, ipm: res.planets.map(p => p.b.dIPM || 0) };
   tgCacheLoad();
   const todo = TG.list.filter(tg => TG.force || tgChanged((TG.cache[tg.key + tg.at] || {}).fp, fp));
+  const moved = TG.list.filter(tg => { const c = TG.cache[tg.key + tg.at]; return c && !tgChanged(c.fp, fp) && tgFleetMoved(c.fp, fp); }).length;
   if (todo.length && !TG.busy) { TG.busy = true; TG.force = false; $('tgMsg').textContent = `Calcul des flottes optimales… 0/${todo.length}`;
     (async () => { let i = 0; const ctx = { ui: { tgDebris: { checked: $('tgDebris').checked }, tgProbes: { value: $('tgProbes').value } }, parsed: CS.parsed };
       for (const tg of todo) { let e; try { e = await BG('evalTarget', [tg, src, res.research, S, res.server || {}, minWin], ctx); } catch (x) { e = { r: CB.parseReport(tg.text), none: true, err: true }; }
@@ -2160,7 +2164,7 @@ function renderTargets(){
         <div class="grid3"><div><span>Butin</span>${f(e.lootWant)}</div><div><span>Défense</span>${e.defVal ? f(e.defVal) : '<span class="ok">aucune</span>'}</div><div><span>Vol A/R</span>${fmtDur(e.round)} · ${f(e.fuel)} D</div>
         <div><span>Victoire</span><b class="${e.ok ? 'ok' : 'red'}">${Math.round(e.ch.win * 100)} %</b>${e.ch.loss > 0 ? ` · pertes ${f(e.ch.loss)}` : ''}</div><div><span>Gain net</span><b class="${e.gain >= 0 ? 'ok' : 'red'}">${e.gain >= 0 ? '+' : ''}${f(e.gain)}</b></div><div><span>Gain / h</span>${e.ok ? f(e.perH) : '–'}</div></div></div>`;
     }).join('') + '</div>';
-  const sortBar = `<div class="tgsort" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 10px"><span class="note" style="margin-right:2px">Trier :</span>${[['gain', 'Plus rentables'], ['age', 'Plus récents'], ['old', 'Plus anciens']].map(([v, l]) => `<button class="${mode === v ? '' : 'ghost'}" data-sort="${v}" style="padding:6px 12px;font-size:13px">${l}</button>`).join('')}<button class="ghost" id="tgRedo" style="padding:6px 12px;font-size:13px;margin-left:auto" title="Refaire tous les calculs avec ta flotte actuelle">Recalculer</button></div>`;
+  const sortBar = `<div class="tgsort" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 10px"><span class="note" style="margin-right:2px">Trier :</span>${[['gain', 'Plus rentables'], ['age', 'Plus récents'], ['old', 'Plus anciens']].map(([v, l]) => `<button class="${mode === v ? '' : 'ghost'}" data-sort="${v}" style="padding:6px 12px;font-size:13px">${l}</button>`).join('')}<button class="${moved ? '' : 'ghost'}" id="tgRedo" style="padding:6px 12px;font-size:13px;margin-left:auto" title="Refaire tous les calculs avec ta flotte actuelle">Recalculer</button>${moved ? `<span class="warnc" style="flex-basis:100%;font-size:12px">Ta flotte ou tes missiles ont changé depuis le calcul de ${moved} cible${moved > 1 ? 's' : ''} (vaisseaux en vol au moment de l'export ?). Les résultats affichés restent ceux d'avant : « Recalculer » les met à jour.</span>` : ''}</div>`;
   $('tgOut').innerHTML = sortBar + cardsHtml + `<div class="panel tg-wide" style="padding:0;overflow-x:auto"><table class="mx" style="font-size:12.5px"><thead><tr><th style="text-align:left">Cible</th><th>Butin</th><th>Défense</th><th style="text-align:left">Flotte à envoyer</th><th>Vol A/R</th><th>Victoire</th><th>Gain net</th><th>Gain / h</th><th></th></tr></thead><tbody>${rows.map(({ tg, e }, i) => {
     const old = now - tg.at > 3600000; const act = e.r.activity != null ? `activité ${e.r.activity} min` : '';
     if (e.unknown) return `<tr><td style="text-align:left;color:var(--txt)"><b>${esc(e.r.player || '?')}</b> <span class="note">[${esc(e.r.coords)}]${e.r.isMoon ? ' lune' : ''}</span><br><span class="${old ? 'warnc' : 'note'}" style="font-size:11px">rapport il y a ${age(tg.at)}${act ? ' · ' + act : ''}</span>${raidBadge(e.r.coords, tg.at)}</td>

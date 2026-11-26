@@ -1,5 +1,12 @@
 [
   {
+    "version": "1.6.2",
+    "date": "2026-11-26",
+    "notes": [
+      "Cibles : une flotte différente dans le nouvel export (vaisseaux en vol, missiles tirés) ne relance plus le calcul de toutes les cibles ; un message propose « Recalculer »"
+    ]
+  },
+  {
     "version": "1.6.1",
     "date": "2026-11-26",
     "notes": [

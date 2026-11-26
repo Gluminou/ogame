@@ -1,9 +1,8 @@
 {
-  "v": "202611260053",
-  "version": "1.6.1",
+  "v": "202611260109",
+  "version": "1.6.2",
   "date": "2026-11-26",
   "notes": [
-    "Favori Export OGame : recherches lues sur la planète au meilleur laboratoire, niveau pris tel qu'affiché, et contrôle d'un export où toutes les recherches sont au même niveau (à réinstaller)",
-    "Un export aux recherches illisibles est signalé ; les recherches du dernier bon export sont utilisées à la place"
+    "Cibles : une flotte différente dans le nouvel export (vaisseaux en vol, missiles tirés) ne relance plus le calcul de toutes les cibles ; un message propose « Recalculer »"
   ]
 }
