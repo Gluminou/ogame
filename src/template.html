@@ -376,7 +376,7 @@ details.howto ol{margin:6px 0 6px;padding-left:22px}details.howto li{margin:4px 
 /*COMBAT*/
 </script>
 <script>
-const APP_RELEASE="1.6.0";
+const APP_RELEASE="1.6.1";
 const APP_DATE="2026-11-26";
 const APP_VERSION="/*VERSION*/"; // stamped by tools/build.js; update checks live in updates.js
 const DEFAULT_DATA = /*DATA*/;
@@ -471,6 +471,8 @@ function run(){
   const dz = defenseFor(text, S); if (dz && S.defFirst) S.defense = dz.orders;
   try { res = OG.analyse(text, S); } catch(e){ $('err').textContent = 'Impossible de lire les données : ' + e.message; return; }
   try { CS.parsed = OG.parse(text); buildCombatForm(); } catch(e){}
+  // remember research read correctly, to stand in for a broken export later (shared with the other devices)
+  if (CS.parsed && !CS.parsed.researchBad && Object.keys(CS.parsed.research || {}).length >= 8) { const g = JSON.stringify(CS.parsed.research); if (g !== store.get('og_research_good')) { store.set('og_research_good', g); OG.setResearchFallback(CS.parsed.research); } }
   if (!res.planets.length){ $('err').textContent = text.trim() ? 'Aucune planète trouvée. Chaque planète doit commencer par une ligne « Planete: Nom ».' : 'Colle ton export de planètes pour commencer (bouton « Copier un modèle vide » pour le format).'; $('inputPanel').open = true; return; }
   if (res.officers) { $('geo').checked = res.officers.includes('geologist'); $('eng').checked = res.officers.includes('engineer'); }
   const nCal = res.planets.filter(x => x.c.calib && Object.keys(x.c.calib).length).length;
@@ -1438,7 +1440,7 @@ function importFromHash(){
 // With a GitHub code that only opens gists, every device reads and writes one secret gist:
 // settings and the export: the newest wins (the newest export date for the export); targets and history are merged, deletions included.
 const SY_FILE = 'ogame-conseiller.json';
-const SY_KV = ['og_data_v4', 'og_settings_v2', 'og_rplanet', 'og_exp', 'og_probes'];
+const SY_KV = ['og_data_v4', 'og_settings_v2', 'og_rplanet', 'og_exp', 'og_probes', 'og_research_good'];
 const SY_COL = ['og_targets', 'og_hist'];
 const SY = { on: false, cfg: null, busy: false, again: false, applying: false, tm: 0, last: 0, err: '' };
 const syJ = (s, d) => { try { const v = JSON.parse(s); return v == null ? d : v; } catch(e){ return d; } };
@@ -1492,6 +1494,7 @@ function syApply(M){
 // show what another device sent; only the visible tab is redrawn (run does that)
 function syRefresh(ch){
   if (!ch.size) return;
+  if (ch.has('og_research_good')) { try { OG.setResearchFallback(JSON.parse(store.get('og_research_good') || 'null')); } catch(e){} }
   if (ch.has('og_data_v4')) $('data').value = store.get('og_data_v4') || '';
   if (ch.has('og_settings_v2')) loadSettings();
   if (ch.has('og_exp')) loadExp();
@@ -1564,6 +1567,7 @@ function loadExp(){
   try { const ex = JSON.parse(store.get('og_exp') || 'null'); if (ex) { $('exTop1').value = ex.top1 || ''; $('exMult').value = ex.mult || 1; $('exSlots').value = ex.slots || ''; } } catch(e){}
 }
 function init(){
+  try { OG.setResearchFallback(JSON.parse(store.get('og_research_good') || 'null')); } catch(e){}
   const imported = importFromHash();
   $('bmLink').href = BOOKMARKLET;
   $('bmLink').onclick = e => { e.preventDefault(); $('bmMsg').textContent = 'Fais glisser le bouton dans ta barre de favoris (un clic ici ne fait rien).'; };

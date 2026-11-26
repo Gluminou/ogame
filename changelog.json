@@ -1,5 +1,13 @@
 [
   {
+    "version": "1.6.1",
+    "date": "2026-11-26",
+    "notes": [
+      "Favori Export OGame : recherches lues sur la planète au meilleur laboratoire, niveau pris tel qu'affiché, et contrôle d'un export où toutes les recherches sont au même niveau (à réinstaller)",
+      "Un export aux recherches illisibles est signalé ; les recherches du dernier bon export sont utilisées à la place"
+    ]
+  },
+  {
     "version": "1.6.0",
     "date": "2026-11-26",
     "notes": [

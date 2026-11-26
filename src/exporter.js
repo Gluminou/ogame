@@ -61,9 +61,12 @@
       const out = {};
       doc.querySelectorAll('[data-technology]').forEach(li => {
         const id = +li.getAttribute('data-technology'); if (!id || out[id] != null) return;
-        const lv = li.querySelector('.level[data-value], .amount[data-value], [data-value]');
+        // the level element first (a selector list would take the first match in page order, which can be another number)
+        const lvl = li.querySelector('.level'), lv = (lvl && lvl.hasAttribute('data-value') ? lvl : null) || li.querySelector('.amount[data-value]') || li.querySelector('.level [data-value]');
         let v = lv ? lv.getAttribute('data-value') : null;
-        if (v == null) { const t = (li.querySelector('.level, .amount')?.textContent || '').replace(/[^\d]/g, ''); v = t || null; }
+        const shown = lvl ? (lvl.textContent.match(/\d[\d.\u00a0 ]*/) || [])[0] : null; // the level as written on the page
+        if (shown != null) { const n = shown.replace(/\D/g, ''); if (n && (v == null || n !== String(v).replace(/\D/g, ''))) v = n; }
+        if (v == null) { const t = (li.querySelector('.amount')?.textContent || '').replace(/[^\d]/g, ''); v = t || null; }
         if (v == null) return;
         const label = li.getAttribute('aria-label') || li.querySelector('[aria-label]')?.getAttribute('aria-label') || '';
         out[id] = { v: parseInt(String(v).replace(/[^\d]/g, ''), 10) || 0, label: label.trim() };
@@ -99,13 +102,13 @@
     const block = (techs, ids) => ids.map(id => line(techs, id)).filter(Boolean).join('\n');
     const others = (techs, known) => Object.keys(techs).map(Number).filter(id => !known.includes(id)).map(id => line(techs, id)).join('\n');
 
-    const parts = [];
+    const parts = [], labs = [];
     for (const p of planets) {
       msg(`Lecture de ${p.name}…`);
       const sup = await read('supplies', p.id), fac = await read('facilities', p.id);
       const lfb = await read('lfbuildings', p.id), lfr = await read('lfresearch', p.id);
       const shp = await read('shipyard', p.id), def = await read('defenses', p.id);
-      const stock = sup.__stock || {}; delete sup.__stock;
+      const stock = sup.__stock || {}; delete sup.__stock; labs.push(fac[31] ? fac[31].v : 0);
       const all = Object.assign({}, sup, shp);
       const s = [`Planete: ${p.name}`, `Coordonnees: ${p.coords}`];
       if (p.tmax != null) s.push(`Temperature max: ${p.tmax}`);
@@ -116,7 +119,12 @@
       parts.push(s.join('\n'));
     }
     msg('Lecture des recherches…');
-    const rs = await read('research', planets[0].id);
+    // read on the planet with the best research lab (a new colony without one may show the page differently), and check the result
+    const odd = t => { const v = Object.entries(t).filter(([id]) => +id !== 199).map(([, o]) => o.v); if (v.length < 8) return false;
+      const c = {}; v.forEach(n => { c[n] = (c[n] || 0) + 1; }); const top = Object.entries(c).sort((a, b) => b[1] - a[1])[0]; return +top[0] >= 25 && top[1] >= v.length - 1; };
+    const byLab = planets.map((p, i) => ({ p, lab: labs[i] || 0 })).sort((a, b) => b.lab - a.lab).map(o => o.p);
+    let rs = await read('research', byLab[0].id);
+    if (odd(rs)) { const rs2 = await read('research', (byLab[1] || byLab[0]).id); if (!odd(rs2)) rs = rs2; else diag.push('recherches illisibles (toutes au niveau ' + Object.values(rs)[0].v + ')'); }
     parts.push('Recherche:\n' + others(rs, []) + '\n');
 
     // ---------- server settings ----------

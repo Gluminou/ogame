@@ -50,6 +50,8 @@ const OG = (() => {
     'batteries volaniques': { name: 'Batteries volcaniques', race: "Rock'tal", role: 'energy' },
   };
 
+  let goodResearch = null; // set by the page: the research of the last export that was read correctly
+  const setResearchFallback = r => { goodResearch = r && Object.keys(r).length ? Object.assign({}, r) : null; };
   function parse(text) {
     const planets = []; const research = {}; const server = {}; let cur = null; let sec = ''; let exportedAt = null; let officers = null;
     for (const raw of text.split(/\r?\n/)) {
@@ -89,7 +91,13 @@ const OG = (() => {
       if (/^r[A-Z]/.test(key)) research[key] = num;
       else if (cur && sec !== 'research') cur.b[key] = num;
     }
-    return { planets, research, server, exportedAt, officers };
+    // a broken export (the research page read wrongly) gives one same high level everywhere: keep the last good research instead
+    let researchBad = false, researchFallback = false;
+    const rv = Object.entries(research).filter(([k]) => k !== 'rGrav').map(([, v]) => v);
+    if (rv.length >= 8) { const cnt = {}; rv.forEach(v => { cnt[v] = (cnt[v] || 0) + 1; }); const [mv, mc] = Object.entries(cnt).sort((a, b) => b[1] - a[1])[0];
+      if (+mv >= 25 && mc >= rv.length - 1) researchBad = true; }
+    if (researchBad && goodResearch) { for (const k of Object.keys(research)) delete research[k]; Object.assign(research, goodResearch); researchFallback = true; }
+    return { planets, research, server, exportedAt, officers, researchBad, researchFallback };
   }
 
   const POS_TEMP = { 1: 240, 2: 190, 3: 140, 4: 90, 5: 80, 6: 70, 7: 60, 8: 50, 9: 40, 10: 30, 11: 20, 12: 10, 13: -30, 14: -70, 15: -110 };
@@ -412,11 +420,14 @@ const OG = (() => {
   }
 
   function analyse(text, S) {
-    const { planets, research: R, server, exportedAt, officers } = parse(text);
+    const { planets, research: R, server, exportedAt, officers, researchBad, researchFallback } = parse(text);
     if (server.speed) S = Object.assign({}, S, { speed: server.speed });
     if (officers) S = Object.assign({}, S, { geologist: officers.includes('geologist'), engineer: officers.includes('engineer') });
     const msu = c => c[0] + c[1] * S.ratioC + c[2] * S.ratioD; // metal standard units
     const out = { planets: [], research: [], warnings: [], R, server, speedUsed: S.speed, exportedAt, officers };
+    if (researchBad) out.warnings.push(researchFallback
+      ? 'Les recherches de cet export sont illisibles (toutes au même niveau) : j\'utilise celles de ton dernier bon export. Réinstalle le favori Export OGame (onglet Export) puis refais l\'export.'
+      : 'Les recherches de cet export sont illisibles (toutes au même niveau) : combat, vols et recherches sont faussés. Réinstalle le favori Export OGame (onglet Export) puis refais l\'export, ou corrige les lignes « Recherche » dans Mes données.');
     const calcs = planets.map(p => planetCalc(p, R, S));
     // live stock: exported amount + production since the export, capped by storage
     const elapsedH = exportedAt ? Math.max(0, ((S.now || Date.now()) - exportedAt) / 3600000) : 0;
@@ -641,6 +652,6 @@ const OG = (() => {
       surplus: { c: h.c > 2.5 * h.m, d: h.d > 2.5 * h.m } };
   }
 
-  return { parse, analyse, fmt, fmtCost, fmtH, planetCalc, storageCap, cost, flight, autoRates };
+  return { parse, setResearchFallback, analyse, fmt, fmtCost, fmtH, planetCalc, storageCap, cost, flight, autoRates };
 })();
 if (typeof module !== 'undefined') module.exports = OG;
