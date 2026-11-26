@@ -1,8 +1,8 @@
 {
-  "v": "202611252328",
-  "version": "1.4.1",
+  "v": "202611260023",
+  "version": "1.5.0",
   "date": "2026-11-26",
   "notes": [
-    "Énergie des planètes calée sur les chiffres réels du jeu (bonus de forme de vie compris) : Megfidis affiche le bon solde au lieu d'une estimation"
+    "Synchronisation entre appareils par GitHub (onglet Export) : export, cibles, historique et réglages partagés entre l'iPhone et l'ordinateur"
   ]
 }

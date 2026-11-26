@@ -173,11 +173,29 @@ installations, formes de vie, chantier spatial, défense), les recherches
 et `/api/serverData.xml`, puis produit l'export et l'ouvre dans
 l'application (`#import=`). Code source : `src/exporter.js`.
 
+## Synchronisation entre appareils (onglet Export)
+
+Chaque navigateur garde ses propres données (sur iPhone, l'application
+de l'écran d'accueil et Safari aussi). Avec un code GitHub qui n'a que le
+droit `gist`, chaque appareil connecté lit et écrit un gist secret
+`ogame-conseiller.json` : à l'ouverture, au retour sur l'application et
+moins d'une seconde après chaque changement.
+
+- Export : le plus récent selon sa date d'export.
+- Réglages : la dernière modification gagne.
+- Cibles et historique : fusionnés. Une suppression est propagée (gardée
+  60 jours) ; un rapport collé de nouveau après une suppression revient.
+- Calculs en cache (flottes des cibles, défense) : non synchronisés,
+  refaits sur chaque appareil.
+
+Code : `sySync`, `syMerge` dans `src/template.html`.
+
 ## Données
 
-Rien n'est envoyé nulle part. Le dernier export collé est gardé dans le
-navigateur (localStorage). Aucune donnée de compte n'est stockée dans ce
-dépôt.
+Sans synchronisation, rien n'est envoyé nulle part : tout reste dans le
+navigateur (localStorage). Avec la synchronisation, les mêmes données
+vont dans un gist secret du compte GitHub de l'utilisateur. Aucune donnée
+de compte n'est stockée dans ce dépôt.
 
 ## Limites
 

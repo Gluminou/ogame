@@ -34,7 +34,7 @@ button.ghost{background:transparent;color:var(--txt);border:1px solid var(--line
 .settings > label{min-width:0}select{max-width:100%;min-width:0}
 .settings label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--mut)}
 .settings label.chk{flex-direction:row;align-items:center;gap:8px;color:var(--txt)}
-input[type=number],select{background:#0a0f1e;color:var(--txt);border:1px solid var(--line);border-radius:6px;padding:6px 8px;font:inherit}
+input[type=number],input[type=password],select{background:#0a0f1e;color:var(--txt);border:1px solid var(--line);border-radius:6px;padding:6px 8px;font:inherit}
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
 .kpi{background:var(--panel2);border-radius:10px;padding:10px 12px}
 .kpi b{display:block;font-family:Rajdhani;font-size:22px}
@@ -116,7 +116,7 @@ details.howto ol{margin:6px 0 6px;padding-left:22px}details.howto li{margin:4px 
 
   <nav class="tabs" style="flex-wrap:wrap"><a href="#export" id="tab-export">Export</a><a href="#vue" id="tab-vue">Vue générale</a><a href="#planetes" id="tab-planetes">Planètes</a><a href="#plan" id="tab-plan">Plan</a><a href="#recherche" id="tab-recherche">Recherche</a><a href="#combat" id="tab-combat">Combat</a><a href="#cibles" id="tab-cibles">Cibles</a><a href="#expe" id="tab-expe">Expéditions</a><a href="#histo" id="tab-histo">Historique</a></nav>
   <section id="view-planetes">
-  <div class="note" style="display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;margin:0 0 14px"><span id="dataStamp2">Aucune donnée pour l'instant.</span><a href="#export" style="color:var(--acc);font-weight:600">Mettre à jour</a></div>
+  <div class="note" style="display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;margin:0 0 14px"><span id="dataStamp2">Aucune donnée pour l'instant.</span><a href="#export" style="color:var(--acc);font-weight:600">Mettre à jour</a><span id="syStat2"></span></div>
   <div class="panel">
     <h2>Vue d'ensemble</h2>
     <div class="note" id="speedNote"></div>
@@ -224,6 +224,20 @@ details.howto ol{margin:6px 0 6px;padding-left:22px}details.howto li{margin:4px 
         <li>Attends « Export prêt », puis <b>Copier</b>.</li>
         <li>Reviens ici et appuie sur <b>Coller mon export</b> : l'application passe à l'onglet Planètes.</li>
       </ol>
+    </div>
+    <div class="panel" id="syncPanel">
+      <h2>Synchroniser mes appareils</h2>
+      <p class="note" id="syStat" style="margin:6px 0 10px"></p>
+      <div id="syOn" class="hidden"><div class="row"><button id="syNow">Synchroniser maintenant</button><button class="ghost" id="syOff">Déconnecter cet appareil</button></div>
+        <p class="note" style="margin:10px 0 0">Ton export, tes rapports d'espionnage (Cibles), ton historique et tes réglages sont partagés entre tous les appareils connectés. La synchro se fait à l'ouverture de l'application et à chaque ajout.</p></div>
+      <div id="syOffBox">
+        <ol class="note" style="margin:0 0 12px;padding-left:20px;line-height:1.6">
+          <li>Ouvre <a href="https://github.com/settings/tokens/new?scopes=gist&amp;description=OGame%20conseiller" target="_blank" rel="noopener" style="color:var(--acc);font-weight:600">cette page GitHub</a> (connecté à ton compte). La case <b>gist</b> est déjà cochée : c'est le seul droit nécessaire.</li>
+          <li>Choisis une durée (<b>No expiration</b> pour ne pas avoir à recommencer), puis <b>Generate token</b>, et copie le code qui commence par <b>ghp_</b>.</li>
+          <li>Colle-le ici puis <b>Connecter</b>. Refais la même chose sur chaque appareil (iPhone, Safari, ordinateur) avec le même code.</li>
+        </ol>
+        <div class="row"><input id="syTok" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="ghp_…" style="flex:1;min-width:180px;font-size:16px"><button id="syGo">Connecter</button></div>
+      </div>
     </div>
     <details class="panel" id="inputPanel">
     <summary>Mes données (export texte) et réglages</summary>
@@ -1367,9 +1381,9 @@ if (typeof module !== 'undefined') module.exports = CB;
 
 </script>
 <script>
-const APP_RELEASE="1.4.1";
+const APP_RELEASE="1.5.0";
 const APP_DATE="2026-11-26";
-const APP_VERSION="202611252328"; // stamped by tools/build.js; update checks live in updates.js
+const APP_VERSION="202611260023"; // stamped by tools/build.js; update checks live in updates.js
 const DEFAULT_DATA = "";
 const TEMPLATE = `Planete: NomDeLaPlanete
 Coordonnees: 1:100:8
@@ -1428,7 +1442,7 @@ Vitesse de développement : x1
 Vitesse de recherche : x1`;
 
 const $ = id => document.getElementById(id);
-const store = { get(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }, set(k,v){ try { localStorage.setItem(k,v); } catch(e){} } };
+const store = { get(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }, set(k,v){ try { const was = localStorage.getItem(k); localStorage.setItem(k,v); if (was !== v) syTouch(k); } catch(e){} } };
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const TAGS = { urgent:'Urgent', important:'Important', eco:'Production', infra:'Infrastructure', lf:'Formes de vie', def:'Défense', res:'Recherche' };
 
@@ -1922,7 +1936,7 @@ function tgAdd(text){
   parts.forEach(s => { const r = CB.parseReport(s); if (!r.coords || !r.found) return;
     const key = r.coords + (r.isMoon ? 'L' : ''); const at = r.date ? parisToUtc(r.date) : Date.now();
     const i = TG.list.findIndex(x => x.key === key);
-    if (i >= 0) { if ((TG.list[i].at || 0) <= at) TG.list[i] = { key, text: s, at }; } else TG.list.push({ key, text: s, at }); n++; });
+    if (i >= 0) { if ((TG.list[i].at || 0) <= at) TG.list[i] = { key, text: s, at, added: Date.now() }; } else TG.list.push({ key, text: s, at, added: Date.now() }); n++; });
   tgSave(); $('tgMsg').textContent = n ? `${n} rapport${n > 1 ? 's' : ''} ajouté${n > 1 ? 's' : ''}.` : 'Aucun rapport reconnu.'; renderTargets();
 }
 function tgSources(){
@@ -2113,7 +2127,7 @@ function renderTargets(){
       <td style="white-space:nowrap"><button class="ghost" style="padding:4px 8px;font-size:12px" data-sim="${i}">Simuler</button> <button class="ghost" style="padding:4px 8px;font-size:12px" data-del="${esc(tg.key)}" aria-label="Supprimer">✕</button></td></tr>`; }).join('')}</tbody></table></div>`;
   if ($('tgRedo')) $('tgRedo').onclick = () => { TG.force = true; renderTargets(); };
   $('tgOut').querySelectorAll('[data-sort]').forEach(b => b.onclick = () => { $('tgSort').value = b.dataset.sort; try { localStorage.setItem('og_tgsort', b.dataset.sort); } catch(e){} renderTargets(); });
-  $('tgOut').querySelectorAll('[data-del]').forEach(b => b.onclick = () => { TG.list = TG.list.filter(x => x.key !== b.dataset.del); tgSave(); renderTargets(); });
+  $('tgOut').querySelectorAll('[data-del]').forEach(b => b.onclick = () => { syDel('tg', [b.dataset.del]); TG.list = TG.list.filter(x => x.key !== b.dataset.del); tgSave(); renderTargets(); });
   $('tgOut').querySelectorAll('[data-sim]').forEach(b => b.onclick = () => { const { tg, e } = rows[+b.dataset.sim];
     $('report').value = tg.text; $('aPlanet').value = String(src.i); fillAttFleet();
     const useIdeal = !e.ok && e.ideal && e.ideal.units; const units = useIdeal ? e.ideal.units : e.ch.units;
@@ -2182,7 +2196,7 @@ function renderExpe(){
 // ---------- History tab ----------
 const HI = { list: [] };
 function hiLoad(){ HI.loaded = true; try { HI.list = JSON.parse(store.get('og_hist') || '[]'); } catch(e){ HI.list = []; }
-  HI.list = HI.list.map(e => { if (e.kind === 'raid' && e.text) { try { const r = hiParse(e.text); if (r) { r.id = e.id; return r; } } catch(x){} } return e; }); }
+  HI.list = HI.list.map(e => { if (e.kind === 'raid' && e.text) { try { const r = hiParse(e.text); if (r) { r.id = e.id; if (e.added) r.added = e.added; return r; } } catch(x){} } return e; }); }
 function hiSave(){ store.set('og_hist', JSON.stringify(HI.list)); }
 const hiNorm = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 function hiHash(s){ let h = 5381; for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return String(h >>> 0); }
@@ -2293,8 +2307,8 @@ function hiAddText(text){
   hiSplit(text).forEach(msg => { const id = hiHash(msg.replace(/\s+/g, ' ')); const was = HI.list.findIndex(x => x.id === id);
     if (was >= 0) { // already there: replace it only if it had been read empty (older reader), otherwise skip
       const o = HI.list[was], z = r => !r || !(r.m || r.c || r.d); const e2 = o.kind === 'raid' && ((z(o.loot) && z(o.debris) && !o.loss) || !o.detail) ? hiParse(msg) : null;
-      if (e2 && (!z(e2.loot) || !z(e2.debris) || e2.loss || e2.detail)) { e2.id = id; HI.list[was] = e2; n++; } else skip++; return; }
-    const e = hiParse(msg); if (!e) { bad++; return; } e.id = id; HI.list.push(e); n++; });
+      if (e2 && (!z(e2.loot) || !z(e2.debris) || e2.loss || e2.detail)) { e2.id = id; e2.added = Date.now(); HI.list[was] = e2; n++; } else skip++; return; }
+    const e = hiParse(msg); if (!e) { bad++; return; } e.id = id; e.added = Date.now(); HI.list.push(e); n++; });
   hiSave(); $('hiMsg').textContent = `${n} message${n > 1 ? 's' : ''} ajouté${n > 1 ? 's' : ''}` + (skip ? `, ${skip} déjà connu${skip > 1 ? 's' : ''}` : '') + (bad ? `, ${bad} non reconnu${bad > 1 ? 's' : ''}` : '') + '.';
   renderHisto();
 }
@@ -2367,7 +2381,7 @@ function renderHisto(){
       <table class="mx" style="margin-top:12px"><tbody>${Object.entries(TYPES).filter(([k]) => counts[k]).map(([k, lab]) => `<tr><td>${lab}</td><td>${counts[k]}</td><td>${Math.round(counts[k] / exps.length * 100)} %</td></tr>`).join('')}</tbody></table>
       ${sugg}</div>
     <div class="panel"><h2>Derniers messages</h2><p class="note" style="margin:0 0 8px">Touche un raid pour voir le détail du combat.</p>${L.slice().sort((a, b) => b.at - a.at).slice(0, 30).map(e => hiItem(e, S)).join('')}</div>`;
-  $('hiOut').querySelectorAll('[data-hdel]').forEach(b => b.onclick = () => { HI.list = HI.list.filter(x => x.id !== b.dataset.hdel); hiSave(); renderHisto(); });
+  $('hiOut').querySelectorAll('[data-hdel]').forEach(b => b.onclick = () => { syDel('hi', [b.dataset.hdel]); HI.list = HI.list.filter(x => x.id !== b.dataset.hdel); hiSave(); renderHisto(); });
   const ap = $('hiApply'); if (ap) ap.onclick = () => { const m = ap.parentElement.querySelector('b').textContent.replace(',', '.'); $('exMult').value = m; $('exMult').dispatchEvent(new Event('change')); $('hiMsg').textContent = 'Multiplicateur appliqué dans l\'onglet Expéditions.'; renderHisto(); };
 }
 
@@ -2388,13 +2402,143 @@ function importFromHash(){
     store.set('og_data_v4', txt); store.set('og_data_time', String(Date.now())); history.replaceState(null, '', location.pathname + '#planetes'); return true; }
   catch(e){ history.replaceState(null, '', location.pathname); return false; }
 }
+// ---------- Sync between devices (secret GitHub gist) ----------
+// The app keeps its data in the browser; each browser (and on iPhone the home-screen app and Safari) has its own copy.
+// With a GitHub code that only opens gists, every device reads and writes one secret gist:
+// settings and the export: the newest wins (the newest export date for the export); targets and history are merged, deletions included.
+const SY_FILE = 'ogame-conseiller.json';
+const SY_KV = ['og_data_v4', 'og_settings_v2', 'og_rplanet', 'og_exp', 'og_probes'];
+const SY_COL = ['og_targets', 'og_hist'];
+const SY = { on: false, cfg: null, busy: false, again: false, applying: false, tm: 0, last: 0, err: '' };
+const syJ = (s, d) => { try { const v = JSON.parse(s); return v == null ? d : v; } catch(e){ return d; } };
+function syMeta(){ const m = syJ(localStorage.getItem('og_sync_meta'), {}); m.t = m.t || {}; m.del = m.del || {}; m.del.tg = m.del.tg || {}; m.del.hi = m.del.hi || {}; return m; }
+function syMetaSave(m){ try { localStorage.setItem('og_sync_meta', JSON.stringify(m)); } catch(e){} }
+function syTouch(k){
+  if (SY.applying || (!SY_KV.includes(k) && !SY_COL.includes(k))) return;
+  if (SY_KV.includes(k)) { const m = syMeta(); m.t[k] = Date.now(); syMetaSave(m); }
+  sySchedule();
+}
+function syDel(kind, ids){ const m = syMeta(), now = Date.now(); ids.forEach(id => { m.del[kind][id] = now; }); syMetaSave(m); }
+function sySchedule(){ if (!SY.on) return; clearTimeout(SY.tm); SY.tm = setTimeout(sySync, 800); }
+const syExpDate = s => { const m = String(s || '').match(/Date export\s*:\s*(\d{10,})/); return m ? +m[1] : 0; };
+function sySnap(){
+  const m = syMeta(), kv = {};
+  SY_KV.forEach(k => { const v = localStorage.getItem(k); if (v != null) kv[k] = { v, t: m.t[k] || (k === 'og_data_v4' ? +localStorage.getItem('og_data_time') || 0 : 0) }; });
+  return { v: 1, kv, del: m.del, tg: syJ(localStorage.getItem('og_targets'), []), hi: syJ(localStorage.getItem('og_hist'), []) };
+}
+function syMerge(L, R){
+  R = R || {}; const Rkv = R.kv || {}, Rdel = R.del || {};
+  const M = { v: 1, kv: {}, del: { tg: {}, hi: {} }, tg: [], hi: [] }, cut = Date.now() - 60 * 864e5;
+  for (const kind of ['tg', 'hi']) for (const src of [Rdel, L.del]) for (const [id, t] of Object.entries(src[kind] || {})) if (t > cut && t > (M.del[kind][id] || 0)) M.del[kind][id] = t;
+  for (const k of new Set([...Object.keys(Rkv), ...Object.keys(L.kv)])) {
+    const a = L.kv[k], b = Rkv[k];
+    if (!a || !b) { M.kv[k] = b || a; continue; }
+    if (k === 'og_data_v4') { const da = syExpDate(a.v), db = syExpDate(b.v); if (da && db && da !== db) { M.kv[k] = da > db ? a : b; continue; } }
+    M.kv[k] = a.t > b.t ? a : b; // same time: the copy already shared wins
+  }
+  const tg = new Map();
+  for (const x of [...(R.tg || []), ...(L.tg || [])]) { if (!x || !x.key) continue; const o = tg.get(x.key); if (!o || (x.at || 0) > (o.at || 0) || (x.at || 0) === (o.at || 0) && (x.added || 0) > (o.added || 0)) tg.set(x.key, x); }
+  M.tg = [...tg.values()].filter(x => !((M.del.tg[x.key] || 0) >= Math.max(x.at || 0, x.added || 0))); // pasted again after a deletion: kept
+  const hi = new Map();
+  for (const x of [...(R.hi || []), ...(L.hi || [])]) { if (!x || !x.id) continue; const o = hi.get(x.id); if (!o || (!o.detail && x.detail) || !!o.detail === !!x.detail && (x.added || 0) > (o.added || 0)) hi.set(x.id, x); }
+  M.hi = [...hi.values()].filter(x => !((M.del.hi[x.id] || 0) >= (x.added || 0))).sort((a, b) => (a.at || 0) - (b.at || 0));
+  return M;
+}
+function syApply(M){
+  const ch = new Set(), m = syMeta(); SY.applying = true;
+  try {
+    for (const [k, e] of Object.entries(M.kv)) {
+      if (localStorage.getItem(k) !== e.v) { localStorage.setItem(k, e.v); ch.add(k); if (k === 'og_data_v4') localStorage.setItem('og_data_time', String(e.t || Date.now())); }
+      m.t[k] = e.t;
+    }
+    const tg = JSON.stringify(M.tg), hi = JSON.stringify(M.hi);
+    if (tg !== (localStorage.getItem('og_targets') || '[]')) { localStorage.setItem('og_targets', tg); ch.add('og_targets'); }
+    if (hi !== (localStorage.getItem('og_hist') || '[]')) { localStorage.setItem('og_hist', hi); ch.add('og_hist'); }
+    m.del = M.del; syMetaSave(m);
+  } finally { SY.applying = false; }
+  return ch;
+}
+// show what another device sent; only the visible tab is redrawn (run does that)
+function syRefresh(ch){
+  if (!ch.size) return;
+  if (ch.has('og_data_v4')) $('data').value = store.get('og_data_v4') || '';
+  if (ch.has('og_settings_v2')) loadSettings();
+  if (ch.has('og_exp')) loadExp();
+  if (ch.has('og_probes')) $('tgProbes').value = store.get('og_probes') || $('tgProbes').value;
+  if (ch.has('og_rplanet')) { const v = store.get('og_rplanet'); if ([...$('rplanet').options].some(o => o.value === v)) $('rplanet').value = v; }
+  if (ch.has('og_targets')) tgLoad();
+  if (ch.has('og_hist')) hiLoad();
+  const keys = [...ch].map(k => ({ og_data_v4: 'export', og_targets: 'cibles', og_hist: 'historique' })[k]).filter(Boolean);
+  SY.got = keys.length ? 'Reçu d\'un autre appareil : ' + keys.join(', ') + '.' : '';
+  run();
+}
+async function syApi(path, opt = {}){
+  const headers = { Authorization: 'Bearer ' + SY.cfg.tok, Accept: 'application/vnd.github+json' };
+  if (opt.body) headers['Content-Type'] = 'application/json';
+  let r; try { r = await fetch('https://api.github.com' + path, Object.assign({ cache: 'no-store' }, opt, { headers })); } catch(e){ throw new Error('pas de connexion à GitHub'); }
+  if (!r.ok) { const e = new Error(r.status === 401 ? 'code GitHub refusé ou expiré' : r.status === 403 || r.status === 404 && !path.startsWith('/gists/') ? 'ce code n\'a pas le droit « gist »' : r.status === 404 ? 'fichier de synchronisation introuvable' : 'GitHub a répondu ' + r.status); e.status = r.status; throw e; }
+  return r.json();
+}
+async function syPull(){
+  const g = await syApi('/gists/' + SY.cfg.id), f = g.files && g.files[SY_FILE]; if (!f) return null;
+  let txt = f.content; if (f.truncated) txt = await (await fetch(f.raw_url, { cache: 'no-store' })).text();
+  return syJ(txt, null);
+}
+const syPush = M => syApi('/gists/' + SY.cfg.id, { method: 'PATCH', body: JSON.stringify({ files: { [SY_FILE]: { content: JSON.stringify(M) } } }) });
+async function sySync(){
+  if (!SY.on) return; if (SY.busy) { SY.again = true; return; }
+  clearTimeout(SY.tm); SY.busy = true; syShow('Synchronisation…');
+  try {
+    let R; try { R = await syPull(); } catch(e){ if (e.status !== 404) throw e; await syFind(); R = await syPull(); } // gist deleted on GitHub: find or make another
+    const R0 = R || { v: 1, kv: {}, del: { tg: {}, hi: {} }, tg: [], hi: [] };
+    const M = syMerge(sySnap(), R0), ch = syApply(M);
+    if (JSON.stringify(M) !== JSON.stringify(syMerge({ kv: {}, del: {}, tg: [], hi: [] }, R0))) await syPush(M);
+    SY.last = Date.now(); SY.err = ''; try { localStorage.setItem('og_sync_last', String(SY.last)); } catch(e){}
+    syRefresh(ch);
+  } catch(e){ SY.err = e.message || String(e); }
+  finally { SY.busy = false; syShow(); if (SY.again) { SY.again = false; sySync(); } }
+}
+async function syFind(){
+  const list = await syApi('/gists?per_page=100'), g = list.find(x => x.files && x.files[SY_FILE]);
+  if (g) SY.cfg.id = g.id;
+  else { const c = await syApi('/gists', { method: 'POST', body: JSON.stringify({ description: 'OGame conseiller : synchronisation entre appareils', public: false, files: { [SY_FILE]: { content: JSON.stringify(sySnap()) } } }) }); SY.cfg.id = c.id; }
+  try { localStorage.setItem('og_sync', JSON.stringify(SY.cfg)); } catch(e){}
+}
+async function syConnect(){
+  const tok = $('syTok').value.trim(); if (!tok) { $('syTok').focus(); return; }
+  SY.cfg = { tok }; SY.err = ''; syShow('Connexion…');
+  try { await syFind(); $('syTok').value = ''; SY.on = true; await sySync(); }
+  catch(e){ SY.cfg = null; SY.on = false; SY.err = e.message || String(e); syShow(); }
+}
+function syOff(){ SY.on = false; SY.cfg = null; clearTimeout(SY.tm); try { localStorage.removeItem('og_sync'); } catch(e){} SY.err = ''; syShow(); }
+const syHm = t => new Date(t).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+function syShow(msg){
+  const on = SY.on && SY.cfg;
+  $('syOn').classList.toggle('hidden', !on); $('syOffBox').classList.toggle('hidden', !!on);
+  const last = SY.last || +localStorage.getItem('og_sync_last') || 0;
+  const txt = msg || (SY.err ? `<span class="warnc">Synchronisation impossible : ${esc(SY.err)}.${/refusé|droit/.test(SY.err) ? (on ? ' Déconnecte cet appareil et colle un nouveau code.' : ' Vérifie le code (droit « gist » coché) et réessaie.') : ''}</span>`
+    : on ? (last ? `Synchronisé le <b>${syHm(last)}</b>.` : 'Connecté.') + (SY.got ? ' ' + esc(SY.got) : '') : 'Cet appareil n\'est pas synchronisé.');
+  $('syStat').innerHTML = txt; const s2 = $('syStat2'); if (s2) s2.innerHTML = on ? (SY.err ? '<span class="warnc">Synchro en erreur (onglet Export)</span>' : msg ? esc(msg) : last ? 'Synchro ' + syHm(last) : '') : '';
+}
+function syInit(){
+  $('syGo').onclick = syConnect; $('syNow').onclick = () => sySync(); $('syOff').onclick = syOff;
+  SY.cfg = syJ(localStorage.getItem('og_sync'), null); SY.on = !!(SY.cfg && SY.cfg.tok && SY.cfg.id);
+  document.addEventListener('visibilitychange', () => { if (!SY.on) return; if (document.visibilityState === 'visible') sySync(); else if (SY.tm) sySync(); });
+  syShow(); if (SY.on) sySync();
+}
+function loadSettings(){
+  try { const s = JSON.parse(store.get('og_settings_v2')||'null'); if (s){ $('speed').value=s.speed; $('fill').value=s.fillHours; $('rc').value=s.ratioC; $('rd').value=s.ratioD; $('col').checked=s.collector; $('geo').checked=s.geologist; $('eng').checked=s.engineer; if (s.planDays) $('planDays').value=s.planDays; $('ally').checked=!!s.allyTrader; $('extra').value=s.extraPct||0; $('nocalib').checked=!!s.noCalib; if (s.researchShare != null) $('rshare').value=s.researchShare; if (s.autoRates != null) $('autoRates').checked=!!s.autoRates; if (s.threat) $('threat').value=s.threat; if (s.defFirst != null) $('defFirst').checked=!!s.defFirst; } } catch(e){}
+}
+function loadExp(){
+  try { const ex = JSON.parse(store.get('og_exp') || 'null'); if (ex) { $('exTop1').value = ex.top1 || ''; $('exMult').value = ex.mult || 1; $('exSlots').value = ex.slots || ''; } } catch(e){}
+}
 function init(){
   const imported = importFromHash();
   $('bmLink').href = BOOKMARKLET;
   $('bmLink').onclick = e => { e.preventDefault(); $('bmMsg').textContent = 'Fais glisser le bouton dans ta barre de favoris (un clic ici ne fait rien).'; };
   $('bmCopy').onclick = async () => { try { await navigator.clipboard.writeText(BOOKMARKLET); $('bmMsg').textContent = 'Code copié.'; } catch(e){ $('bmMsg').textContent = 'Copie refusée par le navigateur.'; } };
   const saved = store.get('og_data_v4'); $('data').value = saved || DEFAULT_DATA; if (!$('data').value.trim()) { $('inputPanel').open = true; }
-  try { const s = JSON.parse(store.get('og_settings_v2')||'null'); if (s){ $('speed').value=s.speed; $('fill').value=s.fillHours; $('rc').value=s.ratioC; $('rd').value=s.ratioD; $('col').checked=s.collector; $('geo').checked=s.geologist; $('eng').checked=s.engineer; if (s.planDays) $('planDays').value=s.planDays; $('ally').checked=!!s.allyTrader; $('extra').value=s.extraPct||0; $('nocalib').checked=!!s.noCalib; if (s.researchShare != null) $('rshare').value=s.researchShare; if (s.autoRates != null) $('autoRates').checked=!!s.autoRates; if (s.threat) $('threat').value=s.threat; if (s.defFirst != null) $('defFirst').checked=!!s.defFirst; } } catch(e){}
+  loadSettings();
   $('go').onclick = run;
   ['speed','fill','rc','rd','autoRates','col','geo','eng','ally','extra','nocalib','planDays','rshare','threat','defFirst'].forEach(id => $(id).addEventListener('change', run));
   $('rplanet').addEventListener('change', () => { store.set('og_rplanet', $('rplanet').value); run(); });
@@ -2423,14 +2567,14 @@ function init(){
   tgLoad();
   $('tgAdd').onclick = () => { tgAdd($('tgIn').value); $('tgIn').value = ''; };
   $('tgPaste').onclick = async () => { try { const s = await navigator.clipboard.readText(); tgAdd(s); } catch(e){ $('tgIn').focus(); $('tgMsg').textContent = 'Collage automatique refusé : colle dans la case puis « Ajouter ».'; } };
-  $('tgClear').onclick = () => { TG.list = []; tgSave(); renderTargets(); };
+  $('tgClear').onclick = () => { syDel('tg', TG.list.map(x => x.key)); TG.list = []; tgSave(); renderTargets(); };
   try { const pv = localStorage.getItem('og_probes'); if (pv) $('tgProbes').value = pv; } catch(e){}
   try { const sv = localStorage.getItem('og_tgsort'); if (sv) $('tgSort').value = sv; } catch(e){}
   $('tgSort').addEventListener('change', () => { try { localStorage.setItem('og_tgsort', $('tgSort').value); } catch(e){} renderTargets(); });
-  $('tgProbes').addEventListener('change', () => { try { localStorage.setItem('og_probes', probesSent()); } catch(e){} });
+  $('tgProbes').addEventListener('change', () => store.set('og_probes', String(probesSent())));
   ['tgFrom','tgMinWin','tgDebris','tgProbes'].forEach(id => $(id).addEventListener('change', renderTargets));
   ['exTop1','exFrom','exMult','exSlots'].forEach(id => $(id).addEventListener('change', () => { store.set('og_exp', JSON.stringify({ top1: $('exTop1').value, mult: $('exMult').value, slots: $('exSlots').value })); renderExpe(); }));
-  try { const ex = JSON.parse(store.get('og_exp') || 'null'); if (ex) { $('exTop1').value = ex.top1 || ''; $('exMult').value = ex.mult || 1; $('exSlots').value = ex.slots || ''; } } catch(e){}
+  loadExp();
   hiLoad();
   $('hiAdd').onclick = () => { hiAddText($('hiIn').value); $('hiIn').value = ''; };
   $('hiPaste').onclick = async () => { try { hiAddText(await navigator.clipboard.readText()); } catch(e){ $('hiIn').focus(); $('hiMsg').textContent = 'Collage automatique refusé : colle dans la case puis « Ajouter ».'; } };
@@ -2439,6 +2583,7 @@ function init(){
     e.at = Date.now(); e.coords = ''; e.id = 'm' + Date.now(); HI.list.push(e); hiSave(); $('hiMsg').textContent = 'Enregistré.'; renderHisto(); };
   window.addEventListener('hashchange', () => { route(); if (location.hash === '#cibles') renderTargets(); if (location.hash === '#expe') renderExpe(); if (location.hash === '#histo') renderHisto(); }); route();
   run();
+  syInit();
   if (imported) { $('err').textContent = ''; const n = document.createElement('div'); n.className = 'warn'; n.textContent = 'Export importé depuis OGame : tes planètes sont à jour.'; $('warns').prepend(n); }
 }
 init();
