@@ -1,8 +1,8 @@
 {
-  "v": "202611260118",
-  "version": "1.6.3",
+  "v": "202611260121",
+  "version": "1.6.4",
   "date": "2026-11-26",
   "notes": [
-    "Synchronisation : l'historique enregistré avant la version 1.5.0 n'est plus effacé à la fusion, et il est récupéré dans les premières versions du fichier GitHub quand c'est possible"
+    "Cibles (ordinateur) : colonnes « Flotte à envoyer » et « Vol A/R » retirées ; les conseils (missiles, flotte idéale, chair à canon) passent sous la cible concernée"
   ]
 }

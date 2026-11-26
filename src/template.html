@@ -100,7 +100,7 @@ table.t th{color:var(--mut);font-weight:500}
 .mx{width:100%;border-collapse:collapse;font-size:13px}.mx th{padding:8px 10px;text-align:right;font-family:Rajdhani,Inter,sans-serif;font-size:16px;white-space:nowrap}.mx th small{display:block;font-family:Inter;font-size:11px;color:var(--mut);font-weight:400}
 .mx td{padding:4px 10px;text-align:right;font-variant-numeric:tabular-nums;border-bottom:1px solid #1d2747;white-space:nowrap}.mx td:first-child{text-align:left;color:var(--mut)}
 .mx tr.grp td{color:var(--acc);font-size:10px;letter-spacing:.08em;text-transform:uppercase;font-weight:600;padding-top:12px;border-bottom:0}
-.mx .z{color:#55618a}.mx .hl{background:var(--acc);color:#1a1200;border-radius:6px;padding:1px 7px;font-weight:700}.mx sup{color:var(--acc);font-size:10px;margin-left:3px}
+.mx .z{color:#55618a}.mx tr.hasx td{border-bottom:0}.mx .hl{background:var(--acc);color:#1a1200;border-radius:6px;padding:1px 7px;font-weight:700}.mx sup{color:var(--acc);font-size:10px;margin-left:3px}
 .tops{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
 .topc{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:6px}
 .topc h3{font-size:17px}.topc .it{display:flex;gap:8px;font-size:12.5px;align-items:baseline}.topc .it .rk{width:18px;height:18px;font-size:11px}
@@ -376,7 +376,7 @@ details.howto ol{margin:6px 0 6px;padding-left:22px}details.howto li{margin:4px 
 /*COMBAT*/
 </script>
 <script>
-const APP_RELEASE="1.6.3";
+const APP_RELEASE="1.6.4";
 const APP_DATE="2026-11-26";
 const APP_VERSION="/*VERSION*/"; // stamped by tools/build.js; update checks live in updates.js
 const DEFAULT_DATA = /*DATA*/;
@@ -1106,6 +1106,12 @@ function raidBadge(coords, reportAt){
   const after = last.at > reportAt; // raided after this spy report: its resources are gone
   return `<br><span class="${after ? 'warnc' : 'note'}" style="font-size:11px">Déjà attaqué${R.length > 1 ? ` ${R.length} fois` : ''} · dernier raid il y a ${ago((Date.now() - last.at) / 3600000)}, butin ${f(loot)}${after ? ' · <b>après ce rapport : resonde</b>' : ''}</span>`;
 }
+// advice under a target in the wide table (missiles, fleet to build, fodder, hold): shown only when there is some
+function tgExtra(e){
+  const parts = [e.ok ? '' : '<span class="red">Trop défendue pour ta flotte.</span>', e.ok && e.lcShort ? `<span class="warnc">Il manque ${e.lcShort} GT pour tout le butin.</span>` : '',
+    ipmHtml(e), idealHtml(e), e.fodder && !e.fodder.none ? `<div class="warnc" style="margin-top:4px">${fodderText(e.fodder)}</div>` : ''].filter(Boolean);
+  return parts.length ? `<tr><td colspan="7" style="text-align:left;white-space:normal;font-size:12px;padding-top:0">${parts.join('')}</td></tr>` : '';
+}
 function renderTargets(){
   if (!$('tgOut')) return;
   const res = CS.parsed; const S = settings();
@@ -1148,20 +1154,19 @@ function renderTargets(){
         <div><span>Victoire</span><b class="${e.ok ? 'ok' : 'red'}">${Math.round(e.ch.win * 100)} %</b>${e.ch.loss > 0 ? ` · pertes ${f(e.ch.loss)}` : ''}</div><div><span>Gain net</span><b class="${e.gain >= 0 ? 'ok' : 'red'}">${e.gain >= 0 ? '+' : ''}${f(e.gain)}</b></div><div><span>Gain / h</span>${e.ok ? f(e.perH) : '–'}</div></div></div>`;
     }).join('') + '</div>';
   const sortBar = `<div class="tgsort" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 10px"><span class="note" style="margin-right:2px">Trier :</span>${[['gain', 'Plus rentables'], ['age', 'Plus récents'], ['old', 'Plus anciens']].map(([v, l]) => `<button class="${mode === v ? '' : 'ghost'}" data-sort="${v}" style="padding:6px 12px;font-size:13px">${l}</button>`).join('')}<button class="${moved ? '' : 'ghost'}" id="tgRedo" style="padding:6px 12px;font-size:13px;margin-left:auto" title="Refaire tous les calculs avec ta flotte actuelle">Recalculer</button>${moved ? `<span class="warnc" style="flex-basis:100%;font-size:12px">Ta flotte ou tes missiles ont changé depuis le calcul de ${moved} cible${moved > 1 ? 's' : ''} (vaisseaux en vol au moment de l'export ?). Les résultats affichés restent ceux d'avant : « Recalculer » les met à jour.</span>` : ''}</div>`;
-  $('tgOut').innerHTML = sortBar + cardsHtml + `<div class="panel tg-wide" style="padding:0;overflow-x:auto"><table class="mx" style="font-size:12.5px"><thead><tr><th style="text-align:left">Cible</th><th>Butin</th><th>Défense</th><th style="text-align:left">Flotte à envoyer</th><th>Vol A/R</th><th>Victoire</th><th>Gain net</th><th>Gain / h</th><th></th></tr></thead><tbody>${rows.map(({ tg, e }, i) => {
+  $('tgOut').innerHTML = sortBar + cardsHtml + `<div class="panel tg-wide" style="padding:0;overflow-x:auto"><table class="mx" style="font-size:12.5px"><thead><tr><th style="text-align:left">Cible</th><th>Butin</th><th>Défense</th><th>Victoire</th><th>Gain net</th><th>Gain / h</th><th></th></tr></thead><tbody>${rows.map(({ tg, e }, i) => {
     const old = now - tg.at > 3600000; const act = e.r.activity != null ? `activité ${e.r.activity} min` : '';
     if (e.unknown) return `<tr><td style="text-align:left;color:var(--txt)"><b>${esc(e.r.player || '?')}</b> <span class="note">[${esc(e.r.coords)}]${e.r.isMoon ? ' lune' : ''}</span><br><span class="${old ? 'warnc' : 'note'}" style="font-size:11px">rapport il y a ${age(tg.at)}${act ? ' · ' + act : ''}</span>${raidBadge(e.r.coords, tg.at)}</td>
       <td>${f(e.lootWant)}</td><td class="warnc">${!e.r.defKnown ? 'non visible' : (e.defVal ? f(e.defVal) : 'aucune')}${!e.r.defKnown && e.r.summary && e.r.summary.def ? `<br><span class="note" style="font-size:11px">≈ ${f(e.r.summary.def)}</span>` : ''}</td>
-      <td colspan="5" style="text-align:left;white-space:normal;font-size:12px" class="warnc"><b>À resonder.</b> ${esc(e.warn)}</td>
+      <td colspan="3" style="text-align:left;white-space:normal;font-size:12px" class="warnc"><b>À resonder.</b> ${esc(e.warn)}</td>
       <td style="white-space:nowrap"><button class="ghost" style="padding:4px 8px;font-size:12px" data-del="${esc(tg.key)}" aria-label="Supprimer">✕</button></td></tr>`;
-    return `<tr><td style="text-align:left;color:var(--txt)"><b>${esc(e.r.player || '?')}</b> <span class="note">[${esc(e.r.coords)}]${e.r.isMoon ? ' lune' : ''}</span><br><span class="${old ? 'warnc' : 'note'}" style="font-size:11px">rapport il y a ${age(tg.at)}${act ? ' · ' + act : ''}</span>${raidBadge(e.r.coords, tg.at)}</td>
+    const ex = tgExtra(e);
+    return `<tr${ex ? ' class="hasx"' : ''}><td style="text-align:left;color:var(--txt)"><b>${esc(e.r.player || '?')}</b> <span class="note">[${esc(e.r.coords)}]${e.r.isMoon ? ' lune' : ''}</span><br><span class="${old ? 'warnc' : 'note'}" style="font-size:11px">rapport il y a ${age(tg.at)}${act ? ' · ' + act : ''}</span>${raidBadge(e.r.coords, tg.at)}</td>
       <td>${f(e.lootWant)}</td><td>${e.defVal ? f(e.defVal) : '<span class="ok">aucune</span>'}</td>
-      <td style="text-align:left;white-space:normal;min-width:160px">${e.ok ? '' : '<span class="red" style="font-size:11px">Trop défendue pour ta flotte</span><br><span class="note" style="font-size:11px">meilleur essai : </span>'}${esc(fleetTxt(e.ch.units))}${e.ok && e.lcShort ? `<br><span class="warnc" style="font-size:11px">manque ${e.lcShort} GT pour tout le butin</span>` : ''}${ipmHtml(e)}${idealHtml(e)}${e.fodder && !e.fodder.none ? `<div style="font-size:12px;margin-top:6px" class="warnc">${fodderText(e.fodder)}</div>` : ''}</td>
-      <td>${fmtDur(e.round)}<br><span class="note" style="font-size:11px">${f(e.fuel)} D</span></td>
       <td class="${e.ok ? 'ok' : 'red'}">${Math.round(e.ch.win * 100)} %${e.ch.loss > 0 ? `<br><span class="note" style="font-size:11px">pertes ${f(e.ch.loss)}</span>` : ''}</td>
       <td class="${e.gain >= 0 ? 'ok' : 'red'}" style="font-weight:600">${e.gain >= 0 ? '+' : ''}${f(e.gain)}</td>
       <td>${e.ok ? f(e.perH) : '–'}</td>
-      <td style="white-space:nowrap"><button class="ghost" style="padding:4px 8px;font-size:12px" data-sim="${i}">Simuler</button> <button class="ghost" style="padding:4px 8px;font-size:12px" data-del="${esc(tg.key)}" aria-label="Supprimer">✕</button></td></tr>`; }).join('')}</tbody></table></div>`;
+      <td style="white-space:nowrap"><button class="ghost" style="padding:4px 8px;font-size:12px" data-sim="${i}">Simuler</button> <button class="ghost" style="padding:4px 8px;font-size:12px" data-del="${esc(tg.key)}" aria-label="Supprimer">✕</button></td></tr>${ex}`; }).join('')}</tbody></table></div>`;
   if ($('tgRedo')) $('tgRedo').onclick = () => { TG.force = true; renderTargets(); };
   $('tgOut').querySelectorAll('[data-sort]').forEach(b => b.onclick = () => { $('tgSort').value = b.dataset.sort; try { localStorage.setItem('og_tgsort', b.dataset.sort); } catch(e){} renderTargets(); });
   $('tgOut').querySelectorAll('[data-del]').forEach(b => b.onclick = () => { syDel('tg', [b.dataset.del]); TG.list = TG.list.filter(x => x.key !== b.dataset.del); tgSave(); renderTargets(); });
