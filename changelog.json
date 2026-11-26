@@ -1,5 +1,12 @@
 [
   {
+    "version": "1.6.3",
+    "date": "2026-11-26",
+    "notes": [
+      "Synchronisation : l'historique enregistré avant la version 1.5.0 n'est plus effacé à la fusion, et il est récupéré dans les premières versions du fichier GitHub quand c'est possible"
+    ]
+  },
+  {
     "version": "1.6.2",
     "date": "2026-11-26",
     "notes": [

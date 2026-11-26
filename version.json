@@ -1,8 +1,8 @@
 {
-  "v": "202611260109",
-  "version": "1.6.2",
+  "v": "202611260118",
+  "version": "1.6.3",
   "date": "2026-11-26",
   "notes": [
-    "Cibles : une flotte différente dans le nouvel export (vaisseaux en vol, missiles tirés) ne relance plus le calcul de toutes les cibles ; un message propose « Recalculer »"
+    "Synchronisation : l'historique enregistré avant la version 1.5.0 n'est plus effacé à la fusion, et il est récupéré dans les premières versions du fichier GitHub quand c'est possible"
   ]
 }

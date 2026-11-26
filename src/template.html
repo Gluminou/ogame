@@ -376,7 +376,7 @@ details.howto ol{margin:6px 0 6px;padding-left:22px}details.howto li{margin:4px 
 /*COMBAT*/
 </script>
 <script>
-const APP_RELEASE="1.6.2";
+const APP_RELEASE="1.6.3";
 const APP_DATE="2026-11-26";
 const APP_VERSION="/*VERSION*/"; // stamped by tools/build.js; update checks live in updates.js
 const DEFAULT_DATA = /*DATA*/;
@@ -1475,10 +1475,11 @@ function syMerge(L, R){
   }
   const tg = new Map();
   for (const x of [...(R.tg || []), ...(L.tg || [])]) { if (!x || !x.key) continue; const o = tg.get(x.key); if (!o || (x.at || 0) > (o.at || 0) || (x.at || 0) === (o.at || 0) && (x.added || 0) > (o.added || 0)) tg.set(x.key, x); }
-  M.tg = [...tg.values()].filter(x => !((M.del.tg[x.key] || 0) >= Math.max(x.at || 0, x.added || 0))); // pasted again after a deletion: kept
+  // dropped only when deleted after it was pasted (pasted again after a deletion: kept)
+  M.tg = [...tg.values()].filter(x => { const d = M.del.tg[x.key]; return !(d && d >= Math.max(x.at || 0, x.added || 0)); });
   const hi = new Map();
   for (const x of [...(R.hi || []), ...(L.hi || [])]) { if (!x || !x.id) continue; const o = hi.get(x.id); if (!o || (!o.detail && x.detail) || !!o.detail === !!x.detail && (x.added || 0) > (o.added || 0)) hi.set(x.id, x); }
-  M.hi = [...hi.values()].filter(x => !((M.del.hi[x.id] || 0) >= (x.added || 0))).sort((a, b) => (a.at || 0) - (b.at || 0));
+  M.hi = [...hi.values()].filter(x => { const d = M.del.hi[x.id]; return !(d && d >= (x.added || 0)); }).sort((a, b) => (a.at || 0) - (b.at || 0));
   return M;
 }
 function syApply(M){
@@ -1507,7 +1508,7 @@ function syRefresh(ch){
   if (ch.has('og_targets')) tgLoad();
   if (ch.has('og_hist')) hiLoad();
   const keys = [...ch].map(k => ({ og_data_v4: 'export', og_targets: 'cibles', og_hist: 'historique' })[k]).filter(Boolean);
-  SY.got = keys.length ? 'Reçu d\'un autre appareil : ' + keys.join(', ') + '.' : '';
+  SY.got = [SY.rescued || '', keys.length ? 'Reçu d\'un autre appareil : ' + keys.join(', ') + '.' : ''].filter(Boolean).join(' '); SY.rescued = '';
   run();
 }
 async function syApi(path, opt = {}){
@@ -1529,12 +1530,30 @@ async function sySync(){
   try {
     let R; try { R = await syPull(); } catch(e){ if (e.status !== 404) throw e; await syFind(); R = await syPull(); } // gist deleted on GitHub: find or make another
     const R0 = R || { v: 1, kv: {}, del: { tg: {}, hi: {} }, tg: [], hi: [] };
-    const M = syMerge(sySnap(), R0), ch = syApply(M);
+    const L = sySnap(); await syRescue(L);
+    const M = syMerge(L, R0), ch = syApply(M);
     if (JSON.stringify(M) !== JSON.stringify(syMerge({ kv: {}, del: {}, tg: [], hi: [] }, R0))) await syPush(M);
     SY.last = Date.now(); SY.err = ''; try { localStorage.setItem('og_sync_last', String(SY.last)); } catch(e){}
     syRefresh(ch);
   } catch(e){ SY.err = e.message || String(e); }
   finally { SY.busy = false; syShow(); if (SY.again) { SY.again = false; sySync(); } }
+}
+// 1.5.0 to 1.6.2 dropped, while merging, history entries saved before 1.5.0 (no "added" date).
+// Once per device: take back from the gist's first versions what was lost, unless it was deleted on purpose.
+async function syRescue(L){
+  if (localStorage.getItem('og_sync_rescue1')) return;
+  try {
+    let vs = [];
+    for (let page = 1; page <= 10; page++) { const c = await syApi(`/gists/${SY.cfg.id}/commits?per_page=100&page=${page}`); vs = vs.concat(c); if (c.length < 100) break; }
+    const oldest = vs.slice(-3).reverse(); const have = new Set(L.hi.map(x => x.id)); let nH = 0;
+    for (const v of oldest) {
+      const g = await syApi(`/gists/${SY.cfg.id}/${v.version}`), f = g.files && g.files[SY_FILE]; if (!f) continue;
+      const old = syJ(f.truncated ? await (await fetch(f.raw_url, { cache: 'no-store' })).text() : f.content, null); if (!old) continue;
+      for (const x of old.hi || []) if (x && x.id && !have.has(x.id) && !(L.del.hi || {})[x.id]) { L.hi.push(x); have.add(x.id); nH++; }
+    }
+    if (nH) SY.rescued = `${nH} entrée${nH > 1 ? 's' : ''} d'historique récupérée${nH > 1 ? 's' : ''}.`;
+    localStorage.setItem('og_sync_rescue1', String(Date.now()));
+  } catch(e){}
 }
 async function syFind(){
   const list = await syApi('/gists?per_page=100'), g = list.find(x => x.files && x.files[SY_FILE]);
