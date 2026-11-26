@@ -376,7 +376,7 @@ details.howto ol{margin:6px 0 6px;padding-left:22px}details.howto li{margin:4px 
 /*COMBAT*/
 </script>
 <script>
-const APP_RELEASE="1.6.6";
+const APP_RELEASE="1.6.7";
 const APP_DATE="2026-11-26";
 const APP_VERSION="/*VERSION*/"; // stamped by tools/build.js; update checks live in updates.js
 const DEFAULT_DATA = /*DATA*/;
@@ -1371,8 +1371,8 @@ function hiItem(e, S){
       ${!e.detail ? '<p class="note">Détail indisponible pour ce message : recolle le rapport pour le voir.</p>' : ''}
     </div>`;
   return `<details style="border-top:1px solid var(--line);padding:8px 0"><summary style="cursor:pointer;list-style:none;display:flex;gap:8px;align-items:center;justify-content:space-between;font-size:13px">
-      <span style="min-width:0"><span class="note">${esc(hiWhen(e.at))}</span><br><b>${who}</b> <span class="note">[${esc(e.coords)}]</span><br><span class="note">${esc(fleetTxtU(d.att && d.att.units)) || ''}</span></span>
-      <span style="text-align:right;white-space:nowrap"><b class="${net >= 0 ? 'ok' : 'red'}">${net >= 0 ? '+' : ''}${f(net)}</b><br><span class="note" style="font-size:11px">butin ${f(msu(e.loot))}</span></span>${del}</summary>${body}</details>`;
+      <span style="flex:1;min-width:0"><span class="note">${esc(hiWhen(e.at))}</span><br><b>${who}</b> <span class="note">[${esc(e.coords)}]</span><br><span class="note">${esc(fleetTxtU(d.att && d.att.units)) || ''}</span></span>
+      <span style="text-align:right;white-space:nowrap;min-width:84px"><b class="${net >= 0 ? 'ok' : 'red'}">${net >= 0 ? '+' : ''}${f(net)}</b><br><span class="note" style="font-size:11px">butin ${f(msu(e.loot))}</span></span>${del}</summary>${body}</details>`;
 }
 function renderHisto(){
   if (!$('hiOut')) return;
