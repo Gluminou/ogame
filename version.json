@@ -1,8 +1,9 @@
 {
-  "v": "202611270233",
-  "version": "1.10.0",
+  "v": "202611270433",
+  "version": "1.10.1",
   "date": "2026-11-27",
   "notes": [
-    "Nouvel onglet Flotte : les vaisseaux à construire dans l'ordre, d'après tes rapports d'espionnage, avec le gain débloqué, le coût, le temps de chantier et le nombre de raids pour les rembourser"
+    "Flotte : les renforts ne sont recalculés qu'avec un nouvel export (ou d'autres réglages), plus à chaque ouverture ; résultat gardé entre deux visites",
+    "Flotte : calcul environ deux fois plus rapide (recherche allégée, plusieurs cœurs du téléphone en parallèle)"
   ]
 }

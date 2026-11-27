@@ -1394,9 +1394,9 @@ if (typeof module !== 'undefined') module.exports = CB;
 
 </script>
 <script>
-const APP_RELEASE="1.10.0";
+const APP_RELEASE="1.10.1";
 const APP_DATE="2026-11-27";
-const APP_VERSION="202611270233"; // stamped by tools/build.js; update checks live in updates.js
+const APP_VERSION="202611270433"; // stamped by tools/build.js; update checks live in updates.js
 const DEFAULT_DATA = "";
 const TEMPLATE = `Planete: NomDeLaPlanete
 Coordonnees: 1:100:8
@@ -1630,7 +1630,7 @@ const DZ = { key: null, val: null, pending: null };
 const DEFKEY = { RL: 'dRL', LL: 'dLL', HL: 'dHL', GC: 'dGauss', IC: 'dIon', PT: 'dPlasma', SS: 'dSS', LS: 'dLS' };
 // heavy simulations run in a background worker: the buttons stay responsive while they compute.
 // The worker gets the engine and combat code (the #lib script) plus the target functions of this page.
-const BG = (() => {
+const makeBG = () => {
   let w = null, tried = false, n = 0; const wait = new Map();
   const fail = () => { w = null; wait.forEach(p => p.retry()); wait.clear(); };
   const start = () => { // created on first use, once every constant of the page exists
@@ -1653,7 +1653,12 @@ onmessage = e => { const { id, fn, args, ctx } = e.data; let r, err;
     if (!w) return local(fn, args); // no worker: same result, computed on the page
     return new Promise((ok, no) => { const id = ++n; wait.set(id, { ok, no, retry: () => local(fn, args).then(ok, no) });
       try { w.postMessage({ id, fn, args, ctx }); } catch (e) { wait.delete(id); local(fn, args).then(ok, no); } }); };
-})();
+};
+const BG = makeBG();
+// a few more workers for long batches (Fleet tab): the phone's cores work side by side
+const BGPOOL = (() => { let pool = null; return () => pool || (pool = [BG, ...Array.from({ length: Math.max(0, Math.min(3, (navigator.hardwareConcurrency || 2) - 2)) }, makeBG)]); })();
+async function bgMany(jobs, onDone){ const pool = BGPOOL(); let next = 0;
+  await Promise.all(pool.map(async bg => { while (next < jobs.length) { const j = jobs[next++]; let r = null; try { r = await bg(j.fn, j.args, j.ctx); } catch (e) {} onDone(j, r); } })); }
 function defenseFor(text, S){
   let h = 0; for (let i = 0; i < text.length; i++) h = (h * 31 + text.charCodeAt(i)) | 0;
   const key = [h, S.threat, S.ratioC, S.ratioD].join('|');
@@ -2016,7 +2021,8 @@ function idealFleet(avail, def, p, coords, R, S, server, minWin, planets){
   const tech = { weap: R.rWeap || 0, shield: R.rShield || 0, armour: R.rArmour || 0 };
   const opts = { runs: 24, lootPct: def.lootPct, dfShips: ((server && server.dfShips) ?? 40) / 100, dfDef: ((server && server.dfDef) ?? 0) / 100, dfDeut: !(server && server.dfDeut === false), hyperA: R.rHyper || 0, attackerCollector: S.collector };
   const base = {}; ['LF', 'HF', 'Cr', 'BS', 'BC', 'Bo', 'De', 'RIP', 'Re', 'LC', 'SC'].forEach(k => { if (avail[k]) base[k] = avail[k]; });
-  const win = (k, n) => { const u = Object.assign({}, base); u[k] = (u[k] || 0) + n; const st = CB.simulate({ units: u, tech }, def, opts); return st.A / st.n; };
+  const optsQ = Object.assign({}, opts, { runs: 12 }); // the search only needs a rough answer, the optimiser below checks it
+  const win = (k, n) => { const u = Object.assign({}, base); u[k] = (u[k] || 0) + n; const st = CB.simulate({ units: u, tech }, def, optsQ); return st.A / st.n; };
   const capLC = 25000 * (1 + 0.05 * (R.rHyper || 0) + (S.collector ? 0.25 : 0));
   const lootWant = ((def.res.m || 0) + (def.res.c || 0) + (def.res.d || 0)) * def.lootPct;
   const addLC = Math.max(0, Math.ceil(lootWant / capLC) - (avail.LC || 0));
@@ -2035,7 +2041,7 @@ function idealFleet(avail, def, p, coords, R, S, server, minWin, planets){
   // 2. the two cheapest: trim with the optimiser and count the gain
   const out = [];
   // more ships than the bare minimum often cut losses enough to pay off sooner: try x1, x2, x3 on the cheapest type
-  const trials = [...[1, 2, 3].map(m => ({ k: cands[0].k, n: cands[0].n * m })), ...cands.slice(1, 2)].filter(c => c.n * unitCost(c.k) <= budget * 1.5);
+  const trials = [...[1, 2].map(m => ({ k: cands[0].k, n: cands[0].n * m })), ...cands.slice(1, 2)].filter(c => c.n * unitCost(c.k) <= budget * 1.5);
   for (const c of trials) {
     for (let tryN = c.n, t = 0; t < 2; t++, tryN = Math.ceil(tryN * 1.3)) {
       const av = Object.assign({}, avail); av[c.k] = (av[c.k] || 0) + tryN; av.LC = (av.LC || 0) + addLC;
@@ -2220,7 +2226,9 @@ function renderTargets(){
 // For each target your fleet does not pass, the cheapest reinforcement that wins it and pays (idealFleet, in the background).
 // Then, greedily, the purchase that unlocks the most gain per resource spent, the next one on top of it, and so on,
 // as long as it pays back within 30 raids. Plus the large cargos missing for the loot and the probes.
-const FL = { cache: {}, busy: false, last: null };
+const FL = { cache: null, busy: false };
+function flCacheLoad(){ if (!FL.cache) { try { FL.cache = JSON.parse(store.get('og_fleet_cache') || '{}') || {}; } catch (e) { FL.cache = {}; } } }
+function flCacheSave(){ const keep = {}; TG.list.forEach(tg => { const k = tg.key + tg.at; if (FL.cache[k]) keep[k] = FL.cache[k]; }); FL.cache = keep; try { localStorage.setItem('og_fleet_cache', JSON.stringify(keep)); } catch (e) {} }
 function flShipH(k, p, S){ const c = CB.U[k]; return (c[1] + c[2]) / (2500 * (1 + (p.b.shipyard || 0)) * 2 ** (p.b.nanite || 0)) / (S.speed || 1); }
 async function renderFleet(force){
   const out = $('flOut'); if (!out) return;
@@ -2238,20 +2246,22 @@ async function renderFleet(force){
   if (!tgs.length) { out.innerHTML = `<div class="panel note">Aucune cible exploitable${maxDays ? ' assez récente' : ''}. Ajoute des rapports d'espionnage complets dans l'onglet Cibles${missing ? ` (${missing} en attente de calcul ou à resonder)` : ''}.</div>`; return; }
   const minWin = Math.min(1, Math.max(0.5, (+$('tgMinWin').value || 95) / 100));
   const avail = {}; CB.ATTACK_SHIPS.forEach(k => avail[k] = p.b[SHIPKEY[k]] || 0);
-  const sig = JSON.stringify([p.name, avail, minWin, S.collector, Math.round(S.ratioC * 2), Math.round(S.ratioD * 2), ['rWeap', 'rShield', 'rArmour', 'rHyper', 'rComb', 'rImp', 'rHD', 'rIon', 'rLaser', 'rPlasma'].map(k => R[k] || 0), Math.max(0, ...res.planets.map(q => q.b.shipyard || 0))]);
+  // recomputed for a new export (or other settings), not at each visit
+  flCacheLoad();
+  const sig = JSON.stringify([res.exportedAt || 0, p.name, minWin, $('tgDebris').checked, S.collector, Math.round(S.ratioC * 2), Math.round(S.ratioD * 2), ['rWeap', 'rShield', 'rArmour', 'rHyper', 'rComb', 'rImp', 'rHD', 'rIon', 'rLaser', 'rPlasma'].map(k => R[k] || 0), Math.max(0, ...res.planets.map(q => q.b.shipyard || 0))]);
   const ok = tgs.filter(x => x.e.ok), ko = tgs.filter(x => !x.e.ok);
   const todo = ko.filter(x => force || !FL.cache[x.tg.key + x.tg.at] || FL.cache[x.tg.key + x.tg.at].sig !== sig);
   if (todo.length && !FL.busy) {
-    FL.busy = true; let i = 0; out.innerHTML = `<div class="panel note">Recherche des renforts… 0/${todo.length}</div>`;
+    FL.busy = true; let i = 0; const t0 = Date.now(); out.innerHTML = `<div class="panel note">Recherche des renforts… 0/${todo.length}</div>`;
     const ctx = { ui: { tgDebris: { checked: $('tgDebris').checked }, tgProbes: { value: $('tgProbes').value } }, parsed: CS.parsed };
-    for (const x of todo) {
-      const r = x.e.r, myTech = { weap: R.rWeap || 0, shield: R.rShield || 0, armour: R.rArmour || 0 };
+    const myTech = { weap: R.rWeap || 0, shield: R.rShield || 0, armour: R.rArmour || 0 };
+    // the richest targets first: they are the likeliest to matter
+    const jobs = todo.slice().sort((a, b) => (b.e.lootWant || 0) - (a.e.lootWant || 0)).map(x => { const r = x.e.r;
       const def = { units: r.units, tech: r.tech.weap != null ? { weap: r.tech.weap || 0, shield: r.tech.shield || 0, armour: r.tech.armour || 0 } : myTech, res: r.res, lootPct: (r.lootPct || 50) / 100 };
-      let ideal = null; try { ideal = await BG('idealFleet', [avail, def, p, r.coords, R, S, res.server || {}, minWin, res.planets], ctx); } catch (e) {}
-      FL.cache[x.tg.key + x.tg.at] = { sig, ideal }; i++;
-      if (location.hash === '#flotte') out.innerHTML = `<div class="panel note">Recherche des renforts… ${i}/${todo.length}</div>`;
-    }
-    FL.busy = false; renderFleet(); return;
+      return { x, fn: 'idealFleet', args: [avail, def, p, r.coords, R, S, res.server || {}, minWin, res.planets], ctx }; });
+    await bgMany(jobs, (j, ideal) => { FL.cache[j.x.tg.key + j.x.tg.at] = { sig, ideal }; i++;
+      if (location.hash === '#flotte') out.innerHTML = `<div class="panel note">Recherche des renforts… ${i}/${todo.length}</div>`; });
+    flCacheSave(); FL.ms = Date.now() - t0; FL.busy = false; renderFleet(); return;
   }
   if (FL.busy) return;
   const msu = k => CB.U[k][1] + CB.U[k][2] * S.ratioC + CB.U[k][3] * S.ratioD;
@@ -2623,7 +2633,7 @@ function init(){
   try { const pv = localStorage.getItem('og_probes'); if (pv) $('tgProbes').value = pv; } catch(e){}
   $('tgProbes').addEventListener('change', () => store.set('og_probes', String(probesSent())));
   ['tgFrom','tgMinWin','tgDebris','tgProbes'].forEach(id => $(id).addEventListener('change', renderTargets));
-  $('flFrom').addEventListener('change', () => renderFleet()); $('flAge').addEventListener('change', () => renderFleet()); $('flRedo').onclick = () => renderFleet(true);
+  $('flFrom').addEventListener('change', () => renderFleet()); $('flAge').addEventListener('change', () => { store.set('og_flage', $('flAge').value); renderFleet(); }); { const a = store.get('og_flage'); if (a != null) $('flAge').value = a; } $('flRedo').onclick = () => renderFleet(true);
   ['exTop1','exFrom','exMult','exSlots'].forEach(id => $(id).addEventListener('change', () => { store.set('og_exp', JSON.stringify({ top1: $('exTop1').value, mult: $('exMult').value, slots: $('exSlots').value })); renderExpe(); }));
   loadExp();
   hiLoad();
