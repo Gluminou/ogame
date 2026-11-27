@@ -1,9 +1,8 @@
 {
-  "v": "202611260556",
-  "version": "1.9.0",
-  "date": "2026-11-26",
+  "v": "202611270233",
+  "version": "1.10.0",
+  "date": "2026-11-27",
   "notes": [
-    "Cibles : colonnes « Rapport » (âge du rapport) et « Dernier raid », plus de seconde ligne sous les cibles",
-    "Cibles : tri en touchant l'en-tête d'une colonne (liste « Trier » sur iPhone), et filtres : victoire assurée, gain positif, jamais attaquées, âge du rapport, butin minimum, recherche par joueur ou coordonnées"
+    "Nouvel onglet Flotte : les vaisseaux à construire dans l'ordre, d'après tes rapports d'espionnage, avec le gain débloqué, le coût, le temps de chantier et le nombre de raids pour les rembourser"
   ]
 }

@@ -1,5 +1,12 @@
 [
   {
+    "version": "1.10.0",
+    "date": "2026-11-27",
+    "notes": [
+      "Nouvel onglet Flotte : les vaisseaux à construire dans l'ordre, d'après tes rapports d'espionnage, avec le gain débloqué, le coût, le temps de chantier et le nombre de raids pour les rembourser"
+    ]
+  },
+  {
     "version": "1.9.0",
     "date": "2026-11-26",
     "notes": [
