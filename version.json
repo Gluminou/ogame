@@ -1,9 +1,10 @@
 {
-  "v": "202611280553",
-  "version": "1.10.3",
+  "v": "202611280841",
+  "version": "1.10.4",
   "date": "2026-11-28",
   "notes": [
-    "Historique : butin et débris en millions (« 1,379M ») bien lus dans les rapports de combat",
-    "Historique : pertes de l'attaquant retrouvées grâce au champ de débris quand l'export ne suffit pas (chasseurs lourds, grands transporteurs…), gain net calculé aux taux d'échange"
+    "Flotte : chaque type de vaisseau constructible est essayé (et un mélange des deux meilleurs), le choix se fait sur le gain moins les pertes à chaque raid, plus seulement sur le coût",
+    "Flotte : une cible qui a surtout une flotte ne rapporte qu'une fois, le renfort doit être remboursé dès ce raid ; sinon en 3 raids au plus",
+    "Flotte : les autres options et les vaisseaux qui ne passent pas sont affichés sous chaque étape"
   ]
 }

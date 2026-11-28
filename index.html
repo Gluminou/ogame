@@ -1394,9 +1394,9 @@ if (typeof module !== 'undefined') module.exports = CB;
 
 </script>
 <script>
-const APP_RELEASE="1.10.3";
+const APP_RELEASE="1.10.4";
 const APP_DATE="2026-11-28";
-const APP_VERSION="202611280553"; // stamped by tools/build.js; update checks live in updates.js
+const APP_VERSION="202611280841"; // stamped by tools/build.js; update checks live in updates.js
 const DEFAULT_DATA = "";
 const TEMPLATE = `Planete: NomDeLaPlanete
 Coordonnees: 1:100:8
@@ -2026,7 +2026,7 @@ function idealFleet(avail, def, p, coords, R, S, server, minWin, planets){
   const capLC = 25000 * (1 + 0.05 * (R.rHyper || 0) + (S.collector ? 0.25 : 0));
   const lootWant = ((def.res.m || 0) + (def.res.c || 0) + (def.res.d || 0)) * def.lootPct;
   const addLC = Math.max(0, Math.ceil(lootWant / capLC) - (avail.LC || 0));
-  const budget = Math.max(30 * lootWant, 2e6); // reinforcements must pay back within about 30 raids
+  const budget = Math.max(6 * lootWant, 2e6); // reinforcements must pay back within a few raids
   // 1. for each ship type you can build: how many to add to win
   const cands = [];
   for (const k of buildableShips(R, planets)) {
@@ -2038,26 +2038,37 @@ function idealFleet(avail, def, p, coords, R, S, server, minWin, planets){
   }
   if (!cands.length) return { none: true, budget };
   cands.sort((a, b) => a.est - b.est);
-  // 2. the two cheapest: trim with the optimiser and count the gain
+  // 2. the cheapest types, and a mix of the two cheapest: trim with the optimiser and count gain and losses.
+  // The pick is the one that pays back in the fewest raids (losses at each raid count), not the cheapest to build.
   const out = [];
-  // more ships than the bare minimum often cut losses enough to pay off sooner: try x1, x2, x3 on the cheapest type
-  const trials = [...[1, 2].map(m => ({ k: cands[0].k, n: cands[0].n * m })), ...cands.slice(1, 2)].filter(c => c.n * unitCost(c.k) <= budget * 1.5);
+  const trials = [...cands.slice(0, 4).map(c => ({ add: { [c.k]: c.n }, k: c.k })), ...(cands.length > 1 ? [{ add: { [cands[0].k]: Math.ceil(cands[0].n * 0.6), [cands[1].k]: Math.ceil(cands[1].n * 0.6) }, k: 'mix' }] : [])]
+    .filter(c => Object.entries(c.add).reduce((a, [k, n]) => a + n * unitCost(k), 0) <= budget * 1.5);
   for (const c of trials) {
-    for (let tryN = c.n, t = 0; t < 2; t++, tryN = Math.ceil(tryN * 1.3)) {
-      const av = Object.assign({}, avail); av[c.k] = (av[c.k] || 0) + tryN; av.LC = (av.LC || 0) + addLC;
+    for (let mult = 1, t = 0; t < 2; t++, mult *= 1.3) {
+      const av = Object.assign({}, avail); Object.entries(c.add).forEach(([k, n]) => av[k] = (av[k] || 0) + Math.ceil(n * mult)); av.LC = (av.LC || 0) + addLC;
       const o = bestFleet(av, def, p, coords, R, S, server, minWin, 40, 50);
       if (!o || o.impossible) continue;
       const u = o.best.units; const build = {};
       Object.keys(u).forEach(x => { const need = u[x] - (avail[x] || 0); if (need > 0) build[x] = need; });
       const cost = Object.entries(build).reduce((a, [x, n]) => a + n * unitCost(x), 0);
       const debris = $('tgDebris').checked ? o.debris : 0; const gain = o.lootExp + debris - o.best.loss - o.trip.msu;
-      out.push({ build, cost, units: u, win: o.best.win, loss: o.best.loss, gain, raids: gain > 0 ? Math.ceil(cost / gain) : Infinity, round: o.trip.h });
+      out.push({ kind: c.k, build, cost, units: u, win: o.best.win, loss: o.best.loss, gain, raids: gain > 0 ? Math.ceil(cost / gain) : Infinity, round: o.trip.h });
       break;
     }
   }
   if (!out.length) return { none: true, budget };
-  out.sort((a, b) => (a.raids - b.raids) || (a.cost - b.cost));
-  return out[0];
+  // A target with a real fleet is a one-off: once its fleet is destroyed, the next raids bring only the loot.
+  // Then a reinforcement must pay for itself in that one raid. Otherwise over three raids: a target's stock is taken by the first one,
+  // later raids only get what it produced meanwhile, so counting more raids would flatter big, lossy fleets.
+  const fleetVal = CB.SHIPS.filter(k => !['Sat', 'EP', 'Col'].includes(k)).reduce((a, k) => a + (def.units[k] || 0) * (CB.U[k][1] + CB.U[k][2]), 0);
+  const oneShot = fleetVal > 0.2 * Math.max(1, lootWant + fleetVal * opts.dfShips);
+  out.forEach(x => { x.value = (oneShot ? 1 : 3) * x.gain - x.cost; x.oneShot = oneShot; });
+  out.sort((a, b) => b.value - a.value);
+  // the other options, and the types that cannot win within the budget, so the choice can be checked
+  const tried = new Set(out.map(x => x.kind));
+  return Object.assign({}, out[0], { alts: out.slice(1).map(x => ({ kind: x.kind, build: x.build, cost: x.cost, gain: x.gain, raids: x.raids, win: x.win, loss: x.loss, value: x.value })),
+    noWin: buildableShips(R, planets).filter(k => !cands.some(c => c.k === k) && ['LF', 'HF', 'Cr', 'BS', 'BC', 'Bo', 'De', 'RIP', 'Re'].includes(k)),
+    slower: cands.filter(c => !tried.has(c.k)).map(c => c.k) });
 }
 function evalTarget(tg, src, R, S, server, minWin, lite){ // lite: the Targets tab only ranks raids (advice is in the Combat tab)
   const r = CB.parseReport(tg.text); const p = src.p; const avail = {}; CB.ATTACK_SHIPS.forEach(k => avail[k] = p.b[SHIPKEY[k]] || 0);
@@ -2114,7 +2125,7 @@ function ipmOption(r, def, avail, p, R, S, server, minWin, base){
 }
 function idealHtml(e){
   const x = e.ideal; if (!x) return ''; const f = OG.fmt;
-  if (x.none) return `<div class="note" style="font-size:12px;margin-top:4px">Flotte idéale : aucun renfort que tu peux construire ne gagne pour moins de ${f(x.budget)} (30 raids de butin). Cible à laisser pour l'instant.</div>`;
+  if (x.none) return `<div class="note" style="font-size:12px;margin-top:4px">Flotte idéale : aucun renfort que tu peux construire ne gagne pour moins de ${f(x.budget)} (6 raids de butin). Cible à laisser pour l'instant.</div>`;
   const pay = x.gain > 0 ? `rentabilisés en ${x.raids} raid${x.raids > 1 ? 's' : ''}` : `<span class="red">pas rentable (${f(x.gain)} par raid)</span>`;
   return `<div style="font-size:12.5px;margin-top:6px;padding:6px 8px;border-radius:6px;background:#0e1529"><b>Flotte idéale :</b> construis <b>${esc(fleetTxt(x.build))}</b> (${f(x.cost)})<br>
     puis envoie ${esc(fleetTxt(x.units))} : victoire ${Math.round(x.win * 100)} %, gain <b class="${x.gain >= 0 ? 'ok' : 'red'}">${x.gain >= 0 ? '+' : ''}${f(x.gain)}</b> par raid, ${pay}.</div>`;
@@ -2225,11 +2236,19 @@ function renderTargets(){
 // ---------- Fleet tab: what to build next, from the spied targets ----------
 // For each target your fleet does not pass, the cheapest reinforcement that wins it and pays (idealFleet, in the background).
 // Then, greedily, the purchase that unlocks the most gain per resource spent, the next one on top of it, and so on,
-// as long as it pays back within 30 raids. Plus the large cargos missing for the loot and the probes.
+// as long as it pays back within 3 raids (1 against a target that is mostly a fleet). Plus the large cargos missing for the loot and the probes.
 const FL = { cache: null, busy: false };
 function flCacheLoad(){ if (!FL.cache) { try { FL.cache = JSON.parse(store.get('og_fleet_cache') || '{}') || {}; } catch (e) { FL.cache = {}; } } }
 function flCacheSave(){ const keep = {}; TG.list.forEach(tg => { const k = tg.key + tg.at; if (FL.cache[k]) keep[k] = FL.cache[k]; }); FL.cache = keep; try { localStorage.setItem('og_fleet_cache', JSON.stringify(keep)); } catch (e) {} }
 function flShipH(k, p, S){ const c = CB.U[k]; return (c[1] + c[2]) / (2500 * (1 + (p.b.shipyard || 0)) * 2 ** (p.b.nanite || 0)) / (S.speed || 1); }
+// the options set aside for a step, with why
+function flAlts(id){
+  if (!id || (!(id.alts || []).length && !(id.noWin || []).length)) return '';
+  const f = OG.fmt, nm = k => esc(unitName(k, 2));
+  const alts = (id.alts || []).filter(a => a.gain > 0).slice(0, 3).map(a => `${Object.entries(a.build).filter(([k]) => k !== 'LC').map(([k, n]) => `${n} ${esc(unitName(k, n))}`).join(' + ') || 'rien'} (coût ${f(a.cost)}, gain ${f(a.gain)}, pertes ${f(a.loss)})`);
+  const no = (id.noWin || []).map(nm);
+  return `<div class="note" style="font-size:12px;margin-top:2px">${alts.length ? `Autres options : ${alts.join(' ; ')}.` : ''}${no.length ? ` Ne gagnent pas pour un coût raisonnable : ${no.join(', ')}.` : ''}${id.loss != null ? ` Option retenue : coût ${f(id.cost)}, pertes ${f(id.loss)}${id.oneShot ? '' : ' par raid'}.` : ''}</div>`;
+}
 async function renderFleet(force){
   const out = $('flOut'); if (!out) return;
   const res = CS.parsed, S = settings(), f = OG.fmt;
@@ -2248,7 +2267,7 @@ async function renderFleet(force){
   const avail = {}; CB.ATTACK_SHIPS.forEach(k => avail[k] = p.b[SHIPKEY[k]] || 0);
   // recomputed for a new export (or other settings), not at each visit
   flCacheLoad();
-  const sig = JSON.stringify([res.exportedAt || 0, p.name, minWin, $('tgDebris').checked, S.collector, Math.round(S.ratioC * 2), Math.round(S.ratioD * 2), ['rWeap', 'rShield', 'rArmour', 'rHyper', 'rComb', 'rImp', 'rHD', 'rIon', 'rLaser', 'rPlasma'].map(k => R[k] || 0), Math.max(0, ...res.planets.map(q => q.b.shipyard || 0))]);
+  const sig = JSON.stringify(['v4', res.exportedAt || 0, p.name, minWin, $('tgDebris').checked, S.collector, Math.round(S.ratioC * 2), Math.round(S.ratioD * 2), ['rWeap', 'rShield', 'rArmour', 'rHyper', 'rComb', 'rImp', 'rHD', 'rIon', 'rLaser', 'rPlasma'].map(k => R[k] || 0), Math.max(0, ...res.planets.map(q => q.b.shipyard || 0))]);
   const ok = tgs.filter(x => x.e.ok), ko = tgs.filter(x => !x.e.ok);
   const todo = ko.filter(x => force || !FL.cache[x.tg.key + x.tg.at] || FL.cache[x.tg.key + x.tg.at].sig !== sig);
   if (todo.length && !FL.busy) {
@@ -2271,9 +2290,9 @@ async function renderFleet(force){
   while (left.length) {
     let best = null;
     for (const o of left) { const add = {}; Object.entries(o.id.build).forEach(([k, n]) => { const d = n - (E[k] || 0); if (d > 0) add[k] = d; });
-      const mc = costOf(add), score = mc / o.id.gain; if (!best || score < best.score) best = { o, add, mc, score }; }
-    if (best.score > 30) break;
-    steps.push({ name: best.o.x.e.r.player, coords: best.o.x.e.r.coords, add: best.add, mc: best.mc, gain: best.o.id.gain, raids: Math.max(1, Math.ceil(best.score)), win: best.o.id.win });
+      const mc = costOf(add), score = mc / o.id.gain, lim = o.id.oneShot ? 1 : 3; if (score <= lim && (!best || score / lim < best.score / best.lim)) best = { o, add, mc, score, lim }; }
+    if (!best) break;
+    steps.push({ name: best.o.x.e.r.player, coords: best.o.x.e.r.coords, add: best.add, mc: best.mc, gain: best.o.id.gain, raids: Math.max(1, Math.ceil(best.score)), win: best.o.id.win, id: best.o.id, oneShot: best.o.id.oneShot });
     Object.entries(best.add).forEach(([k, n]) => E[k] = (E[k] || 0) + n); left = left.filter(o => o !== best.o);
     // targets whose reinforcement is already covered come for free
     left = left.filter(o => { const covered = Object.entries(o.id.build).every(([k, n]) => (E[k] || 0) >= n); if (covered) steps.push({ name: o.x.e.r.player, coords: o.x.e.r.coords, add: {}, mc: 0, gain: o.id.gain, raids: 0, win: o.id.win }); return !covered; });
@@ -2292,10 +2311,10 @@ async function renderFleet(force){
   const c3 = res3(total), hT = hours(total);
   const intro = `<div class="panel"><h2>Où tu en es</h2><p style="margin:6px 0 0">Depuis <b>${esc(p.name)}</b>, ta flotte passe <b>${ok.length}</b> cible${ok.length > 1 ? 's' : ''} sur ${tgs.length} (gain ${f(gainOk)} pour une tournée de raids).${steps.length ? ` Avec les renforts ci-dessous : <b>${ok.length + steps.length}</b> cibles, <b class="ok">+${f(gainNew)}</b> de plus par tournée.` : ''}</p>
     <p class="note" style="margin:6px 0 0">Calculé sur ${tgs.length} rapport${tgs.length > 1 ? 's' : ''} de l'onglet Cibles${missing ? ` (${missing} autre${missing > 1 ? 's' : ''} à resonder ou en attente)` : ''}. Plus tu as de rapports récents, plus ce conseil est fiable.</p></div>`;
-  const stepsHtml = steps.length ? `<div class="panel"><h2>À construire, dans l'ordre</h2><ol style="margin:8px 0 0;padding-left:20px;line-height:1.55">${steps.map(s => `<li style="margin-bottom:8px">${Object.keys(s.add).length ? `${ftxt(s.add)} <span class="note">(${(([m, c, d]) => [[m, 'métal'], [c, 'cristal'], [d, 'deut']].filter(x => x[0] > 0).map(x => f(x[0]) + ' ' + x[1]).join(', '))(res3(s.add))}, ${fmtDur(hours(s.add))} au chantier)</span>` : '<span class="ok">Rien de plus</span>'} : débloque <b>${esc(s.name || '?')}</b> <span class="note">[${esc(s.coords)}]</span>, <b class="ok">+${f(s.gain)}</b> par raid (victoire ${Math.round(s.win * 100)} %)${s.raids ? `, remboursé en ${s.raids} raid${s.raids > 1 ? 's' : ''}` : ''}.</li>`).join('')}</ol></div>`
-    : `<div class="panel note">${ko.length ? 'Aucun renfort ne se rembourse en moins de 30 raids sur les cibles que tu ne passes pas encore.' : 'Ta flotte passe déjà toutes tes cibles.'}</div>`;
+  const stepsHtml = steps.length ? `<div class="panel"><h2>À construire, dans l'ordre</h2><ol style="margin:8px 0 0;padding-left:20px;line-height:1.55">${steps.map(s => `<li style="margin-bottom:8px">${Object.keys(s.add).length ? `${ftxt(s.add)} <span class="note">(${(([m, c, d]) => [[m, 'métal'], [c, 'cristal'], [d, 'deut']].filter(x => x[0] > 0).map(x => f(x[0]) + ' ' + x[1]).join(', '))(res3(s.add))}, ${fmtDur(hours(s.add))} au chantier)</span>` : '<span class="ok">Rien de plus</span>'} : débloque <b>${esc(s.name || '?')}</b> <span class="note">[${esc(s.coords)}]</span>, ${s.oneShot ? `<b class="ok">+${f(s.gain)}</b> en une fois, sa flotte détruite (victoire ${Math.round(s.win * 100)} %)${s.mc ? ', remboursé dès ce raid' : ''}` : `<b class="ok">+${f(s.gain)}</b> par raid (victoire ${Math.round(s.win * 100)} %)${s.raids ? `, remboursé en ${s.raids} raid${s.raids > 1 ? 's' : ''}` : ''}`}.${flAlts(s.id)}</li>`).join('')}</ol></div>`
+    : `<div class="panel note">${ko.length ? 'Aucun renfort ne se rembourse assez vite (en 3 raids, ou dès le premier contre une flotte) sur les cibles que tu ne passes pas encore.' : 'Ta flotte passe déjà toutes tes cibles.'}</div>`;
   const done = new Set(steps.map(s => s.coords)), out30 = ko.filter(x => !done.has(x.e.r.coords));
-  const skipHtml = out30.length ? `<div class="panel note">Pas rentables à débloquer pour l'instant (renfort remboursé en plus de 30 raids, ou aucun vaisseau que tu sais construire ne passe) : ${out30.map(x => `${esc(x.e.r.player || '?')} [${esc(x.e.r.coords)}]`).join(', ')}.</div>` : '';
+  const skipHtml = out30.length ? `<div class="panel note">Pas rentables à débloquer pour l'instant (renfort non remboursé en 3 raids, ou en un seul raid pour une cible qui a surtout une flotte, ou aucun vaisseau que tu sais construire ne passe) : ${out30.map(x => `${esc(x.e.r.player || '?')} [${esc(x.e.r.coords)}]`).join(', ')}.</div>` : '';
   const extraHtml = extra.length ? `<div class="panel"><h2>En plus</h2><ul style="margin:8px 0 0;padding-left:20px;line-height:1.55">${extra.map(x => `<li>${x.what} ${esc(x.why)}.</li>`).join('')}</ul></div>` : '';
   const ks = CB.ATTACK_SHIPS.filter(k => k !== 'Col' && (avail[k] || total[k]));
   const tableHtml = Object.keys(total).length ? `<div class="panel"><h2>Flotte visée sur ${esc(p.name)}</h2><div style="overflow-x:auto"><table class="mx" style="font-size:12.5px"><thead><tr><th style="text-align:left">Vaisseau</th><th>Actuel</th><th>Construire</th><th>Objectif</th></tr></thead><tbody>${ks.map(k => `<tr><td style="text-align:left;color:var(--txt)">${esc(CB.U[k][0])}</td><td>${avail[k] || 0}</td><td class="${total[k] ? 'ok' : 'z'}">${total[k] ? '+' + total[k] : '–'}</td><td><b>${(avail[k] || 0) + (total[k] || 0)}</b></td></tr>`).join('')}</tbody></table></div>
