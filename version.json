@@ -1,9 +1,8 @@
 {
-  "v": "202611270433",
-  "version": "1.10.1",
-  "date": "2026-11-27",
+  "v": "202611280213",
+  "version": "1.10.2",
+  "date": "2026-11-28",
   "notes": [
-    "Flotte : les renforts ne sont recalculés qu'avec un nouvel export (ou d'autres réglages), plus à chaque ouverture ; résultat gardé entre deux visites",
-    "Flotte : calcul environ deux fois plus rapide (recherche allégée, plusieurs cœurs du téléphone en parallèle)"
+    "Énergie des planètes : toujours celle du jeu, même avec « Ne pas caler sur les chiffres du jeu » coché"
   ]
 }

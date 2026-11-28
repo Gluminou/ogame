@@ -1,5 +1,12 @@
 [
   {
+    "version": "1.10.2",
+    "date": "2026-11-28",
+    "notes": [
+      "Énergie des planètes : toujours celle du jeu, même avec « Ne pas caler sur les chiffres du jeu » coché"
+    ]
+  },
+  {
     "version": "1.10.1",
     "date": "2026-11-27",
     "notes": [

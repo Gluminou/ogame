@@ -186,7 +186,7 @@ const OG = (() => {
     const crawlerE = (b.crawlers || 0) * 50;
     // energy: calibrated on the game's own figures when the export has them (life-form bonuses, items... are not all modelled)
     const st0 = p.stock || {}; let eCal = p.eCalFixed || null;
-    if (!eCal && !S.noCalib && st0.eProd > 0 && st0.eUse > 0) {
+    if (!eCal && st0.eProd > 0 && st0.eUse > 0) { // always: these are the game's own figures, not an estimate
       const rawP = (solarE(b.solar || 0) + fusionE(b.fusion || 0)) * plantBonus + (b.sats || 0) * satE;
       const rawU = mineEnergy.metal(b.metal || 0) + mineEnergy.crystal(b.crystal || 0) + mineEnergy.deut(b.deut || 0) + crawlerE;
       const kp = rawP > 0 ? st0.eProd / rawP : 1, ku = rawU > 0 ? st0.eUse / rawU : 1;
