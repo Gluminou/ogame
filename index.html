@@ -1394,9 +1394,9 @@ if (typeof module !== 'undefined') module.exports = CB;
 
 </script>
 <script>
-const APP_RELEASE="1.10.2";
+const APP_RELEASE="1.10.3";
 const APP_DATE="2026-11-28";
-const APP_VERSION="202611280213"; // stamped by tools/build.js; update checks live in updates.js
+const APP_VERSION="202611280553"; // stamped by tools/build.js; update checks live in updates.js
 const DEFAULT_DATA = "";
 const TEMPLATE = `Planete: NomDeLaPlanete
 Coordonnees: 1:100:8
@@ -2379,7 +2379,25 @@ function hiSplit(text){
   return out.map(s => s.trim()).filter(s => s.length > 20);
 }
 // details of a combat report copied from the game: both sides, units sent / lost, repaired defences, rounds, honour
-function hiDetail(msg, won){
+// a unit line glues "lost" and "left" ("-67481": 67 lost, 481 left). When the export can't tell, try every split
+// and keep the one whose losses give the debris field the report shows (ships lost x 40 % of their metal and crystal).
+function hiResolve(sides, debris, rate){
+  const amb = []; sides.forEach(u => Object.entries(u).forEach(([k, v]) => { if (v.raw != null) {
+    const c = []; for (let i = 1; i < v.raw.length; i++) { const r = v.raw.slice(i); if (r.length > 1 && r[0] === '0') continue; c.push([+v.raw.slice(0, i), +r]); }
+    c.push([0, +v.raw]); amb.push({ u, k, c }); } }));
+  if (!amb.length) return;
+  const fixed = [0, 0]; sides.forEach(u => Object.entries(u).forEach(([k, v]) => { if (v.lost && CB.SHIPS.includes(k)) { fixed[0] += v.lost * CB.U[k][1]; fixed[1] += v.lost * CB.U[k][2]; } }));
+  const target = (debris.m || 0) + (debris.c || 0) > 0 ? debris : null;
+  let best = null, n = amb.reduce((a, x) => a * x.c.length, 1); if (n > 20000) n = 0;
+  if (target && n) for (let idx = 0; idx < n; idx++) { let r = idx, m = fixed[0], c = fixed[1]; const pick = amb.map(x => { const j = r % x.c.length; r = Math.floor(r / x.c.length); const [lo] = x.c[j];
+      if (CB.SHIPS.includes(x.k)) { m += lo * CB.U[x.k][1]; c += lo * CB.U[x.k][2]; } return j; });
+    const err = Math.abs(m * rate - target.m) + Math.abs(c * rate - target.c); if (!best || err < best.err) best = { err, pick }; }
+  amb.forEach((x, i) => { let j = best ? best.pick[i] : -1;
+    if (j < 0) { // no debris to check: the largest loss that stays below what is left
+      j = x.c.length - 1; x.c.forEach(([lo, le], q) => { if (lo <= le && lo > x.c[j][0]) j = q; }); }
+    const [lo, le] = x.c[j]; x.u[x.k] = { sent: lo + le, lost: lo }; });
+}
+function hiDetail(msg, won, debris){
   const L = msg.split(/\r?\n/).map(x => x.trim()); const N = s => hiNorm(s);
   const findU = nm => { nm = N(nm).replace(/[`’´]/g, "'").trim(); return [...CB.SHIPS, ...CB.DEFS].find(s => CB.U[s][8].some(a => nm === a) || N(CB.U[s][0]) === nm) || null; };
   const ia = L.findIndex(x => /attaquant\s*:/.test(N(x))), idf = L.findIndex((x, i) => i > ia && /defenseur\s*:/.test(N(x)));
@@ -2394,19 +2412,21 @@ function hiDetail(msg, won){
       if (dg === '') { lost = 0; left = 0; }
       else if (allGone && /0$/.test(dg)) { lost = +dg.slice(0, -1) || 0; left = 0; }
       else if (known && known[k] != null) for (let i = 0; i < dg.length && lost == null; i++) { const a = +(dg.slice(0, i) || 0), b = +dg.slice(i); if (b === known[k]) { lost = a; left = b; } else if (a + b === known[k]) { lost = a; left = b; } }
-      if (lost == null) { if (dg.length <= 2) { lost = 0; left = +dg; } else { out[k] = { raw: dg }; return; } }
+      if (lost == null) { if (dg.length <= 2 && !known) { lost = 0; left = +dg; } else { out[k] = { raw: dg }; return; } }
       out[k] = { sent: lost + left, lost }; });
     return out; };
   const att = side(L[ia]), def = side(L[idf]);
   const pl = ((CS.parsed && CS.parsed.planets) || []).find(p => p.coords === att.coords); const known = {};
   if (pl) CB.SHIPS.forEach(k => { if (SHIPKEY[k]) known[k] = pl.b[SHIPKEY[k]] || 0; });
+  const dUnits = units(idf + 1, ir > 0 ? ir : undefined, null, won), aUnits = units(ia + 1, idf > 0 ? idf : undefined, known, false);
+  if (debris) hiResolve([aUnits, dUnits], debris, ((CS.parsed && CS.parsed.server && CS.parsed.server.dfShips) ?? 40) / 100);
   const repaired = {}; if (ir >= 0) L.slice(ir + 1).forEach(line => { const m = line.match(/^(.+?)\s*(\d+)$/); if (!m) return; const k = findU(m[1]); if (k) repaired[k] = +m[2]; });
   const rounds = ((L.find(x => /rounds?\s*:/.test(N(x))) || '').match(/\d+(?=\s*$)/) || [])[0];
   const hon = (msg.match(/\(([^()]*?):\s*([+-]?\d+)\)\s*vs\.?\s*\(([^()]*?):\s*([+-]?\d+)\)/) || []);
   const rec = (msg.match(/=>\s*(\d+)\s*recycleur/i) || [])[1];
   const fled = /flotte defensive s.est repliee/.test(N(msg)), retreat = (msg.match(/retrait tactique\s*:\s*([0-9:,.]+)/i) || [])[1] || '';
-  return { planetName: ((L[0] || '').match(/rapport de combat\s+(.+?)\s*\[/i) || [])[1] || '', att: Object.assign(att, { cls: cls(ia, idf), tech: techs(ia, idf), units: units(ia + 1, idf > 0 ? idf : undefined, known, false) }),
-    def: Object.assign(def, { cls: cls(idf, ir > 0 ? ir : undefined), tech: techs(idf, ir > 0 ? ir : undefined), units: units(idf + 1, ir > 0 ? ir : undefined, null, won) }),
+  return { planetName: ((L[0] || '').match(/rapport de combat\s+(.+?)\s*\[/i) || [])[1] || '', att: Object.assign(att, { cls: cls(ia, idf), tech: techs(ia, idf), units: aUnits }),
+    def: Object.assign(def, { cls: cls(idf, ir > 0 ? ir : undefined), tech: techs(idf, ir > 0 ? ir : undefined), units: dUnits }),
     repaired, rounds: rounds ? +rounds : null, honour: hon.length ? { att: { label: hon[1].trim(), pts: +hon[2] }, def: { label: hon[3].trim(), pts: +hon[4] } } : null, recyclers: rec ? +rec : null, fled, retreat };
 }
 function hiParse(msg){
@@ -2443,9 +2463,9 @@ function hiParse(msg){
     const lossD = n.match(/defenseur[\s\S]{0,120}?pertes?\s*:?\s*([0-9][0-9.,]*\s*(?:mrd|m|k)?)/);
     let lossV = lossM ? hiNum(lossM[1]) : 0, lossDef = lossD ? hiNum(lossD[1]) : 0, lossUnits = null;
     // report copied from the game's message page: the numbers come glued together, without labels
-    const glued = s => (s.match(/\d{1,3}(?:\.\d{3})+|\d+/g) || []).map(x => +x.replace(/\./g, ''));
+    const glued = s => (s.match(/\d+,\d+\s*(?:Mrd|M|k)|\d{1,3}(?:\.\d{3})+|\d+/g) || []).map(x => /[a-z]/i.test(x) ? hiNum(x) : +x.replace(/\./g, ''));
     const L = msg.split(/\r?\n/).map(x => x.trim());
-    const after = re => { const i = L.findIndex(x => re.test(hiNorm(x))); return i >= 0 ? L.slice(i + 1).find(x => x && /^[0-9.]+$/.test(x)) : null; };
+    const after = re => { const i = L.findIndex(x => re.test(hiNorm(x))); return i >= 0 ? L.slice(i + 1).find(x => x && /^[0-9.,]+(?:\s*(?:Mrd|M|k)[0-9.,]*)*$/i.test(x)) : null; };
     if (!loot.m && !loot.c && !loot.d) { const v = after(/^butin/); if (v) { const g = glued(v); loot.m = g[0] || 0; loot.c = g[1] || 0; loot.d = g[2] || 0; } }
     if (!debris.m && !debris.c && !debris.d) { const v = after(/^debris/); if (v) { const g = glued(v); debris.m = g[0] || 0; debris.c = g[1] || 0; debris.d = g[2] || 0; } }
     // attacker losses: each line is "<ship>-<lost><left>" (a lone "-" means none lost). The export tells how many are left, which splits the digits.
@@ -2464,7 +2484,10 @@ function hiParse(msg){
       if (unsure && !lossUnits) lossUnits = { unsure: true };
     }
     const won = !/defaite|perdu le combat/.test(n);
-    let detail = null; try { detail = hiDetail(msg, won); } catch(e){}
+    let detail = null; try { detail = hiDetail(msg, won, debris); } catch(e){}
+    // the detail settles the attacker's losses when the export could not
+    if (detail && Object.values(detail.att.units).every(v => v.raw == null)) { const lu = {}; Object.entries(detail.att.units).forEach(([k, v]) => { if (v.lost) lu[k] = v.lost; });
+      lossUnits = lu; lossV = Object.entries(lu).reduce((a, [k, q]) => a + q * (CB.U[k][1] + CB.U[k][2] + CB.U[k][3]), 0); }
     return { kind: 'raid', at, coords, loot, debris, loss: lossV, lossUnits, lossDef, won, detail, text: msg.length < 20000 ? msg : undefined };
   }
   return null;
@@ -2487,7 +2510,8 @@ function hiItem(e, S){
     const TYPES = { res: 'Ressources', ships: 'Vaisseaux', dm: 'Antimatière', none: 'Rien', pirates: 'Pirates / aliens', hole: 'Trou noir', delay: 'Retard / avance', trader: 'Marchand', item: 'Objet' };
     return `<div style="display:flex;gap:8px;align-items:center;justify-content:space-between;padding:8px 0;border-top:1px solid var(--line);font-size:13px"><span><span class="note">${esc(hiWhen(e.at))}</span><br>Expédition : ${esc(TYPES[e.type] || e.type)} ${e.type === 'res' ? '· ' + esc(OG.fmtCost([e.res.m, e.res.c, e.res.d])) : e.dm ? '· ' + f(e.dm) + ' AM' : ''}</span>${del}</div>`;
   }
-  const d = e.detail || {}; const net = msu(e.loot) + msu(e.debris) - (e.loss || 0);
+  const d = e.detail || {}; const lossMsu = e.lossUnits && !e.lossUnits.unsure ? Object.entries(e.lossUnits).reduce((a, [k, q]) => a + q * msu({ m: CB.U[k][1], c: CB.U[k][2], d: CB.U[k][3] }), 0) : (e.loss || 0);
+  const net = msu(e.loot) + msu(e.debris) - lossMsu;
   const who = d.def && d.def.player ? `${esc(d.def.player)} · ${esc(d.planetName || d.def.planet || '')}` : 'Raid';
   const fleetTxtU = U => Object.entries(U || {}).filter(([, u]) => u.sent).map(([k, u]) => `${u.sent} ${unitName(k, u.sent)}`).join(', ');
   const rows = (U, withRep) => Object.entries(U || {}).map(([k, u]) => `<tr><td style="text-align:left">${esc(CB.U[k][0])}</td><td>${u.raw ? '?' : f(u.sent)}</td><td class="${u.lost ? 'red' : ''}">${u.raw ? '?' : u.lost ? '−' + f(u.lost) : '0'}</td>${withRep ? `<td>${d.repaired && d.repaired[k] ? '+' + f(d.repaired[k]) : ''}</td>` : ''}</tr>`).join('');

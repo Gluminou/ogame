@@ -1,8 +1,9 @@
 {
-  "v": "202611280213",
-  "version": "1.10.2",
+  "v": "202611280553",
+  "version": "1.10.3",
   "date": "2026-11-28",
   "notes": [
-    "Énergie des planètes : toujours celle du jeu, même avec « Ne pas caler sur les chiffres du jeu » coché"
+    "Historique : butin et débris en millions (« 1,379M ») bien lus dans les rapports de combat",
+    "Historique : pertes de l'attaquant retrouvées grâce au champ de débris quand l'export ne suffit pas (chasseurs lourds, grands transporteurs…), gain net calculé aux taux d'échange"
   ]
 }

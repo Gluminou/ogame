@@ -1,5 +1,13 @@
 [
   {
+    "version": "1.10.3",
+    "date": "2026-11-28",
+    "notes": [
+      "Historique : butin et débris en millions (« 1,379M ») bien lus dans les rapports de combat",
+      "Historique : pertes de l'attaquant retrouvées grâce au champ de débris quand l'export ne suffit pas (chasseurs lourds, grands transporteurs…), gain net calculé aux taux d'échange"
+    ]
+  },
+  {
     "version": "1.10.2",
     "date": "2026-11-28",
     "notes": [
